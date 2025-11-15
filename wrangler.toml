@@ -12,7 +12,7 @@ routes = [
 
 # Static assets configuration
 [assets]
-directory = "."
+directory = "public"
 binding = "ASSETS"
 
 [dev]
