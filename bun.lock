@@ -5,11 +5,11 @@
     "": {
       "name": "redlamp-me",
       "devDependencies": {
-        "@cloudflare/workers-types": "^4.20250902.0",
-        "@typescript-eslint/eslint-plugin": "^8.19.1",
-        "@typescript-eslint/parser": "^8.19.1",
-        "eslint": "^9.18.0",
-        "typescript": "^5.7.3",
+        "@cloudflare/workers-types": "^4.20251115.0",
+        "@typescript-eslint/eslint-plugin": "^8.46.4",
+        "@typescript-eslint/parser": "^8.46.4",
+        "eslint": "^9.39.1",
+        "typescript": "^5.9.3",
         "wrangler": "^4.47.0",
       },
     },
