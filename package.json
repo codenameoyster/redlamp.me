@@ -1,0 +1,12 @@
+{
+	"name": "redlamp-me",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "wrangler dev",
+		"deploy": "wrangler deploy"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20250902.0"
+	}
+}

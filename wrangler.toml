@@ -1,0 +1,32 @@
+name = "redlamp-me"
+main = "src/index.ts"
+compatibility_date = "2025-01-15"
+workers_dev = false
+preview_urls = true
+
+# Custom domains
+routes = [
+	{ pattern = "redlamp.me", custom_domain = true },
+	{ pattern = "www.redlamp.me", custom_domain = true },
+]
+
+# Static assets configuration
+[assets]
+directory = "."
+binding = "ASSETS"
+
+[dev]
+port = 8787
+local_protocol = "http"
+
+[observability]
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 1
+persist = true
