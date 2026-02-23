@@ -8,10 +8,14 @@
       body {
         line-height: 1.6;
       }
-      header {
-        background-color: #5fd94a;
-        text-align: center;
-      }
+	  
+	  span {
+		text-transform:lowercase;
+		font-family:'Roboto Condensed', sans-serif;
+		font-weight: bold;
+		letter-spacing: 1px;
+		font-size: 15px;
+	  }
 
       .surprise-button {
         display: inline-block;
@@ -42,40 +46,44 @@
 	  .slider {
 		position: absolute;
 		inset: 0; /* stretches to fill entire div */
-		background-color: #ccc;
+		background-color: white;
 		border-radius: 26px;
 		cursor: pointer;
-		transition: 0.3s;
+		box-sizing: border-box;
+		border: 3px solid;
+		color: black;
+		transition: 0.3s ease;
 	  }
 	  .slider::before {
 		content: "";
 		position: absolute;
 		width: 20px;
 		height: 20px;
-		left: 3px;
-		bottom: 3px;
+		left: 2px;
+		top: 50%;                          /* center it vertically */
+		transform: translateY(-50%);       /* pull it back up by half its own height */
 		background: white;
-		border-radius: 50%;
-		transition: 0.3s;
+		box-sizing: border-box;
+		border: 3px solid;
+		color: black;
+		border-radius: 100px;
+		transition: 0.3s ease;
 	  }
 	  input:checked + .slider {
 		background-color: #5fd94a;
 	  }
 	  input:checked + .slider::before {
-		transform: translateX(24px);
+		transform: translateX(20px) translateY(-50%);
 	  }
 
     </style>
   </head>
   <body>
-    <header>
-      <h1>Skibiti</h1>
-    </header>
-
     <main>
       <a href="pendulum.html">pendulum</a>
-      
-	  <div style="margin: 20px;">
+    </main>
+	
+	<div style="position: fixed; top: 10px; right: 10px; z-index: 1000;">
 		<label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
 			<span>Enable Confetti</span>
 			<div class="toggle-switch">
@@ -84,7 +92,6 @@
 			</div>
 		</label>
 	  </div>
-    </main>
 
     <footer>
       <p>&copy; 2025 Fornite</p>
