@@ -1,103 +1,190 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>www.yakrutoi.by</title>
-    <style>
-      body {
-        line-height: 1.6;
-      }
-	  
-	  span {
-		text-transform:lowercase;
-		font-family:'Roboto Condensed', sans-serif;
-		font-weight: bold;
-		letter-spacing: 1px;
-		font-size: 15px;
-	  }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>www.yakrutoi.by</title>
+		<style>
+			body {
+				background-color: #0a0a0a;
+				color: #e0e0e0;
+			}
+		  
+			span {
+				text-transform:lowercase;
+				font-family:'Roboto Condensed', sans-serif;
+				font-weight: bold;
+				letter-spacing: 1px;
+				font-size: 15px;
+			}
+		  
+			/* toggle switches */
+			.toggle-switch {
+				position: relative;
+				width: 50px;
+				height: 26px;
+			}
+			.toggle-switch input {
+				opacity: 0;
+				width: 0;
+				height: 0;
+			}
+			.slider {
+				position: absolute;
+				inset: 0; /* stretches to fill entire div */
+				background-color: black;
+				border-radius: 26px;
+				cursor: pointer;
+				box-sizing: border-box;
+				border: 3px solid;
+				color: white;
+				transition: 0.3s ease;
+			}
+			.slider::before {
+				content: "";
+				position: absolute;
+				width: 20px;
+				height: 20px;
+				left: 2px;
+				top: 50%;                          /* center it vertically */
+				transform: translateY(-50%);       /* pull it back up by half its own height */
+				background: black;
+				box-sizing: border-box;
+				border: 3px solid;
+				color: white;
+				border-radius: 100px;
+				transition: 0.3s ease;
+			}
+			input:checked + .slider {
+				background-color: #00f3ff;
+				box-shadow: 0 0 8px #00f3ff, 0 0 16px #00f3ff;
+			}
+			input:checked + .slider::before {
+				transform: translateX(20px) translateY(-50%);
+			}
+		  
+			/* neon colors */
+			.neon-green {
+				color: #39ff14;
+				text-shadow:
+					0 0 5px #39ff14,
+					0 0 10px #39ff14,
+					0 0 20px #39ff14,
+					0 0 40px #39ff14;
+			}
+			
+			.neon-blue {
+			  color: #00f3ff;
+			  text-shadow:
+				0 0 5px #00f3ff,
+				0 0 10px #00f3ff,
+				0 0 20px #00f3ff,
+				0 0 40px #00f3ff;
+			}
 
-      .surprise-button {
-        display: inline-block;
-        margin: 20px 0 10px 20px;
-        padding: 8px 16px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        text-decoration: none;
-        border-radius: 8px;
-        font-size: 14px;
-        transition: transform 0.2s;
-      }
-      .surprise-button:hover {
-        transform: scale(1.05);
-      }
-	  
-	  /* toggle switches */
-	  .toggle-switch {
-		position: relative;
-		width: 50px;
-		height: 26px;
-	  }
-	  .toggle-switch input {
-		opacity: 0;
-		width: 0;
-		height: 0;
-	  }
-	  .slider {
-		position: absolute;
-		inset: 0; /* stretches to fill entire div */
-		background-color: white;
-		border-radius: 26px;
-		cursor: pointer;
-		box-sizing: border-box;
-		border: 3px solid;
-		color: black;
-		transition: 0.3s ease;
-	  }
-	  .slider::before {
-		content: "";
-		position: absolute;
-		width: 20px;
-		height: 20px;
-		left: 2px;
-		top: 50%;                          /* center it vertically */
-		transform: translateY(-50%);       /* pull it back up by half its own height */
-		background: white;
-		box-sizing: border-box;
-		border: 3px solid;
-		color: black;
-		border-radius: 100px;
-		transition: 0.3s ease;
-	  }
-	  input:checked + .slider {
-		background-color: #5fd94a;
-	  }
-	  input:checked + .slider::before {
-		transform: translateX(20px) translateY(-50%);
-	  }
+			.neon-pink {
+			  color: #ff00de;
+			  text-shadow:
+				0 0 5px #ff00de,
+				0 0 10px #ff00de,
+				0 0 20px #ff00de,
+				0 0 40px #ff00de;
+			}
+			
+			/* flicker animation */
+			@keyframes flicker {
+				0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+					opacity: 1;
+				}
+				20%, 24%, 55% {
+					opacity: 0.4;
+				}
+			}
+			.neon-flicker {
+				animation: flicker 3s infinite;
+			}
+			
+			/* pulsing glow animation */
+			@keyframes pulse-green {
+				0%, 100% {
+					text-shadow:
+						0 0 5px #39ff14,
+						0 0 10px #39ff14,
+						0 0 20px #39ff14;
+				}
+				50% {
+					text-shadow:
+						0 0 10px #39ff14,
+						0 0 30px #39ff14,
+						0 0 60px #39ff14,
+						0 0 80px #39ff14;
+				}
+			}
+			.neon-pulse {
+				color: #39ff14;
+				animation: pulse-green 2s ease-in-out infinite;
+			}
+			
+			.separator {
+				border: 0; /* remove default grey line */
+				border-top: 1px solid #00f3ff; /* solid cyan line */
+				box-shadow: 0 0 8px #00f3ff; /* make it glow */
+				margin: 10px 20px; /* spacing around it */
+			}
+			
+			nav {
+				display: flex;
+				justify-content: center;
+				gap: 30px;
+				padding: 15px;
+			}
+			
+			nav a {
+				text-transform:uppercase;
+				text-decoration:none;
+				font-family:'Roboto Condensed', sans-serif;
+				font-weight: bold;
+				letter-spacing: 1px;
+				font-size: 25px;
+			}
+			nav a:hover {
+				text-shadow: 0 0 8px #2f4344, 0 0 16px #2f4344
+			}
+			/* desync each child's animation */
+			nav a:nth-child(1) { animation-delay: 0s;   animation-duration: 3s; }
+			nav a:nth-child(2) { animation-delay: 0.7s; animation-duration: 3.7s; }
+			nav a:nth-child(3) { animation-delay: 1.4s; animation-duration: 4.3s; }
 
-    </style>
-  </head>
-  <body>
-    <main>
-      <a href="pendulum.html">pendulum</a>
-    </main>
-	
-	<div style="position: fixed; top: 10px; right: 10px; z-index: 1000;">
-		<label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
-			<span>Enable Confetti</span>
-			<div class="toggle-switch">
-				<input type="checkbox" id="confettiCheckbox">
-				<span class="slider"></span>
-			</div>
-		</label>
-	  </div>
+		</style>
+	</head>
+	<body>
+		<nav>
+			<a href="/examples" class="neon-pink neon-flicker">examples</a>
+			<a href="/physics-simulations" class="neon-green neon-flicker">physics</a>
+			<a href="/facescan" class="neon-blue neon-flicker">face analyser</a>
+		</nav>
+		
+		<hr class="separator">
+		
+		<main>
+			<h2 class = "neon-pink neon-flicker">i make cool stuff</h2>
+		</main>
+		
+		<div style="position: fixed; top: 10px; right: 10px; z-index: 1000;">
+			<label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+				<span>Enable Confetti</span>
+				<div class="toggle-switch">
+					<input type="checkbox" id="confettiCheckbox">
+					<span class="slider"></span>
+				</div>
+			</label>
+		  </div>
 
-    <footer>
-      <p>&copy; 2025 Fornite</p>
-    </footer>
+		<footer>
+		  <p>&copy; 2025 Fornite</p>
+		</footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/@tsparticles/confetti@3.0.3/tsparticles.confetti.bundle.min.js"></script>
-    <script src="confetti.js"></script>
-  </body>
+		<script src="https://cdn.jsdelivr.net/npm/@tsparticles/confetti@3.0.3/tsparticles.confetti.bundle.min.js"></script>
+		<script src="confetti.js"></script>
+	</body>
 </html>
