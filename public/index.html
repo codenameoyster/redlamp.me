@@ -13,33 +13,6 @@
         text-align: center;
       }
 
-      .meatballs-container {
-        display: flex;
-        align-items: flex-start;
-        gap: 200px;
-      }
-      .meatballs-list li {
-        font-size: 20px;
-      }
-      .rainbow-item {
-        font-size: 28px;
-        font-weight: bold;
-        background: linear-gradient(
-          to right,
-          #f32170,
-          #ff6b08,
-          #cf23cf,
-          #eedd44
-        );
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-      }
-      .meatballs-gif {
-        width: 20px;
-        height: auto;
-      }
-
       .surprise-button {
         display: inline-block;
         margin: 20px 0 10px 20px;
@@ -54,6 +27,43 @@
       .surprise-button:hover {
         transform: scale(1.05);
       }
+	  
+	  /* toggle switches */
+	  .toggle-switch {
+		position: relative;
+		width: 50px;
+		height: 26px;
+	  }
+	  .toggle-switch input {
+		opacity: 0;
+		width: 0;
+		height: 0;
+	  }
+	  .slider {
+		position: absolute;
+		inset: 0; /* stretches to fill entire div */
+		background-color: #ccc;
+		border-radius: 26px;
+		cursor: pointer;
+		transition: 0.3s;
+	  }
+	  .slider::before {
+		content: "";
+		position: absolute;
+		width: 20px;
+		height: 20px;
+		left: 3px;
+		bottom: 3px;
+		background: white;
+		border-radius: 50%;
+		transition: 0.3s;
+	  }
+	  input:checked + .slider {
+		background-color: #5fd94a;
+	  }
+	  input:checked + .slider::before {
+		transform: translateX(24px);
+	  }
 
     </style>
   </head>
@@ -64,28 +74,16 @@
 
     <main>
       <a href="pendulum.html">pendulum</a>
-      <h2>meatballs</h2>
-      <div class="meatballs-container">
-        <div class="meatballs-list">
-          <ol>
-            <li>Kfc Nuggets</li>
-            <li>yummy</li>
-            <li>fortnite</li>
-            <li>idk</li>
-            <li>door knobs</li>
-            <li><span class="rainbow-item">microphone</span></li>
-            <li><img src="happy_coding.gif" alt="Happy Coding!" /></li>
-          </ol>
-        </div>
-
-        <div class="meatballs-gif">
-          <img src="sraka.gif" alt="i give up" />
-        </div>
-      </div>
-
-      <!-- <div> -->
-      <!--     <a href="congratulations.html" class="surprise-button">🎉 сюрприз бития</a> -->
-      <!-- </div> -->
+      
+	  <div style="margin: 20px;">
+		<label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+			<span>Enable Confetti</span>
+			<div class="toggle-switch">
+				<input type="checkbox" id="confettiCheckbox">
+				<span class="slider"></span>
+			</div>
+		</label>
+	  </div>
     </main>
 
     <footer>

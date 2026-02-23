@@ -48,6 +48,7 @@ function shootRight() {
 }
 
 function shoot() {
+	if (!document.getElementById("confettiCheckbox").checked) return;
 	setTimeout(shootLeft, 0);
 	setTimeout(shootLeft, 100);
 	setTimeout(shootLeft, 200);
