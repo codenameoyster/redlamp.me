@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Word Ladder Graph</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0e0e12;
+    --surface: #16161e;
+    --border: #2a2a38;
+    --text: #e0e0f0;
+    --muted: #6b6b8a;
+    --accent: #7c6af7;
+    --accent2: #f7a26a;
+    --green: #5cf7a2;
+    --red: #f75c7c;
+    --node-default: #1e1e2e;
+    --node-border: #3a3a5c;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 24px 32px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  header h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+
+  header span {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 280px;
+    min-width: 280px;
+    border-right: 1px solid var(--border);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .word-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 40px;
+  }
+
+  .chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    padding: 4px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip .remove { color: var(--muted); font-size: 0.7rem; }
+  .chip:hover .remove { color: var(--red); }
+
+  .add-word {
+    display: flex;
+    gap: 6px;
+  }
+
+  input[type="text"] {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 7px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type="text"]:focus { border-color: var(--accent); }
+
+  button {
+    padding: 7px 14px;
+    background: var(--accent);
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.85; }
+  button.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  button.secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  .divider { border: none; border-top: 1px solid var(--border); }
+
+  .bfs-section { display: flex; flex-direction: column; gap: 10px; }
+
+  .field-row { display: flex; flex-direction: column; gap: 4px; }
+  .field-row label { font-size: 0.75rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+  .run-btn {
+    background: var(--accent2);
+    color: #111;
+    font-weight: 600;
+    width: 100%;
+    padding: 9px;
+  }
+  .run-btn:hover { opacity: 0.85; }
+
+  .result-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    min-height: 48px;
+    line-height: 1.7;
+  }
+
+  .path-step { color: var(--green); }
+  .path-arrow { color: var(--muted); }
+  .result-none { color: var(--red); }
+
+  .legend {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
+  .legend-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── CANVAS ── */
+  .canvas-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .hint {
+    position: absolute;
+    bottom: 16px;
+    right: 20px;
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .empty-state {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .empty-state .big { font-size: 2.5rem; margin-bottom: 8px; }
+  .empty-state p { font-size: 0.82rem; line-height: 1.6; }
+
+  /* step counter */
+  .step-info {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 10px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>// word_ladder_graph</h1>
+  <span>BFS visualizer — nodes = words, edges = differ by 1 letter</span>
+</header>
+
+<div class="main">
+  <div class="sidebar">
+
+    <div>
+      <div class="section-label">Word List</div>
+      <div class="word-chips" id="chips"></div>
+      <div style="margin-top:10px" class="add-word">
+        <input type="text" id="newWord" placeholder="add word..." maxlength="12" />
+        <button onclick="addWord()">+</button>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <button class="secondary" onclick="loadExample('short')">example (short)</button>
+        <button class="secondary" onclick="loadExample('long')">longer</button>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="bfs-section">
+      <div class="section-label">BFS Path</div>
+      <div class="field-row">
+        <label>begin word</label>
+        <input type="text" id="beginWord" placeholder="hit" maxlength="12" />
+      </div>
+      <div class="field-row">
+        <label>end word</label>
+        <input type="text" id="endWord" placeholder="cog" maxlength="12" />
+      </div>
+      <button class="run-btn" onclick="runBFS()">▶ Run BFS</button>
+      <button class="secondary" onclick="clearBFS()">✕ Clear path</button>
+      <div class="result-box" id="resultBox">path will appear here</div>
+    </div>
+
+    <hr class="divider">
+
+    <div>
+      <div class="section-label">Legend</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#3a3a5c;border:2px solid #6060a0"></div> regular node</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#1e3a2e;border:2px solid #5cf7a2"></div> begin / end</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#2a1e3a;border:2px solid #7c6af7"></div> on BFS path</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#2a1e1e;border:2px solid #f75c7c"></div> visited (not on path)</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="canvas-wrap">
+    <div class="empty-state" id="emptyState">
+      <div class="big">⬡</div>
+      <p>Add words to build the graph.<br>Words connected by a single letter change<br>will be linked by an edge.</p>
+    </div>
+    <canvas id="c"></canvas>
+    <div class="hint">drag to pan · scroll to zoom</div>
+    <div class="step-info" id="stepInfo" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let words = [];
+let graph = {};        // word → [neighbors]
+let positions = {};    // word → {x, y}
+let bfsPath = [];      // ordered path from BFS
+let bfsVisited = new Set();
+
+// Canvas pan/zoom
+let offsetX = 0, offsetY = 0, scale = 1;
+let dragging = false, dragStart = {x:0,y:0}, dragOffset = {x:0,y:0};
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function diffByOne(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) diff++;
+  return diff === 1;
+}
+
+function buildGraph() {
+  graph = {};
+  for (const w of words) graph[w] = [];
+  for (let i = 0; i < words.length; i++)
+    for (let j = i+1; j < words.length; j++)
+      if (diffByOne(words[i], words[j])) {
+        graph[words[i]].push(words[j]);
+        graph[words[j]].push(words[i]);
+      }
+}
+
+// Force-directed layout (simple spring model)
+function layoutGraph() {
+  const n = words.length;
+  if (n === 0) { positions = {}; return; }
+
+  // Init in a circle
+  const cx = 0, cy = 0, r = Math.min(200, 60 * n);
+  words.forEach((w, i) => {
+    const angle = (2 * Math.PI * i) / n;
+    positions[w] = { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+  });
+
+  // Iterate
+  for (let iter = 0; iter < 300; iter++) {
+    const forces = {};
+    words.forEach(w => forces[w] = {x:0, y:0});
+
+    // Repulsion between all pairs
+    for (let i = 0; i < words.length; i++) {
+      for (let j = i+1; j < words.length; j++) {
+        const a = words[i], b = words[j];
+        let dx = positions[b].x - positions[a].x;
+        let dy = positions[b].y - positions[a].y;
+        let dist = Math.sqrt(dx*dx + dy*dy) || 0.1;
+        const repulse = 8000 / (dist * dist);
+        forces[a].x -= repulse * dx / dist;
+        forces[a].y -= repulse * dy / dist;
+        forces[b].x += repulse * dx / dist;
+        forces[b].y += repulse * dy / dist;
+      }
+    }
+
+    // Attraction along edges
+    for (const a of words) {
+      for (const b of graph[a]) {
+        let dx = positions[b].x - positions[a].x;
+        let dy = positions[b].y - positions[a].y;
+        let dist = Math.sqrt(dx*dx + dy*dy) || 0.1;
+        const attract = (dist - 120) * 0.05;
+        forces[a].x += attract * dx / dist;
+        forces[a].y += attract * dy / dist;
+      }
+    }
+
+    const damping = 0.85;
+    words.forEach(w => {
+      positions[w].x += forces[w].x * damping;
+      positions[w].y += forces[w].y * damping;
+    });
+  }
+}
+
+// ─── BFS ─────────────────────────────────────────────────────────────────────
+function bfs(start, end) {
+  if (!graph[start] || !graph[end]) return null;
+  const queue = [[start]];
+  const visited = new Set([start]);
+  while (queue.length) {
+    const path = queue.shift();
+    const node = path[path.length - 1];
+    if (node === end) return { path, visited };
+    for (const nb of (graph[node] || [])) {
+      if (!visited.has(nb)) {
+        visited.add(nb);
+        queue.push([...path, nb]);
+      }
+    }
+  }
+  return { path: null, visited };
+}
+
+function runBFS() {
+  const begin = document.getElementById('beginWord').value.trim().toLowerCase();
+  const end   = document.getElementById('endWord').value.trim().toLowerCase();
+  const box   = document.getElementById('resultBox');
+
+  if (!words.includes(begin) || !words.includes(end)) {
+    box.innerHTML = `<span class="result-none">Words must be in the word list.</span>`;
+    bfsPath = []; bfsVisited = new Set(); draw(); return;
+  }
+
+  const result = bfs(begin, end);
+  bfsVisited = result.visited;
+
+  if (!result.path) {
+    box.innerHTML = `<span class="result-none">No path found (disconnected graph)</span>`;
+    bfsPath = [];
+  } else {
+    bfsPath = result.path;
+    box.innerHTML = result.path.map((w,i) =>
+      i < result.path.length-1
+        ? `<span class="path-step">${w}</span> <span class="path-arrow">→</span> `
+        : `<span class="path-step">${w}</span>`
+    ).join('') + `<br><span style="color:var(--muted)">length: ${result.path.length}</span>`;
+  }
+  draw();
+}
+
+function clearBFS() {
+  bfsPath = []; bfsVisited = new Set();
+  document.getElementById('resultBox').textContent = 'path will appear here';
+  draw();
+}
+
+// ─── Drawing ──────────────────────────────────────────────────────────────────
+const NODE_R = 28;
+
+function draw() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  if (words.length === 0) return;
+
+  ctx.save();
+  ctx.translate(W/2 + offsetX, H/2 + offsetY);
+  ctx.scale(scale, scale);
+
+  const pathSet = new Set(bfsPath);
+
+  // Draw edges
+  for (const a of words) {
+    for (const b of graph[a]) {
+      if (a < b) {
+        const onPath = bfsPath.length > 1 && bfsPath.some((w,i) =>
+          i < bfsPath.length-1 && ((bfsPath[i]===a && bfsPath[i+1]===b)||(bfsPath[i]===b && bfsPath[i+1]===a)));
+        ctx.beginPath();
+        ctx.moveTo(positions[a].x, positions[a].y);
+        ctx.lineTo(positions[b].x, positions[b].y);
+        if (onPath) {
+          ctx.strokeStyle = '#7c6af7';
+          ctx.lineWidth = 2.5;
+        } else {
+          ctx.strokeStyle = '#2a2a40';
+          ctx.lineWidth = 1;
+        }
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Draw nodes
+  for (const w of words) {
+    const {x, y} = positions[w];
+    const isBegin = bfsPath[0] === w;
+    const isEnd   = bfsPath[bfsPath.length-1] === w && bfsPath.length > 1;
+    const onPath  = pathSet.has(w) && !isBegin && !isEnd;
+    const visited = bfsVisited.has(w) && !pathSet.has(w);
+
+    // Node fill
+    ctx.beginPath();
+    ctx.arc(x, y, NODE_R, 0, Math.PI*2);
+    if (isBegin || isEnd) ctx.fillStyle = '#1e3a2e';
+    else if (onPath)      ctx.fillStyle = '#2a1e3a';
+    else if (visited)     ctx.fillStyle = '#2a1e1e';
+    else                  ctx.fillStyle = '#1e1e2e';
+    ctx.fill();
+
+    // Border
+    ctx.beginPath();
+    ctx.arc(x, y, NODE_R, 0, Math.PI*2);
+    if (isBegin || isEnd) ctx.strokeStyle = '#5cf7a2';
+    else if (onPath)      ctx.strokeStyle = '#7c6af7';
+    else if (visited)     ctx.strokeStyle = '#f75c7c';
+    else                  ctx.strokeStyle = '#3a3a5c';
+    ctx.lineWidth = isBegin||isEnd ? 2.5 : onPath ? 2 : 1.5;
+    ctx.stroke();
+
+    // Label
+    ctx.fillStyle = isBegin||isEnd ? '#5cf7a2' : onPath ? '#b8b0f7' : '#c0c0d8';
+    ctx.font = `600 ${Math.max(9, 13 - w.length)}px JetBrains Mono, monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(w, x, y);
+
+    // BFS order badge
+    if (pathSet.has(w)) {
+      const idx = bfsPath.indexOf(w);
+      ctx.fillStyle = '#7c6af7';
+      ctx.font = '700 9px JetBrains Mono, monospace';
+      ctx.fillText(idx + 1, x + NODE_R * 0.7, y - NODE_R * 0.7);
+    }
+  }
+
+  ctx.restore();
+}
+
+// ─── Canvas resize ────────────────────────────────────────────────────────────
+function resize() {
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+  draw();
+}
+window.addEventListener('resize', resize);
+
+// ─── Pan & Zoom ───────────────────────────────────────────────────────────────
+canvas.addEventListener('mousedown', e => {
+  dragging = true;
+  dragStart = {x: e.clientX, y: e.clientY};
+  dragOffset = {x: offsetX, y: offsetY};
+});
+canvas.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  offsetX = dragOffset.x + (e.clientX - dragStart.x);
+  offsetY = dragOffset.y + (e.clientY - dragStart.y);
+  draw();
+});
+canvas.addEventListener('mouseup', () => dragging = false);
+canvas.addEventListener('mouseleave', () => dragging = false);
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  scale *= e.deltaY < 0 ? 1.1 : 0.9;
+  scale = Math.max(0.2, Math.min(4, scale));
+  draw();
+}, {passive: false});
+
+// ─── Word management ──────────────────────────────────────────────────────────
+function renderChips() {
+  const container = document.getElementById('chips');
+  container.innerHTML = '';
+  for (const w of words) {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.innerHTML = `${w}<span class="remove" onclick="removeWord('${w}')">✕</span>`;
+    container.appendChild(chip);
+  }
+  document.getElementById('emptyState').style.display = words.length ? 'none' : 'block';
+}
+
+function addWord() {
+  const input = document.getElementById('newWord');
+  const w = input.value.trim().toLowerCase();
+  if (!w || words.includes(w)) { input.value=''; return; }
+  // Check same length as existing words (Word Ladder requires same length)
+  if (words.length && w.length !== words[0].length) {
+    input.value = '';
+    document.getElementById('resultBox').innerHTML =
+      `<span class="result-none">All words must have the same length (${words[0].length} letters)</span>`;
+    return;
+  }
+  words.push(w);
+  input.value = '';
+  refresh();
+}
+
+function removeWord(w) {
+  words = words.filter(x => x !== w);
+  bfsPath = bfsPath.filter(x => x !== w);
+  bfsVisited.delete(w);
+  refresh();
+}
+
+function refresh() {
+  buildGraph();
+  layoutGraph();
+  renderChips();
+  resetView();
+  draw();
+}
+
+function resetView() {
+  offsetX = 0; offsetY = 0; scale = 1;
+}
+
+document.getElementById('newWord').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addWord();
+});
+
+// ─── Examples ────────────────────────────────────────────────────────────────
+function loadExample(type) {
+  if (type === 'short') {
+    words = ['hit','hot','dot','dog','lot','log','cog'];
+    document.getElementById('beginWord').value = 'hit';
+    document.getElementById('endWord').value = 'cog';
+  } else {
+    words = ['cat','bat','bad','ban','can','cap','map','mat','mad','man','tan','tap','top','cop','cod','cog','log','lot','hot','hit'];
+    document.getElementById('beginWord').value = 'cat';
+    document.getElementById('endWord').value = 'cog';
+  }
+  bfsPath = []; bfsVisited = new Set();
+  document.getElementById('resultBox').textContent = 'path will appear here';
+  refresh();
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+resize();
+loadExample('short');
+runBFS();
+</script>
+</body>
+</html>
