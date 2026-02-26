@@ -1,0 +1,320 @@
+/* ─── Reset & Base ─────────────────────────────────────────────────────────── */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ─── CSS Custom Properties (Design Tokens) ────────────────────────────────── */
+:root {
+  --bg: #0e0e12;           /* page background */
+  --surface: #16161e;      /* card/panel background */
+  --border: #2a2a38;       /* subtle borders */
+  --text: #e0e0f0;         /* primary text */
+  --muted: #6b6b8a;        /* secondary/dimmed text */
+  --accent: #7c6af7;       /* primary accent (purple) */
+  --accent2: #f7a26a;      /* secondary accent (orange) — used for run button */
+  --green: #5cf7a2;        /* success/path start+end color */
+  --red: #f75c7c;          /* error/visited-not-on-path color */
+  --node-default: #1e1e2e; /* default graph node fill */
+  --node-border: #3a3a5c;  /* default graph node border */
+}
+
+/* ─── Layout ────────────────────────────────────────────────────────────────── */
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Space Grotesk', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Header ────────────────────────────────────────────────────────────────── */
+header {
+  padding: 24px 32px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+header h1 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.1rem;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+}
+
+header span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* ─── Main Split Layout ─────────────────────────────────────────────────────── */
+.main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ─── Sidebar ───────────────────────────────────────────────────────────────── */
+.sidebar {
+  width: 280px;
+  min-width: 280px;
+  border-right: 1px solid var(--border);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+/* Small all-caps label above sidebar sections */
+.section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+/* ─── Word Chips ────────────────────────────────────────────────────────────── */
+.word-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 40px;
+}
+
+/* Individual word chip */
+.chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* The × remove button inside a chip */
+.chip .remove {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.chip:hover .remove {
+  color: var(--red);
+}
+
+/* ─── Add-Word Row ───────────────────────────────────────────────────────────── */
+.add-word {
+  display: flex;
+  gap: 6px;
+}
+
+/* ─── Form Controls ─────────────────────────────────────────────────────────── */
+input[type="text"] {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 7px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+input[type="text"]:focus {
+  border-color: var(--accent);
+}
+
+/* Primary button */
+button {
+  padding: 7px 14px;
+  background: var(--accent);
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+button:hover {
+  opacity: 0.85;
+}
+
+/* Ghost/outline secondary button variant */
+button.secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+button.secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ─── Divider ────────────────────────────────────────────────────────────────── */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+/* ─── BFS Controls Section ──────────────────────────────────────────────────── */
+.bfs-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Label + input stacked pair */
+.field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-row label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Orange "Run BFS" button — stands out against the purple accent */
+.run-btn {
+  background: var(--accent2);
+  color: #111;
+  font-weight: 600;
+  width: 100%;
+  padding: 9px;
+}
+
+.run-btn:hover {
+  opacity: 0.85;
+}
+
+/* ─── BFS Result Display ────────────────────────────────────────────────────── */
+.result-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  min-height: 48px;
+  line-height: 1.7;
+}
+
+/* Green for each word on the found path */
+.path-step {
+  color: var(--green);
+}
+
+/* Dimmed arrow between path steps */
+.path-arrow {
+  color: var(--muted);
+}
+
+/* Red message when no path exists */
+.result-none {
+  color: var(--red);
+}
+
+/* ─── Legend ────────────────────────────────────────────────────────────────── */
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Colored dot swatch next to each legend label */
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ─── Canvas Area ────────────────────────────────────────────────────────────── */
+.canvas-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Bottom-right pan/zoom hint */
+.hint {
+  position: absolute;
+  bottom: 16px;
+  right: 20px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Centered placeholder shown when no words have been added */
+.empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.empty-state .big {
+  font-size: 2.5rem;
+  margin-bottom: 8px;
+}
+
+.empty-state p {
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+/* Top-right BFS step counter badge */
+.step-info {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 10px;
+}

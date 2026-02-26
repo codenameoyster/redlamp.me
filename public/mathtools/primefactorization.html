@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Prime Factorizer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../dev_tool_style.css">
+<style>
+  /* ─── Page-specific overrides & additions ───────────────────────────────────
+     The shared CSS handles body, header, buttons, inputs, result-box, etc.
+     These rules handle the prime factorizer's unique layout and display pieces.
+  ── */
+
+  /* Center the content area instead of using a sidebar+canvas split */
+  .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 48px 24px;
+    gap: 32px;
+  }
+
+  /* Card wrapping the input controls */
+  .input-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 28px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 520px;
+  }
+
+  /* Number input — inherits from shared input[type="text"] via number type override */
+  input[type="number"] {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+    -moz-appearance: textfield; /* hide spinner Firefox */
+    width: 100%;
+  }
+
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none; /* hide spinner Chrome/Safari */
+  }
+
+  input[type="number"]:focus {
+    border-color: var(--accent);
+  }
+
+  /* Row holding input + factorize button side by side */
+  .input-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  /* The main action button — reuses .run-btn from shared CSS */
+
+  /* ─── Result area ────────────────────────────────────────────────────────── */
+
+  /* Card for the factorization output */
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 28px 32px;
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* The big formatted factorization expression */
+  .factorization-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.4rem;
+    line-height: 2;
+    word-break: break-all;
+    min-height: 48px;
+    color: var(--text);
+  }
+
+  /* Each "base^exp" term in the expression */
+  .factor-base {
+    color: var(--green);
+    font-weight: 600;
+  }
+
+  /* Superscript exponent — only shown when exp > 1 */
+  .factor-exp {
+    color: var(--accent);
+    font-size: 0.7em;
+    vertical-align: super;
+    font-weight: 700;
+  }
+
+  /* The × separator between factor terms */
+  .factor-sep {
+    color: var(--muted);
+    margin: 0 6px;
+    font-size: 1rem;
+  }
+
+  /* ─── Factor chips list ──────────────────────────────────────────────────── */
+
+  /* Wraps the individual prime chips below the expression */
+  .factor-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* One chip per unique prime factor */
+  .factor-chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    padding: 5px 12px;
+    background: var(--bg);
+    border: 1px solid var(--node-border);
+    border-radius: 4px;
+    color: var(--muted);
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+  }
+
+  /* The prime number part of the chip */
+  .factor-chip .fc-base {
+    color: var(--green);
+  }
+
+  /* "× N" repetition count inside the chip */
+  .factor-chip .fc-count {
+    color: var(--accent);
+  }
+
+  /* ─── Stats row ──────────────────────────────────────────────────────────── */
+
+  /* Small metadata line: number of distinct primes, is prime, etc. */
+  .stats-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+
+  /* Green highlight for "YES" type stat values */
+  .stat-value.yes { color: var(--green); }
+
+  /* Muted "NO" type */
+  .stat-value.no  { color: var(--muted); }
+
+  /* ─── Error state ────────────────────────────────────────────────────────── */
+  .error-msg {
+    color: var(--red);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    min-height: 20px;
+  }
+
+  /* ─── History list ───────────────────────────────────────────────────────── */
+
+  /* Scrollable list of previously factorized numbers */
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  /* One row in the history */
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+
+  .history-item:hover {
+    border-color: var(--accent);
+  }
+
+  /* The original number in a history row */
+  .history-item .h-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--accent2);
+    min-width: 80px;
+  }
+
+  /* The factorization expression in a history row (smaller) */
+  .history-item .h-expr {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Empty history placeholder */
+  .history-empty {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--muted);
+    padding: 6px 0;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>// prime_factorizer</h1>
+  <span>decompose any integer into its prime factors</span>
+</header>
+
+<div class="content">
+
+  <!-- ── Input card ── -->
+  <div class="input-card">
+    <div class="section-label">Enter a number</div>
+    <div class="input-row">
+      <input type="number" id="numInput" placeholder="e.g. 360" min="2" max="999999999999" />
+      <button class="run-btn" onclick="factorize()" style="width:auto;padding:9px 20px;">▶ Factorize</button>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="secondary" onclick="loadExample(12)">12</button>
+      <button class="secondary" onclick="loadExample(360)">360</button>
+      <button class="secondary" onclick="loadExample(1024)">1024</button>
+      <button class="secondary" onclick="loadExample(9699690)">9699690</button>
+      <button class="secondary" onclick="loadExample(998244353)">998244353</button>
+    </div>
+  </div>
+
+  <!-- ── Result card ── -->
+  <div class="result-card" id="resultCard" style="display:none">
+    <div class="section-label">Factorization</div>
+
+    <!-- Big expression: 2² × 3² × 5 etc -->
+    <div class="factorization-display" id="factDisplay"></div>
+
+    <!-- Stats row -->
+    <div class="stats-row" id="statsRow"></div>
+
+    <hr class="divider">
+
+    <!-- Individual factor chips -->
+    <div class="section-label">Prime factors</div>
+    <div class="factor-chips" id="factorChips"></div>
+  </div>
+
+  <!-- ── History card ── -->
+  <div class="result-card" id="historyCard" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="section-label" style="margin-bottom:0">History</div>
+      <button class="secondary" style="font-size:0.7rem;padding:4px 10px" onclick="clearHistory()">clear</button>
+    </div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let history = []; // array of { n, factors } objects, newest first
+
+// ─── Core algorithm ───────────────────────────────────────────────────────────
+// Returns an array of [prime, exponent] pairs, e.g. 12 → [[2,2],[3,1]]
+function primeFactors(n) {
+  const factors = [];
+  // Trial division from 2 up to sqrt(n)
+  for (let p = 2; p * p <= n; p++) {
+    if (n % p === 0) {
+      let exp = 0;
+      while (n % p === 0) {
+        exp++;
+        n = Math.floor(n / p);
+      }
+      factors.push([p, exp]);
+    }
+  }
+  // If anything remains it's a prime factor > sqrt(original n)
+  if (n > 1) factors.push([n, 1]);
+  return factors;
+}
+
+// ─── Rendering helpers ────────────────────────────────────────────────────────
+
+// Build the big "2² × 3 × 5²" HTML string
+function renderExpression(factors) {
+  return factors.map(([base, exp]) => {
+    const expHtml = exp > 1
+      ? `<sup class="factor-exp">${exp}</sup>`
+      : '';
+    return `<span class="factor-base">${base}</span>${expHtml}`;
+  }).join(`<span class="factor-sep">×</span>`);
+}
+
+// Build a plain text version for history rows: "2^2 × 3"
+function plainExpression(factors) {
+  return factors.map(([base, exp]) =>
+    exp > 1 ? `${base}^${exp}` : `${base}`
+  ).join(' × ');
+}
+
+// ─── Main factorize action ────────────────────────────────────────────────────
+function factorize() {
+  const input = document.getElementById('numInput');
+  const errorMsg = document.getElementById('errorMsg');
+  const resultCard = document.getElementById('resultCard');
+
+  errorMsg.textContent = '';
+
+  const raw = input.value.trim();
+  if (!raw) { errorMsg.textContent = 'Please enter a number.'; return; }
+
+  // Use BigInt parsing to check range, but keep as JS number for the algorithm
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 2) {
+    errorMsg.textContent = 'Enter an integer ≥ 2.';
+    return;
+  }
+  if (n > 999_999_999_999) {
+    errorMsg.textContent = 'Number too large (max 999,999,999,999).';
+    return;
+  }
+
+  const factors = primeFactors(n);
+
+  // ── Display expression ──
+  document.getElementById('factDisplay').innerHTML = renderExpression(factors);
+
+  // ── Stats ──
+  const isPrime = factors.length === 1 && factors[0][1] === 1;
+  const isPerfectPower = factors.every(([, exp]) => exp === factors[0][1]) && factors[0][1] > 1;
+  const totalFactors = factors.reduce((sum, [, exp]) => sum + exp, 0);
+  const distinctPrimes = factors.length;
+
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-item">
+      <div class="stat-label">is prime</div>
+      <div class="stat-value ${isPrime ? 'yes' : 'no'}">${isPrime ? 'yes' : 'no'}</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">distinct primes</div>
+      <div class="stat-value">${distinctPrimes}</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">total prime factors</div>
+      <div class="stat-value">${totalFactors}</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">perfect prime power</div>
+      <div class="stat-value ${isPerfectPower ? 'yes' : 'no'}">${isPerfectPower ? 'yes' : 'no'}</div>
+    </div>
+  `;
+
+  // ── Factor chips ──
+  document.getElementById('factorChips').innerHTML = factors.map(([base, exp]) => `
+    <div class="factor-chip">
+      <span class="fc-base">${base}</span>
+      <span class="fc-count">× ${exp}</span>
+    </div>
+  `).join('');
+
+  resultCard.style.display = 'flex';
+
+  // ── Add to history ──
+  addToHistory(n, factors);
+}
+
+// ─── History ──────────────────────────────────────────────────────────────────
+function addToHistory(n, factors) {
+  // Remove duplicate if same number already in history
+  history = history.filter(item => item.n !== n);
+  history.unshift({ n, factors });
+  if (history.length > 20) history.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  const card = document.getElementById('historyCard');
+  const list = document.getElementById('historyList');
+
+  if (history.length === 0) {
+    card.style.display = 'none';
+    return;
+  }
+
+  card.style.display = 'flex';
+  list.innerHTML = history.map(({ n, factors }) => `
+    <div class="history-item" onclick="loadFromHistory(${n})">
+      <span class="h-num">${n.toLocaleString()}</span>
+      <span class="h-expr">= ${plainExpression(factors)}</span>
+    </div>
+  `).join('');
+}
+
+function loadFromHistory(n) {
+  document.getElementById('numInput').value = n;
+  factorize();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function clearHistory() {
+  history = [];
+  renderHistory();
+}
+
+function loadExample(n) {
+  document.getElementById('numInput').value = n;
+  factorize();
+}
+
+// ─── Enter key support ────────────────────────────────────────────────────────
+document.getElementById('numInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') factorize();
+});
+</script>
+</body>
+</html>
