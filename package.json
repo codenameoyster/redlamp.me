@@ -3,18 +3,30 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"build": "bun scripts/build.ts",
+		"test": "vitest run",
+		"typecheck": "node node_modules/@typescript/native/bin/tsc --noEmit -p tsconfig.json && node node_modules/@typescript/native/bin/tsc --noEmit -p web/tsconfig.json && node node_modules/@typescript/native/bin/tsc --noEmit -p test/tsconfig.json",
 		"dev": "wrangler dev",
 		"deploy": "wrangler deploy",
-		"lint": "eslint src",
-		"lint:fix": "eslint src --fix"
+		"lint": "eslint src web shared scripts test e2e --no-error-on-unmatched-pattern",
+		"lint:fix": "bun run lint --fix"
 	},
 	"devDependencies": {
+		"@cloudflare/vitest-plugin": "^1.3.7",
 		"@cloudflare/workers-types": "^5.20261006.1",
+		"@types/bun": "^1.4.2",
+		"@types/react": "^19.3.0",
+		"@types/react-dom": "^19.3.0",
 		"@typescript-eslint/eslint-plugin": "^8.71.1",
 		"@typescript-eslint/parser": "^8.71.1",
 		"@typescript/native": "npm:typescript@^7.0.2",
 		"eslint": "^10.12.0",
 		"typescript": "npm:@typescript/typescript6@^6.0.2",
+		"vitest": "^4.1.11",
 		"wrangler": "^4.148.0"
+	},
+	"dependencies": {
+		"react": "^19.3.0",
+		"react-dom": "^19.3.0"
 	}
 }
