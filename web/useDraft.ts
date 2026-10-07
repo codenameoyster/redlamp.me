@@ -92,6 +92,7 @@ export function useDraft(initial: Attempt, user: SessionUser) {
 			const server = await api<Attempt>(path);
 			confirmed.current = server; latest.current = content(server); acknowledged.current = JSON.stringify(latest.current);
 			setValue(latest.current); setConflict(null); blocked.current = ''; recovering.current = false; setRecovery(null); removeRecovery(); setError(''); setStatus('saved');
+			return server;
 		} catch (error) { setError(message(error)); }
 	}
 	function recover() {
@@ -110,7 +111,7 @@ export function useDraft(initial: Attempt, user: SessionUser) {
 		if (user.role === 'student') {
 			try {
 				const saved = JSON.parse(sessionStorage.getItem(key) ?? 'null') as Recovery | null;
-				if (saved?.attemptId === initial.id && saved.value?.document?.approaches && JSON.stringify(saved.value) !== acknowledged.current) { setRecovery(saved); recovering.current = true; }
+				if (saved?.value?.document?.approaches && (saved.attemptId !== initial.id || JSON.stringify(saved.value) !== acknowledged.current)) { setRecovery(saved); recovering.current = true; }
 			} catch { setStorageError('The recovery copy cannot be read. Keep this page open or copy your work.'); }
 		}
 		function beforeUnload(event: BeforeUnloadEvent) { if (!leaving.current && (dirty() || recovering.current)) { event.preventDefault(); event.returnValue = ''; } }
