@@ -2,6 +2,10 @@ import { handleNotebook, isNotebookPath } from './leetcode/router';
 
 export interface Env {
 	ASSETS: Fetcher;
+	DB: D1Database;
+	LOGIN_LIMITER: RateLimit;
+	LEETCODE_ACCOUNTS: string;
+	LEETCODE_LOCAL_HTTP?: string;
 }
 
 export default {

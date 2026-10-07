@@ -10,6 +10,16 @@ routes = [
 	{ pattern = "www.redlamp.me", custom_domain = true },
 ]
 
+[[d1_databases]]
+binding = "DB"
+database_name = "redlamp-leetcode"
+migrations_dir = "migrations"
+
+[[ratelimits]]
+name = "LOGIN_LIMITER"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
+
 # Static assets configuration
 [assets]
 directory = "dist"

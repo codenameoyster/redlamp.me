@@ -1,5 +1,7 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { SessionUser } from '../shared/leetcode';
+import { api, ApiError, message } from './api';
+import { Login } from './Login';
 
 export function Layout({ user, children, logout }: { user: SessionUser; children: ReactNode; logout: () => void }) {
 	const [dark, setDark] = useState(() => {
@@ -23,5 +25,30 @@ export function Layout({ user, children, logout }: { user: SessionUser; children
 }
 
 export function App() {
-	return <main className="login"><div className="logo"><span className="logo-mark">r.</span><strong>redlamp</strong></div><h1>LeetCode notebook</h1><p>Sign in to continue your learning.</p></main>;
+	const [user, setUser] = useState<SessionUser | null>(null);
+	const [error, setError] = useState('');
+	useEffect(() => {
+		if (location.pathname === '/leetcode/login') return;
+		function check() {
+			setUser(null);
+			api<SessionUser>('/session').then(setUser).catch(error => {
+				if (error instanceof ApiError && error.status === 401) location.replace(`/leetcode/login?return=${encodeURIComponent(location.pathname)}`);
+				else setError(message(error));
+			});
+		}
+		function restored(event: PageTransitionEvent) { if (event.persisted) check(); }
+		check();
+		window.addEventListener('pageshow', restored);
+		return () => window.removeEventListener('pageshow', restored);
+	}, []);
+	async function logout() {
+		try {
+			await api('/session', { method: 'DELETE' });
+			try { for (const key of Object.keys(sessionStorage)) if (key.startsWith(`leetcode:draft:${user!.username}:`)) sessionStorage.removeItem(key); } catch { /* No recovery storage is available. */ }
+			setUser(null); location.replace('/leetcode/login');
+		} catch (error) { setError(message(error)); }
+	}
+	if (location.pathname === '/leetcode/login') return <Login />;
+	if (!user) return <main>{error ? <p role="alert">{error}</p> : <p role="status">Opening your notebook...</p>}</main>;
+	return <Layout user={user} logout={logout}>{error && <p className="error" role="alert">{error}</p>}<h1>Today</h1><p>Your learning starts with a problem.</p></Layout>;
 }

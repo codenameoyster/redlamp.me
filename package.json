@@ -4,6 +4,7 @@
 	"type": "module",
 	"scripts": {
 		"build": "bun scripts/build.ts",
+		"credentials": "bun scripts/credentials.ts",
 		"test": "vitest run",
 		"typecheck": "node node_modules/@typescript/native/bin/tsc --noEmit -p tsconfig.json && node node_modules/@typescript/native/bin/tsc --noEmit -p web/tsconfig.json && node node_modules/@typescript/native/bin/tsc --noEmit -p test/tsconfig.json",
 		"dev": "wrangler dev",
