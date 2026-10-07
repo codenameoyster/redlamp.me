@@ -6,9 +6,9 @@ import { AttemptContent } from './Problem';
 import { LessonLinks } from './Lessons';
 
 export const homeworkLabels = { assigned: 'Assigned', in_progress: 'In progress', submitted: 'Submitted for review', changes_requested: 'Another attempt requested', completed: 'Completed', cancelled: 'Cancelled' };
-export function Discussion({ problemId, homeworkId, submissionId }: { problemId: string; homeworkId?: string; submissionId?: string | null }) {
+export function Discussion({ problemId, homeworkId, submissionId, homeworkVersion }: { problemId: string; homeworkId?: string; submissionId?: string | null; homeworkVersion?: number }) {
 	const [offset, setOffset] = useState(0);
-	const comments = useResource<Page<Feedback>>(`/problems/${problemId}/feedback?offset=${offset}`);
+	const comments = useResource<Page<Feedback>>(`/problems/${problemId}/feedback?offset=${offset}`, homeworkVersion);
 	const [body, setBody] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
 	async function reply(event: FormEvent) {
 		event.preventDefault(); setBusy(true); setError('');
@@ -69,6 +69,6 @@ function HomeworkDetail({ id, user }: { id: string; user: SessionUser }) {
 		{details.data!.submissions.length > 0 && <section className="stack"><label>Submission history<select value={submission || h.submissionId || ''} onChange={event => setSubmission(event.target.value)}>{details.data!.submissions.map((s, i) => <option key={s.id} value={s.id}>{i === 0 ? 'Latest submission' : 'Earlier submission'} - {new Date(s.createdAt).toLocaleString()}</option>)}</select></label>{work.data && <AttemptContent value={work.data} />}</section>}
 		{user.role === 'parent' && h.state === 'submitted' && (!submission || submission === h.submissionId) && <section className="card card-pad stack"><h2>Review this submission</h2><label>Review feedback<textarea aria-label="Review feedback" value={feedback} onChange={event => setFeedback(event.target.value)} maxLength={8000} /></label><div className="row"><button disabled={busy} onClick={() => void action('review', { submissionId: h.submissionId, decision: 'changes_requested', body: feedback })}>Request another attempt</button><button className="primary" disabled={busy} onClick={() => void action('review', { submissionId: h.submissionId, decision: 'completed', body: feedback })}>Complete homework</button></div></section>}
 		<LessonLinks homework={h} user={user} changed={details.reload} />
-		<Discussion problemId={h.problemId} homeworkId={h.id} submissionId={submitted?.id} key={h.version} />
+		<Discussion problemId={h.problemId} homeworkId={h.id} submissionId={submitted?.id} homeworkVersion={h.version} />
 	</div>;
 }
