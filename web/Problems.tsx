@@ -1,16 +1,28 @@
 import { useEffect, useRef, useState, type SubmitEvent } from 'react';
-import type { Page, Problem } from '../shared/leetcode';
+import { LoaderCircle } from 'lucide-react';
+import type { Page, Problem, ProblemDetails } from '../shared/leetcode';
 import { api, message } from './api';
 import { useResource } from './useResource';
 
 export function ProblemForm({ problem, close, saved }: { problem?: Problem; close: () => void; saved: (problem: Problem) => void }) {
 	const dialog = useRef<HTMLDialogElement>(null);
-	const [error, setError] = useState(''), [busy, setBusy] = useState(false);
+	const [error, setError] = useState(''), [busy, setBusy] = useState(false), [lookup, setLookup] = useState(''), looked = useRef('');
 	useEffect(() => {
 		const previous = document.activeElement, element = dialog.current;
 		element?.showModal();
 		return () => { element?.close(); if (previous instanceof HTMLElement) previous.focus(); };
 	}, []);
+	async function fill(input: HTMLInputElement) {
+		const url = input.value.trim();
+		looked.current = url; setLookup('loading');
+		try {
+			const details = await api<ProblemDetails>(`/problem-details?url=${encodeURIComponent(url)}`);
+			if (looked.current !== url) return;
+			const set = (name: string, value: string) => { (input.form!.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement).value = value; };
+			set('title', details.title); set('number', details.number?.toString() ?? ''); set('difficulty', details.difficulty); set('topics', details.topics.join(', '));
+			setLookup('');
+		} catch (error) { if (looked.current === url) setLookup(message(error)); }
+	}
 	async function submit(event: SubmitEvent<HTMLFormElement>) {
 		event.preventDefault(); setBusy(true); setError('');
 		const form = new FormData(event.currentTarget);
@@ -20,7 +32,8 @@ export function ProblemForm({ problem, close, saved }: { problem?: Problem; clos
 	}
 	return <dialog ref={dialog} onCancel={close} aria-labelledby="problem-form-title"><form onSubmit={submit} className="stack">
 		<h2 id="problem-form-title">{problem ? 'Edit problem' : 'Add a problem'}</h2>
-		<label>LeetCode URL<input name="url" type="url" required maxLength={2000} defaultValue={problem?.url} /></label>
+		<label>LeetCode URL<input name="url" type="url" required maxLength={2000} defaultValue={problem?.url} onChange={event => { if (!problem && (event.nativeEvent as InputEvent).inputType === 'insertFromPaste') void fill(event.currentTarget); }} /></label>
+		{lookup && <p className="small lookup" role="status">{lookup === 'loading' ? <><LoaderCircle size={16} className="spin" />Filling in details from LeetCode</> : lookup}</p>}
 		<label>Title<input name="title" required maxLength={200} defaultValue={problem?.title} /></label>
 		<div className="editor-grid"><label>Problem number<input name="number" type="number" min="1" defaultValue={problem?.number ?? ''} /></label><label>Difficulty<select name="difficulty" defaultValue={problem?.difficulty ?? 'medium'}><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label></div>
 		<div><label>Topics<input name="topics" aria-describedby="topics-help" defaultValue={problem?.topics.join(', ')} placeholder="Arrays, Sliding window" /></label><small id="topics-help">Separate topics with commas. Use at most 12.</small></div>

@@ -1,5 +1,5 @@
 import type { Env } from '../index';
-import type { Problem, ProblemInput } from '../../shared/leetcode';
+import type { Difficulty, Problem, ProblemDetails, ProblemInput } from '../../shared/leetcode';
 import { calendarDate, changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, topics, uuid } from './http';
 
 export const solvedSQL = "EXISTS(SELECT 1 FROM attempts a WHERE a.problem_id=p.id AND a.state='saved' AND a.acceptance='accepted')";
@@ -15,16 +15,34 @@ export async function getProblem(env: Env, id: string): Promise<Problem> {
 	return problemValue(row);
 }
 
-function metadata(data: Record<string, unknown>): ProblemInput & { slug: string } {
+function slug(value: unknown): string {
 	let url: URL;
-	try { url = new URL(text(data.url, 2000, true)); } catch { throw new HttpError(400, 'invalid_url', 'Use a LeetCode problem URL.'); }
+	try { url = new URL(text(value, 2000, true)); } catch { throw new HttpError(400, 'invalid_url', 'Use a LeetCode problem URL.'); }
 	const match = /^\/problems\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\/|$)/.exec(url.pathname);
 	if (url.protocol !== 'https:' || url.hostname !== 'leetcode.com' || url.port || url.username || url.password || !match) throw new HttpError(400, 'invalid_url', 'Use a LeetCode problem URL.');
-	return { slug: match[1], url: `https://leetcode.com/problems/${match[1]}/`, number: data.number === null ? null : integer(data.number), title: text(data.title, 200, true).trim(), difficulty: choice(data.difficulty, ['easy', 'medium', 'hard']), topics: topics(data.topics), summary: text(data.summary, 8000).trim() };
+	return match[1];
+}
+
+function metadata(data: Record<string, unknown>): ProblemInput & { slug: string } {
+	const value = slug(data.url);
+	return { slug: value, url: `https://leetcode.com/problems/${value}/`, number: data.number === null ? null : integer(data.number), title: text(data.title, 200, true).trim(), difficulty: choice(data.difficulty, ['easy', 'medium', 'hard']), topics: topics(data.topics), summary: text(data.summary, 8000).trim() };
+}
+
+type Question = { questionFrontendId: string; title: string; difficulty: string; topicTags: { name: string }[] } | null;
+async function details(titleSlug: string): Promise<ProblemDetails> {
+	let question: Question;
+	try {
+		const response = await fetch('https://leetcode.com/graphql', { method: 'POST', headers: { 'Content-Type': 'application/json', Referer: `https://leetcode.com/problems/${titleSlug}/` }, body: JSON.stringify({ query: 'query question($titleSlug: String!) { question(titleSlug: $titleSlug) { questionFrontendId title difficulty topicTags { name } } }', variables: { titleSlug } }) });
+		if (!response.ok) throw new Error(`LeetCode returned ${response.status}.`);
+		question = (await response.json() as { data: { question: Question } }).data.question;
+	} catch { throw new HttpError(502, 'lookup_failed', 'LeetCode details are unavailable. Enter them yourself.'); }
+	if (!question) throw new HttpError(404, 'not_found', 'LeetCode has no problem at this URL.');
+	return { number: /^\d+$/.test(question.questionFrontendId) ? Number(question.questionFrontendId) : null, title: question.title, difficulty: question.difficulty.toLowerCase() as Difficulty, topics: question.topicTags.slice(0, 12).map(tag => tag.name) };
 }
 
 export async function handleProblems(request: Request, env: Env): Promise<Response | null> {
 	const url = new URL(request.url);
+	if (url.pathname === '/leetcode/api/problem-details') { methods(request, ['GET']); return Response.json(await details(slug(url.searchParams.get('url')))); }
 	const match = /^\/leetcode\/api\/problems(?:\/([^/]+)(?:\/(archive|restore))?)?$/.exec(url.pathname);
 	if (!match) return null;
 	const id = match[1] ? uuid(match[1]) : null;

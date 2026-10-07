@@ -41,7 +41,7 @@ Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and wa
 
 ## Use the notebook
 
-- Add a LeetCode problem with its title, difficulty, and topics.
+- Add a LeetCode problem. Paste its URL in **Add a problem**. The notebook fills the number, title, difficulty, and topics from LeetCode. If LeetCode does not answer, enter them yourself.
 - As the student, start a draft. A draft can hold one or more approaches. The editor autosaves changed content. Use **Save attempt** to preserve an immutable copy.
 - Record LeetCode acceptance and understanding separately. An accepted solution can still need practice.
 - As the parent, assign homework. The parent can also link lessons to problems and homework. The student submits an exact attempt for review. The parent can request another attempt or complete the assignment.

@@ -13,6 +13,7 @@ export interface ProblemInput {
 	topics: string[];
 	summary: string;
 }
+export type ProblemDetails = Pick<ProblemInput, 'number' | 'title' | 'difficulty' | 'topics'>;
 export interface Problem extends ProblemInput {
 	id: string;
 	slug: string;

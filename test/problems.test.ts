@@ -1,10 +1,11 @@
 import { env } from 'cloudflare:workers';
-import { beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { login, request } from './client';
 
 let cookie: string;
 const input = { url: 'https://leetcode.com/problems/two-sum/', number: 1, title: 'Two Sum', difficulty: 'easy', topics: ['Arrays'], summary: '' };
 beforeEach(async () => { cookie = await login(); });
+afterEach(() => { vi.restoreAllMocks(); });
 
 it.each([
 	{ name: 'canonical link', url: 'https://leetcode.com/problems/two-sum/', expected: 'two-sum' },
@@ -96,4 +97,20 @@ it.each([
 	const response = await request(`/problems?${query}`, 'GET', undefined, cookie);
 	expect(response.status).toBe(status);
 	if (body) expect(await response.json()).toMatchObject(body);
+});
+
+const question = { questionFrontendId: '1', title: 'Two Sum', difficulty: 'Easy', topicTags: [{ name: 'Array' }, { name: 'Hash Table' }] };
+it.each([
+	{ name: 'details from a description link', url: 'https://leetcode.com/problems/two-sum/description/', reply: () => Response.json({ data: { question } }), status: 200, body: { number: 1, title: 'Two Sum', difficulty: 'easy', topics: ['Array', 'Hash Table'] }, slug: 'two-sum' },
+	{ name: 'details without a numeric problem ID', url: 'https://leetcode.com/problems/two-sum/', reply: () => Response.json({ data: { question: { ...question, questionFrontendId: 'LCP 01' } } }), status: 200, body: { number: null, title: 'Two Sum' }, slug: 'two-sum' },
+	{ name: 'unknown LeetCode problem', url: 'https://leetcode.com/problems/two-sum/', reply: () => Response.json({ data: { question: null } }), status: 404, body: { error: { code: 'not_found' } }, slug: 'two-sum' },
+	{ name: 'LeetCode error response', url: 'https://leetcode.com/problems/two-sum/', reply: () => new Response('Busy', { status: 503 }), status: 502, body: { error: { code: 'lookup_failed' } }, slug: 'two-sum' },
+	{ name: 'unreachable LeetCode', url: 'https://leetcode.com/problems/two-sum/', reply: () => { throw new TypeError('Network connection lost.'); }, status: 502, body: { error: { code: 'lookup_failed' } }, slug: 'two-sum' },
+	{ name: 'details for a URL outside LeetCode', url: 'https://example.com/problems/two-sum/', reply: () => Response.json({}), status: 400, body: { error: { code: 'invalid_url' } }, slug: null },
+])('$name', async ({ url, reply, status, body, slug }) => {
+	const leetcode = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => reply());
+	const response = await request(`/problem-details?url=${encodeURIComponent(url)}`, 'GET', undefined, cookie);
+	expect(response.status).toBe(status);
+	expect(await response.json()).toMatchObject(body);
+	expect(leetcode.mock.calls.map(([target, init]) => [String(target), JSON.parse(String(init?.body)).variables.titleSlug])).toEqual(slug ? [['https://leetcode.com/graphql', slug]] : []);
 });
