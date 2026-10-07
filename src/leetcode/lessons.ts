@@ -57,7 +57,7 @@ export async function handleLessons(request: Request, env: Env, user: SessionUse
 			if (!action) return Response.json(lesson);
 			const row = await env.DB.prepare('SELECT html FROM lesson_content WHERE lesson_id=?').bind(id).first<{ html: string }>();
 			const headers: Record<string, string> = action === 'content' ? { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': LESSON_CSP } : { 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="lesson-${id}.html"` };
-			return new Response(request.method === 'HEAD' ? null : new TextEncoder().encode(row!.html), { headers });
+			return new Response(new TextEncoder().encode(row!.html), { headers });
 		}
 		const { limit, offset } = pagination(url);
 		const rows = await env.DB.prepare(`SELECT ${lessonColumns} FROM lessons l WHERE archived_at IS ${url.searchParams.get('archived') === '1' ? 'NOT ' : ''}NULL ORDER BY created_at DESC,id LIMIT ? OFFSET ?`).bind(limit + 1, offset).all<LessonRow>();

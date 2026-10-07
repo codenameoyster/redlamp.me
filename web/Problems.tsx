@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type SubmitEvent } from 'react';
 import type { Page, Problem } from '../shared/leetcode';
 import { api, message } from './api';
 import { useResource } from './useResource';
@@ -11,7 +11,7 @@ export function ProblemForm({ problem, close, saved }: { problem?: Problem; clos
 		element?.showModal();
 		return () => { element?.close(); if (previous instanceof HTMLElement) previous.focus(); };
 	}, []);
-	async function submit(event: FormEvent<HTMLFormElement>) {
+	async function submit(event: SubmitEvent<HTMLFormElement>) {
 		event.preventDefault(); setBusy(true); setError('');
 		const form = new FormData(event.currentTarget);
 		const value = { url: form.get('url'), number: form.get('number') ? Number(form.get('number')) : null, title: form.get('title'), difficulty: form.get('difficulty'), topics: String(form.get('topics')).split(',').map(s => s.trim()).filter(Boolean), summary: form.get('summary'), ...(problem ? { version: problem.version } : {}) };
@@ -33,7 +33,7 @@ export function Problems() {
 	const { data, error, reload } = useResource<Page<Problem>>(`/problems${location.search}`);
 	const [adding, setAdding] = useState(false);
 	const query = new URLSearchParams(location.search);
-	function filter(event: FormEvent<HTMLFormElement>) {
+	function filter(event: SubmitEvent<HTMLFormElement>) {
 		event.preventDefault();
 		const params = new URLSearchParams();
 		for (const [key, value] of new FormData(event.currentTarget)) if (value) params.set(key, String(value));

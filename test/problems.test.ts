@@ -38,26 +38,62 @@ it('finds Unicode notes as literal text', async () => {
 	expect(body.items.map(item => item.id)).toEqual([first]);
 });
 
-it('rejects a stale edit and blocks archive with active homework', async () => {
+it.each([
+	{ name: 'current edit', stored: 1, expected: 200, title: 'Updated' },
+	{ name: 'stale edit', stored: 2, expected: 409, title: 'Two Sum' },
+])('$name', async ({ stored, expected, title }) => {
 	const problem = await (await request('/problems', 'POST', input, cookie)).json() as { id: string };
-	const path = `/problems/${problem.id}`;
-	expect((await request(path, 'PATCH', { ...input, version: 1, title: 'Updated' }, cookie)).status).toBe(200);
-	expect((await request(path, 'PATCH', { ...input, version: 1 }, cookie)).status).toBe(409);
-	await env.DB.prepare("INSERT INTO homework (id,problem_id,instructions,state,created_at,updated_at) VALUES (?,?,'Explain','assigned','now','now')").bind(crypto.randomUUID(), problem.id).run();
-	expect((await request(`${path}/archive`, 'POST', { version: 2 }, cookie)).status).toBe(409);
-	await env.DB.prepare("UPDATE homework SET state='completed'").run();
-	expect((await request(`${path}/archive`, 'POST', { version: 2 }, cookie)).status).toBe(200);
-	expect(await (await request('/problems', 'GET', undefined, cookie)).json()).toMatchObject({ items: [] });
-	expect(await (await request(path, 'GET', undefined, cookie)).json()).toMatchObject({ title: 'Updated' });
+	await env.DB.prepare('UPDATE problems SET version=?').bind(stored).run();
+	expect((await request(`/problems/${problem.id}`, 'PATCH', { ...input, version: 1, title: 'Updated' }, cookie)).status).toBe(expected);
+	expect(await (await request(`/problems/${problem.id}`, 'GET', undefined, cookie)).json()).toMatchObject({ title, version: 2 });
 });
 
-it('bounds pagination and applies combined filters', async () => {
+it('archives a problem after its active homework completes', async () => {
+	const problem = await (await request('/problems', 'POST', input, cookie)).json() as { id: string };
+	const path = `/problems/${problem.id}`;
+	await env.DB.prepare("INSERT INTO homework (id,problem_id,instructions,state,created_at,updated_at) VALUES (?,?,'Explain','assigned','now','now')").bind(crypto.randomUUID(), problem.id).run();
+	expect((await request(`${path}/archive`, 'POST', { version: 1 }, cookie)).status).toBe(409);
+	await env.DB.prepare("UPDATE homework SET state='completed'").run();
+	expect((await request(`${path}/archive`, 'POST', { version: 1 }, cookie)).status).toBe(200);
+	expect(await (await request('/problems', 'GET', undefined, cookie)).json()).toMatchObject({ items: [] });
+	expect(await (await request(path, 'GET', undefined, cookie)).json()).toMatchObject({ title: input.title });
+});
+
+it.each([
+	{ name: 'archive with active homework', action: 'archive', archivedAt: null, homework: 'assigned', stored: 1, error: { code: 'active_homework', message: 'Complete or cancel the active homework before you archive this problem.' } },
+	{ name: 'stale archive', action: 'archive', archivedAt: null, homework: 'completed', stored: 2, error: { code: 'conflict' } },
+	{ name: 'stale restore', action: 'restore', archivedAt: 'now', homework: 'completed', stored: 2, error: { code: 'conflict' } },
+])('$name', async ({ action, archivedAt, homework, stored, error }) => {
+	const problem = await (await request('/problems', 'POST', input, cookie)).json() as { id: string };
+	await env.DB.prepare('UPDATE problems SET archived_at=?,version=?').bind(archivedAt, stored).run();
+	await env.DB.prepare("INSERT INTO homework (id,problem_id,instructions,state,created_at,updated_at) VALUES (?,?,'Explain',?,'now','now')").bind(crypto.randomUUID(), problem.id, homework).run();
+	const response = await request(`/problems/${problem.id}/${action}`, 'POST', { version: 1 }, cookie);
+	expect(response.status).toBe(409);
+	expect(await response.json()).toMatchObject({ error });
+	expect(await env.DB.prepare('SELECT archived_at AS archivedAt,version FROM problems').first()).toEqual({ archivedAt, version: stored });
+});
+
+it('restores an archived problem to the library and to homework', async () => {
+	const problem = await (await request('/problems', 'POST', input, cookie)).json() as { id: string };
+	const parent = await login('parent');
+	expect((await request(`/problems/${problem.id}/archive`, 'POST', { version: 1 }, cookie)).status).toBe(200);
+	const restored = await request(`/problems/${problem.id}/restore`, 'POST', { version: 2 }, parent);
+	expect(restored.status).toBe(200);
+	expect(await restored.json()).toMatchObject({ id: problem.id, archivedAt: null, version: 3 });
+	expect(await (await request('/problems', 'GET', undefined, cookie)).json()).toMatchObject({ items: [{ id: problem.id }] });
+	expect((await request('/homework', 'POST', { problemId: problem.id, instructions: '', dueDate: null }, parent)).status).toBe(201);
+});
+
+it.each([
+	{ name: 'page with more results', query: 'limit=1', status: 200, body: { nextOffset: 1 } },
+	{ name: 'last page', query: 'limit=1&offset=1', status: 200, body: { nextOffset: null } },
+	{ name: 'combined filters without a match', query: 'difficulty=hard&topic=Arrays', status: 200, body: { items: [] } },
+	{ name: 'page size above the limit', query: 'limit=51', status: 400, body: null },
+	{ name: 'impossible due date', query: 'due=2026-02-30', status: 400, body: null },
+])('$name', async ({ query, status, body }) => {
 	await request('/problems', 'POST', input, cookie);
 	await request('/problems', 'POST', { ...input, url: 'https://leetcode.com/problems/three-sum/', difficulty: 'medium' }, cookie);
-	const page = await (await request('/problems?limit=1', 'GET', undefined, cookie)).json() as { nextOffset: number };
-	expect(page.nextOffset).toBe(1);
-	expect(await (await request('/problems?limit=1&offset=1', 'GET', undefined, cookie)).json()).toMatchObject({ nextOffset: null });
-	expect(await (await request('/problems?difficulty=hard&topic=Arrays', 'GET', undefined, cookie)).json()).toMatchObject({ items: [] });
-	expect((await request('/problems?limit=51', 'GET', undefined, cookie)).status).toBe(400);
-	expect((await request('/problems?due=2026-02-30', 'GET', undefined, cookie)).status).toBe(400);
+	const response = await request(`/problems?${query}`, 'GET', undefined, cookie);
+	expect(response.status).toBe(status);
+	if (body) expect(await response.json()).toMatchObject(body);
 });

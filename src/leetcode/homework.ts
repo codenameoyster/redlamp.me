@@ -1,7 +1,7 @@
 import type { Env } from '../index';
 import type { Feedback, Homework, SessionUser, Submission } from '../../shared/leetcode';
 import { requireRole } from './auth';
-import { getAttempt } from './attempts';
+import { getAttempt, saveProgress } from './attempts';
 import { getProblem } from './problems';
 import { calendarDate, changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
 
@@ -52,9 +52,9 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 	requireRole(user, action === 'submit' || action === 'start' ? 'student' : 'parent');
 	if (!id) {
 		const data = object(await readJson(request), ['problemId', 'instructions', 'dueDate']);
-		const problemId = uuid(data.problemId); await getProblem(env, problemId);
-		const newId = crypto.randomUUID();
-		changed(await env.DB.prepare("INSERT INTO homework (id,problem_id,instructions,due_date,state,created_at,updated_at) SELECT ?,id,?,?,'assigned',?,? FROM problems WHERE id=? AND archived_at IS NULL ON CONFLICT DO NOTHING").bind(newId, text(data.instructions, 8000).trim(), calendarDate(data.dueDate ?? null), now, now, problemId).run());
+		const problemId = uuid(data.problemId), newId = crypto.randomUUID();
+		const result = await env.DB.prepare("INSERT INTO homework (id,problem_id,instructions,due_date,state,created_at,updated_at) SELECT ?,id,?,?,'assigned',?,? FROM problems WHERE id=? AND archived_at IS NULL ON CONFLICT DO NOTHING").bind(newId, text(data.instructions, 8000).trim(), calendarDate(data.dueDate ?? null), now, now, problemId).run();
+		if (!result.meta.changes) throw (await getProblem(env, problemId)).archivedAt ? new HttpError(409, 'archived', 'Restore this problem before you assign homework.') : new HttpError(409, 'active_homework', 'This problem already has active homework. Complete or cancel it first.');
 		return Response.json(await getHomework(env, newId), { status: 201 });
 	}
 	const homework = await getHomework(env, id);
@@ -62,12 +62,11 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		const data = object(await readJson(request), ['version', 'attemptId', 'attemptVersion', 'nextReviewDate']);
 		const attempt = await getAttempt(env, homework.problemId, uuid(data.attemptId));
 		if (![attempt.document.notes, ...attempt.document.approaches.flatMap(a => [a.idea, a.correctness, a.mistakes, a.code])].some(value => value.trim())) throw new HttpError(400, 'empty_attempt', 'Add an explanation, notes, or code before submitting.');
-		const submissionId = crypto.randomUUID(), hasDate = Object.hasOwn(data, 'nextReviewDate');
-		const date = hasDate ? calendarDate(data.nextReviewDate) : null;
+		const submissionId = crypto.randomUUID(), progress = saveProgress(env, homework.problemId, attempt.id, data, now);
 		const statements = [env.DB.prepare(`INSERT INTO submissions (id,homework_id,attempt_id,homework_version,created_at) SELECT ?,h.id,a.id,h.version+1,? FROM homework h JOIN attempts a ON a.problem_id=h.problem_id WHERE h.id=? AND h.version=? AND h.state IN ${editableHomework} AND a.id=? AND a.version=? AND a.state=?`).bind(submissionId, now, id, integer(data.version), attempt.id, integer(data.attemptVersion), attempt.state)];
 		if (attempt.state === 'draft') statements.push(
 			env.DB.prepare("UPDATE attempts SET state='saved',version=version+1,saved_at=?1,updated_at=?1 WHERE id=?2 AND state='draft' AND EXISTS(SELECT 1 FROM submissions WHERE id=?3 AND attempt_id=attempts.id)").bind(now, attempt.id, submissionId),
-			env.DB.prepare('UPDATE problems SET understanding=(SELECT understanding FROM attempts WHERE id=?1),next_review_date=CASE WHEN ?2 THEN ?3 ELSE next_review_date END,version=version+1,updated_at=?4 WHERE id=?5 AND EXISTS(SELECT 1 FROM submissions WHERE id=?6)').bind(attempt.id, hasDate ? 1 : 0, date, now, homework.problemId, submissionId),
+			progress,
 		);
 		statements.push(env.DB.prepare("UPDATE homework SET state='submitted',current_submission_id=?1,version=version+1,updated_at=?2 WHERE id=?3 AND EXISTS(SELECT 1 FROM submissions WHERE id=?1 AND homework_id=homework.id)").bind(submissionId, now, id));
 		changed((await env.DB.batch(statements))[0]);

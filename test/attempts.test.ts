@@ -48,10 +48,14 @@ it.each([
 	expect((await request(path, 'PUT', { ...value, document: { ...document, notes } }, cookie)).status).toBe(expected);
 });
 
-it('rejects invalid code and parent edits', async () => {
-	expect((await request(path, 'PUT', { ...value, document: { notes: '', approaches: [{ ...approach, code: 42 }] } }, cookie)).status).toBe(400);
-	expect((await request(path, 'PUT', value, await login('parent'))).status).toBe(403);
-	expect((await request(`/problems/${crypto.randomUUID()}/attempts/${attemptId}`, 'PUT', value, cookie)).status).toBe(404);
+it.each([
+	{ name: 'non-string approach code', role: 'student', unknownProblem: false, code: 42, expected: 400 },
+	{ name: 'parent draft edit', role: 'parent', unknownProblem: false, code: approach.code, expected: 403 },
+	{ name: 'draft edit under an unknown problem', role: 'student', unknownProblem: true, code: approach.code, expected: 404 },
+])('$name', async ({ role, unknownProblem, code, expected }) => {
+	const target = unknownProblem ? `/problems/${crypto.randomUUID()}/attempts/${attemptId}` : path;
+	const body = { ...value, document: { notes: '', approaches: [{ ...approach, code }] } };
+	expect((await request(target, 'PUT', body, role === 'parent' ? await login('parent') : cookie)).status).toBe(expected);
 });
 
 it('saves history atomically and preserves the current reminder when omitted', async () => {
@@ -60,13 +64,12 @@ it('saves history atomically and preserves the current reminder when omitted', a
 	expect(saved.status).toBe(200);
 	expect(await saved.json()).toMatchObject({ state: 'saved', version: 2, document });
 	const progress = await (await request(`/problems/${problemId}`, 'GET', undefined, cookie)).json();
-	expect(progress).toMatchObject({ solved: true, understanding: 'with_help', nextReviewDate: '2026-10-20', version: 2 });
+	expect(progress).toMatchObject({ solved: true, understanding: 'with_help', nextReviewDate: '2026-10-20', version: 1, progressVersion: 2 });
 	expect((await request(`${path}/save`, 'POST', { version: 1, nextReviewDate: null }, cookie)).status).toBe(409);
 	expect(await (await request(`/problems/${problemId}`, 'GET', undefined, cookie)).json()).toEqual(progress);
 });
 
 it('copies saved history into a new draft and reports an existing draft', async () => {
-	expect((await request(`/problems/${problemId}/attempts`, 'POST', {}, cookie)).status).toBe(409);
 	await request(`${path}/save`, 'POST', { version: 1 }, cookie);
 	const copy = await request(`/problems/${problemId}/attempts`, 'POST', { copyAttemptId: attemptId }, cookie);
 	expect(copy.status).toBe(201);
@@ -77,4 +80,22 @@ it('copies saved history into a new draft and reports an existing draft', async 
 	const again = await request(`/problems/${problemId}/attempts`, 'POST', { copyAttemptId: attemptId }, cookie);
 	expect(again.status).toBe(409);
 	expect(await again.json()).toMatchObject({ error: { fields: { attemptId: record.id } } });
+});
+
+it.each([
+	{ name: 'copied draft hides JSON keys from search', q: 'timecomplexity', found: false },
+	{ name: 'copied draft hides code from search', q: 'return', found: false },
+	{ name: 'copied draft finds the key idea', q: 'needed values', found: true },
+])('$name', async ({ q, found }) => {
+	expect((await request(`${path}/save`, 'POST', { version: 1 }, cookie)).status).toBe(200);
+	expect((await request(`/problems/${problemId}/attempts`, 'POST', { copyAttemptId: attemptId }, cookie)).status).toBe(201);
+	const response = await request(`/problems?${new URLSearchParams({ q })}`, 'GET', undefined, cookie);
+	expect(await response.json()).toMatchObject({ items: found ? [{ id: problemId }] : [] });
+});
+
+it.each([
+	{ name: 'save of a missing attempt', suffix: `/attempts/${crypto.randomUUID()}/save`, body: { version: 1 }, expected: 404 },
+	{ name: 'new draft while a draft exists', suffix: '/attempts', body: {}, expected: 409 },
+])('$name', async ({ suffix, body, expected }) => {
+	expect((await request(`/problems/${problemId}${suffix}`, 'POST', body, cookie)).status).toBe(expected);
 });

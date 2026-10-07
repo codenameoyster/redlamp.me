@@ -1,8 +1,10 @@
-export function renderShell(origin: string): Response {
+import type { SessionUser } from '../../shared/leetcode';
+
+export function renderShell(origin: string, user?: SessionUser): Response {
 	return new Response(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LeetCode notebook | redlamp</title><link rel="stylesheet" href="/leetcode/assets/style.css">
-<script type="module" src="/leetcode/assets/main.js"></script></head>
+${user ? `<script id="session" type="application/json">${JSON.stringify(user)}</script>` : ''}<script type="module" src="/leetcode/assets/main.js"></script></head>
 <body><div id="root"></div><noscript>Enable JavaScript to use the notebook.</noscript></body></html>`, {
 		headers: {
 			'Content-Type': 'text/html; charset=utf-8',

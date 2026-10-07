@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import { MAX_LESSON_BYTES, type Homework, type Lesson, type Page, type SessionUser } from '../shared/leetcode';
+import { useState, type SubmitEvent } from 'react';
+import { MAX_LESSON_BYTES, NOTEBOOK_PAGE, type Homework, type Lesson, type Page, type SessionUser } from '../shared/leetcode';
 import { api, message } from './api';
 import { useResource } from './useResource';
 
@@ -25,7 +25,7 @@ export function Lessons({ user, id }: { user: SessionUser; id?: string }) { retu
 function LessonLibrary({ user }: { user: SessionUser }) {
 	const lessons = useResource<Page<Lesson>>(`/lessons${location.search}`);
 	const [error, setError] = useState(''), [busy, setBusy] = useState(false);
-	async function upload(event: FormEvent<HTMLFormElement>) {
+	async function upload(event: SubmitEvent<HTMLFormElement>) {
 		event.preventDefault(); setBusy(true); setError('');
 		const form = new FormData(event.currentTarget), file = form.get('file') as File;
 		try {
@@ -45,7 +45,7 @@ function LessonView({ id, user }: { id: string; user: SessionUser }) {
 	const lesson = useResource<Lesson>(`/lessons/${id}`);
 	const [editing, setEditing] = useState(false), [error, setError] = useState(''), [busy, setBusy] = useState(false);
 	const record = lesson.data;
-	async function update(event?: FormEvent<HTMLFormElement>) {
+	async function update(event?: SubmitEvent<HTMLFormElement>) {
 		event?.preventDefault();
 		if (!event && !confirm('Archive this lesson? Existing links will remain available.')) return;
 		setBusy(true); setError('');
@@ -56,7 +56,7 @@ function LessonView({ id, user }: { id: string; user: SessionUser }) {
 	}
 	if (!record) return <p role="status">{lesson.error || 'Opening lesson...'}</p>;
 	const back = new URLSearchParams(location.search).get('back') ?? '/leetcode/lessons';
-	return <div className="stack"><div className="heading"><div><h1>{record.title}</h1><p>{record.byteCount.toLocaleString()} bytes {record.archivedAt && '- Archived'}</p></div><a className="button" href={/^\/leetcode(?:\/(?:lessons|problems|homework)(?:\/[a-f0-9-]{36})?)?$/.test(back) ? back : '/leetcode/lessons'}>Back</a></div><p className="prose">{record.description}</p><div className="row"><a className="button" href={`/leetcode/api/lessons/${id}/content`} target="_blank" rel="noopener noreferrer">Full-page display</a><a className="button" href={`/leetcode/api/lessons/${id}/download`} download>Download original</a>{user.role === 'parent' && <><button onClick={() => setEditing(!editing)}>Edit lesson details</button>{!record.archivedAt && <button disabled={busy} onClick={() => void update()}>Archive lesson</button>}</>}</div>
+	return <div className="stack"><div className="heading"><div><h1>{record.title}</h1><p>{record.byteCount.toLocaleString()} bytes {record.archivedAt && '- Archived'}</p></div><a className="button" href={NOTEBOOK_PAGE.test(back) ? back : '/leetcode/lessons'}>Back</a></div><p className="prose">{record.description}</p><div className="row"><a className="button" href={`/leetcode/api/lessons/${id}/content`} target="_blank" rel="noopener noreferrer">Full-page display</a><a className="button" href={`/leetcode/api/lessons/${id}/download`} download>Download original</a>{user.role === 'parent' && <><button onClick={() => setEditing(!editing)}>Edit lesson details</button>{!record.archivedAt && <button disabled={busy} onClick={() => void update()}>Archive lesson</button>}</>}</div>
 		{(error || lesson.error) && <p className="error" role="alert">{error || lesson.error}</p>}
 		{editing && <form onSubmit={update} className="card card-pad stack"><label>Title<input name="title" defaultValue={record.title} required maxLength={200} /></label><label>Description<textarea aria-label="Description" name="description" defaultValue={record.description} maxLength={8000} /></label><label>Topics<input name="topics" defaultValue={record.topics.join(', ')} /></label><button disabled={busy}>Save lesson details</button></form>}
 		<iframe title={record.title} src={`/leetcode/api/lessons/${id}/content`} sandbox="allow-scripts" className="lesson-frame" />

@@ -81,22 +81,38 @@ test('completes learning with two accounts, two approaches, and a linked lesson'
 	} finally { await studentContext.close(); }
 });
 
-test('supports keyboard dialogs, empty states, and appearance selection', async ({ page }) => {
+const emptyStates = [
+	{ name: 'empty notebook shows the first-problem prompt', path: '/leetcode', text: 'Your first problem starts here.' },
+	{ name: 'empty library shows the empty library message', path: '/leetcode/problems', text: 'No problems match. Add a problem or change the filters.' },
+];
+for (const row of emptyStates) {
+	test(row.name, async ({ page }) => {
+		await signIn(page, 'parent');
+		await page.goto(row.path);
+		await expect(page.getByText(row.text, { exact: true })).toBeVisible();
+	});
+}
+
+test('keeps the dark appearance after a reload', async ({ page }) => {
 	await signIn(page, 'parent');
-	await expect(page.getByRole('heading', { name: 'Your first problem starts here.' })).toBeVisible();
 	await page.getByRole('button', { name: 'Dark appearance', exact: true }).click();
 	await page.reload();
 	await expect(page.locator('html')).toHaveAttribute('data-appearance', 'dark');
-	await page.getByRole('link', { name: 'Problems', exact: true }).click();
+});
+
+test('opens and closes the problem dialog with the keyboard', async ({ page }) => {
+	await signIn(page, 'parent');
+	await page.goto('/leetcode/problems');
 	await page.getByRole('button', { name: 'Add a problem', exact: true }).focus();
 	await page.keyboard.press('Enter');
 	await expect(page.getByLabel('LeetCode URL')).toBeFocused();
 	await page.keyboard.press('Escape');
 	await expect(page.getByRole('button', { name: 'Add a problem', exact: true })).toBeFocused();
-	await page.getByLabel('Search problems and notes', { exact: true }).fill('no matching problem');
-	await page.getByRole('button', { name: 'Apply filters' }).click();
-	await expect(page.getByText('No problems match. Add a problem or change the filters.')).toBeVisible();
-	await page.getByRole('link', { name: 'Lessons', exact: true }).click();
+});
+
+test('rejects an oversized lesson file', async ({ page }) => {
+	await signIn(page, 'parent');
+	await page.goto('/leetcode/lessons');
 	await page.getByLabel('Title', { exact: true }).fill('Oversized file');
 	await page.getByLabel('HTML file').setInputFiles({ name: 'large.html', mimeType: 'text/html', buffer: Buffer.alloc(1_000_001, 'x') });
 	await page.getByRole('button', { name: 'Upload and preview' }).click();

@@ -32,7 +32,7 @@ export function Layout({ user, children, logout }: { user: SessionUser; children
 }
 
 export function App() {
-	const [user, setUser] = useState<SessionUser | null>(null);
+	const [user, setUser] = useState(() => JSON.parse(document.getElementById('session')?.textContent ?? 'null') as SessionUser | null);
 	const [error, setError] = useState('');
 	const guard = useRef<LeaveGuard | null>(null);
 	const registerGuard = useCallback((value: LeaveGuard | null) => { guard.current = value; }, []);
@@ -43,7 +43,8 @@ export function App() {
 			const url = new URL(anchor.href);
 			if (url.origin !== location.origin) return;
 			event.preventDefault();
-			if (await guard.current.flush()) location.assign(url.href);
+			if (!(await guard.current.flush())) { if (!confirm('Discard unsaved work and leave this page?')) return; guard.current.discard(); }
+			location.assign(url.href);
 		}
 		document.addEventListener('click', navigate);
 		return () => document.removeEventListener('click', navigate);
@@ -53,12 +54,11 @@ export function App() {
 		function check() {
 			setUser(null);
 			api<SessionUser>('/session').then(setUser).catch(error => {
-				if (error instanceof ApiError && error.status === 401) location.replace(`/leetcode/login?return=${encodeURIComponent(location.pathname)}`);
+				if (error instanceof ApiError && error.status === 401) location.replace(`/leetcode/login?return=${encodeURIComponent(location.pathname + location.search)}`);
 				else setError(message(error));
 			});
 		}
 		function restored(event: PageTransitionEvent) { if (event.persisted) check(); }
-		check();
 		window.addEventListener('pageshow', restored);
 		return () => window.removeEventListener('pageshow', restored);
 	}, []);

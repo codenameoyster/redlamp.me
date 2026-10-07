@@ -1,4 +1,5 @@
 import type { Env } from '../index';
+import { NOTEBOOK_PAGE } from '../../shared/leetcode';
 import { renderShell } from './shell';
 import { handleSession, readSession } from './auth';
 import { HttpError, methods } from './http';
@@ -12,9 +13,8 @@ export function isNotebookPath(path: string): boolean {
 	return path === '/leetcode' || path === '/leetcode.html' || path.startsWith('/leetcode/');
 }
 
-async function route(request: Request, env: Env): Promise<Response> {
+async function route(request: Request, env: Env, path: string): Promise<Response> {
 	const url = new URL(request.url);
-	const path = decodeURIComponent(url.pathname);
 	if (path.startsWith('/leetcode/assets/')) return env.ASSETS.fetch(request);
 	const read = ['GET', 'HEAD'].includes(request.method);
 	if (url.hostname === 'www.redlamp.me') {
@@ -33,22 +33,22 @@ async function route(request: Request, env: Env): Promise<Response> {
 		throw new HttpError(404, 'not_found', 'This notebook request does not exist.');
 	}
 	methods(request, ['GET', 'HEAD']);
-	if (!user) return new Response(null, { status: 302, headers: { Location: `/leetcode/login?return=${encodeURIComponent(path)}` } });
 	const canonical = path.replace(/\.html$/, '').replace(/\/index$/, '').replace(/\/$/, '');
-	if (!/^\/leetcode(?:\/(?:problems|homework|lessons)(?:\/[a-f0-9-]{36}(?:\/review)?)?)?$/.test(canonical)) throw new HttpError(404, 'not_found', 'This notebook page does not exist.');
-	if (canonical !== path) return new Response(null, { status: 302, headers: { Location: canonical } });
-	return renderShell(url.origin);
+	if (!user) return new Response(null, { status: 302, headers: { Location: `/leetcode/login?return=${encodeURIComponent(canonical + url.search)}` } });
+	if (!NOTEBOOK_PAGE.test(canonical)) throw new HttpError(404, 'not_found', 'This notebook page does not exist.');
+	if (canonical !== path) return new Response(null, { status: 302, headers: { Location: canonical + url.search } });
+	return renderShell(url.origin, user);
 }
 
-export async function handleNotebook(request: Request, env: Env): Promise<Response> {
+export async function handleNotebook(request: Request, env: Env, path: string): Promise<Response> {
 	let response: Response;
-	try { response = await route(request, env); }
+	try { response = await route(request, env, path); }
 	catch (error) {
 		if (!(error instanceof HttpError)) console.error('Notebook request failed.', { type: error instanceof Error ? error.name : 'unknown', requestId: request.headers.get('cf-ray') });
 		const failure = error instanceof HttpError ? error : new HttpError(503, 'unavailable', 'The notebook is unavailable. Keep your work and try again.');
 		response = Response.json({ error: { code: failure.code, message: failure.status === 405 ? 'This method is not available.' : failure.message, fields: failure.fields } }, { status: failure.status, headers: failure.status === 405 ? { Allow: failure.message } : {} });
 	}
-	if (new URL(request.url).pathname.startsWith('/leetcode/assets/')) return response;
+	if (path.startsWith('/leetcode/assets/')) return response;
 	response.headers.set('Cache-Control', 'private, no-store');
 	response.headers.set('X-Content-Type-Options', 'nosniff');
 	response.headers.set('X-Robots-Tag', 'noindex, nofollow');

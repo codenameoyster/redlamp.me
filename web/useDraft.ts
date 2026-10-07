@@ -27,26 +27,26 @@ export function useDraft(initial: Attempt, user: SessionUser) {
 	function clearTimers() { clearTimeout(idle.current); clearTimeout(maximum.current); idle.current = maximum.current = undefined; }
 	function store() {
 		try {
-			sessionStorage.setItem(key, JSON.stringify({ attemptId: initial.id, baseVersion: confirmed.current.version, value: latest.current, editedAt: new Date().toISOString() }));
+			if (dirty()) sessionStorage.setItem(key, JSON.stringify({ attemptId: initial.id, baseVersion: confirmed.current.version, value: latest.current, editedAt: new Date().toISOString() }));
+			else sessionStorage.removeItem(key);
 			return true;
 		} catch { setStorageError('Reload recovery is unavailable. Keep this page open or copy your work.'); return false; }
 	}
 	function removeRecovery() { try { sessionStorage.removeItem(key); } catch { setStorageError('Reload recovery is unavailable.'); } }
 	function schedule() {
-		if (!enabled || pending.current || blocked.current || recovering.current || !dirty() || !alive.current) return;
+		if (!dirty()) return clearTimers();
+		if (!enabled || pending.current || blocked.current || recovering.current || !alive.current) return;
 		clearTimeout(idle.current);
 		idle.current = setTimeout(() => void save(), 1500);
 		maximum.current ??= setTimeout(() => void save(), 10_000);
 	}
 	function accept(saved: Attempt, sentText: string) {
 		confirmed.current = saved; acknowledged.current = sentText; lost.current = null;
-		if (!dirty()) removeRecovery(); else store();
-		setStatus(dirty() ? 'unsaved' : 'saved'); setError('');
+		store(); setStatus(dirty() ? 'unsaved' : 'saved'); setError('');
 	}
 	function save(): Promise<Attempt | null> {
 		if (pending.current) return pending.current;
 		if (!enabled || recovering.current || blocked.current) return Promise.resolve(null);
-		if (!dirty()) return Promise.resolve(confirmed.current);
 		clearTimers(); setStatus('saving');
 		const sent = latest.current, sentText = JSON.stringify(sent);
 		pending.current = (async () => {
@@ -61,7 +61,7 @@ export function useDraft(initial: Attempt, user: SessionUser) {
 						const server = await api<Attempt>(path);
 						const serverText = JSON.stringify(content(server));
 						if (server.state === 'draft' && (serverText === sentText || serverText === lost.current)) { accept(server, serverText); return server; }
-						setConflict(server); blocked.current = 'conflict'; setStatus('conflict');
+						conflicted(server);
 					} catch (readError) { blocked.current = 'failed'; setError(message(readError)); setStatus('unsaved'); }
 				} else {
 					blocked.current = error instanceof ApiError && error.status === 401 ? 'login' : 'failed';
@@ -82,9 +82,10 @@ export function useDraft(initial: Attempt, user: SessionUser) {
 	}
 	function change(next: DraftValue) {
 		latest.current = next; setValue(next); store();
-		if (!pending.current) setStatus(blocked.current === 'login' ? 'login_required' : blocked.current === 'conflict' ? 'conflict' : 'unsaved');
+		if (!pending.current) setStatus(blocked.current === 'login' ? 'login_required' : blocked.current === 'conflict' ? 'conflict' : dirty() ? 'unsaved' : 'saved');
 		schedule();
 	}
+	function conflicted(server: Attempt) { setConflict(server); blocked.current = 'conflict'; setStatus('conflict'); }
 	function discard() { leaving.current = true; clearTimers(); removeRecovery(); }
 	async function reload() {
 		if (!confirm('Discard your unsaved copy and use the server copy?')) return;
@@ -98,25 +99,26 @@ export function useDraft(initial: Attempt, user: SessionUser) {
 	function recover() {
 		if (!recovery) return;
 		recovering.current = false; setRecovery(null);
-		if (recovery.baseVersion !== confirmed.current.version || initial.state !== 'draft') { setConflict(confirmed.current); blocked.current = 'conflict'; }
+		// The recovered edits stay based on the recovery version until the student resolves the conflict.
+		if (recovery.baseVersion !== confirmed.current.version || initial.state !== 'draft') { conflicted(confirmed.current); confirmed.current = { ...confirmed.current, version: recovery.baseVersion }; }
 		change(recovery.value);
 	}
 	function signIn() {
 		if (!store()) return;
 		leaving.current = true;
-		location.assign(`/leetcode/login?return=${encodeURIComponent(location.pathname)}`);
+		location.assign(`/leetcode/login?return=${encodeURIComponent(location.pathname + location.search)}`);
 	}
 	useEffect(() => {
 		alive.current = true;
 		if (user.role === 'student') {
 			try {
 				const saved = JSON.parse(sessionStorage.getItem(key) ?? 'null') as Recovery | null;
-				if (saved?.value?.document?.approaches && (saved.attemptId !== initial.id || JSON.stringify(saved.value) !== acknowledged.current)) { setRecovery(saved); recovering.current = true; }
+				if (saved?.value?.document?.approaches && (saved.attemptId !== initial.id || JSON.stringify(saved.value) !== acknowledged.current)) { setRecovery(saved); recovering.current = true; } else if (saved) removeRecovery();
 			} catch { setStorageError('The recovery copy cannot be read. Keep this page open or copy your work.'); }
 		}
-		function beforeUnload(event: BeforeUnloadEvent) { if (!leaving.current && (dirty() || recovering.current)) { event.preventDefault(); event.returnValue = ''; } }
+		function beforeUnload(event: BeforeUnloadEvent) { if (!leaving.current && (dirty() || recovering.current)) event.preventDefault(); }
 		window.addEventListener('beforeunload', beforeUnload);
 		return () => { alive.current = false; clearTimers(); window.removeEventListener('beforeunload', beforeUnload); };
 	}, []);
-	return { value, change, status, error, storageError, recovery, conflict, flush, recover, reload, signIn, discard };
+	return { value, change, status, error, storageError, recovery, conflict, flush, recover, reload, signIn, discard, conflicted };
 }

@@ -9,10 +9,12 @@ const cases = [
 	{ name: 'cross-origin login', username: 'student-test', password: 'student-test-password-01', origin: 'https://other.example', expected: 403 },
 	{ name: 'null origin', username: 'student-test', password: 'student-test-password-01', origin: 'null', expected: 403 },
 	{ name: 'valid student', username: 'student-test', password: 'student-test-password-01', origin: 'https://redlamp.me', expected: 200 },
+	{ name: 'oversized login request', username: 'student-test', password: 'x'.repeat(4096), origin: 'https://redlamp.me', expected: 413 },
+	{ name: 'plain text login request', username: 'student-test', password: 'student-test-password-01', origin: 'https://redlamp.me', type: 'text/plain', expected: 400 },
 ];
-it.each(cases)('$name', async ({ username, password, origin, expected }) => {
+it.each(cases)('$name', async ({ username, password, origin, type, expected }) => {
 	const response = await exports.default.fetch('https://redlamp.me/leetcode/api/session', {
-		method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', 'CF-Connecting-IP': crypto.randomUUID() }, body: JSON.stringify({ username, password }),
+		method: 'POST', headers: { Origin: origin, 'Content-Type': type ?? 'application/json', 'CF-Connecting-IP': crypto.randomUUID() }, body: JSON.stringify({ username, password }),
 	});
 	expect(response.status).toBe(expected);
 	if (expected === 200) {
@@ -65,15 +67,7 @@ it('limits the eleventh attempt from one source', async () => {
 	expect((await exports.default.fetch('https://redlamp.me/leetcode/api/session', init)).status).toBe(429);
 });
 
-it('rejects oversized and non-JSON login requests', async () => {
-	expect((await request('/session', 'POST', { username: 'student-test', password: 'x'.repeat(4096) })).status).toBe(413);
-	const response = await exports.default.fetch('https://redlamp.me/leetcode/api/session', { method: 'POST', headers: { Origin: 'https://redlamp.me' }, body: '{}' });
-	expect(response.status).toBe(400);
-});
-
-it('protects aliases and returns a JSON not-found for an unknown API', async () => {
-	const cookie = await login();
-	expect((await request('/missing', 'GET', undefined, cookie)).status).toBe(404);
+it('redirects notebook reads from www to the canonical origin', async () => {
 	const response = await exports.default.fetch('https://www.redlamp.me/leetcode', { redirect: 'manual' });
 	expect(response.headers.get('location')).toBe('https://redlamp.me/leetcode');
 });

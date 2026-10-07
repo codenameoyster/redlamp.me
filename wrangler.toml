@@ -29,7 +29,7 @@ run_worker_first = ["/leetcode", "/leetcode/*", "/leetcode.html"]
 
 [build]
 command = "bun run build"
-watch_dir = ["src", "web", "shared"]
+watch_dir = ["src", "web", "shared", "public"]
 
 [dev]
 port = 8787

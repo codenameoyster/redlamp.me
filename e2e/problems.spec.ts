@@ -19,3 +19,15 @@ test('adds metadata and finds the problem by its summary', async ({ page }) => {
 	await page.getByRole('button', { name: 'Apply filters' }).click();
 	await expect(page.getByRole('link', { name: 'Minimum Window Substring', exact: true })).toBeVisible();
 });
+
+test('restores an archived problem to the active library', async ({ page, notebook }) => {
+	const question = new Promise<string>(resolve => page.once('dialog', dialog => { resolve(dialog.message()); void dialog.accept(); }));
+	await page.getByRole('button', { name: 'Archive problem', exact: true }).click();
+	expect(await question).toBe('Archive this problem? You can restore it later.');
+	await expect(page.getByText('Archived', { exact: true })).toBeVisible();
+	await page.getByRole('button', { name: 'Restore problem', exact: true }).click();
+	await expect(page.getByText('Archived', { exact: true })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Archive problem', exact: true })).toBeVisible();
+	await page.getByRole('link', { name: 'Problems', exact: true }).click();
+	await expect(page.getByRole('link', { name: notebook.problem.title, exact: true })).toBeVisible();
+});

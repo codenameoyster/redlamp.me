@@ -13,7 +13,7 @@ export function Review({ id, user }: { id: string; user: SessionUser }) {
 	const history = useResource<Page<Revision>>(`/problems/${id}/reviews?offset=${offset}`);
 	async function save() {
 		setBusy(true); setError(''); setSaved(false);
-		try { await api(`/problems/${id}/reviews`, { method: 'POST', body: JSON.stringify({ version: problem.data!.version, result, note, reviewedOn: localDate(), nextReviewDate: date || null }) }); setSaved(true); problem.reload(); history.reload(); }
+		try { await api(`/problems/${id}/reviews`, { method: 'POST', body: JSON.stringify({ version: problem.data!.progressVersion, result, note, reviewedOn: localDate(), nextReviewDate: date || null }) }); setSaved(true); problem.reload(); history.reload(); }
 		catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
 	const record = problem.data;

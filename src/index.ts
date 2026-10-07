@@ -13,7 +13,7 @@ export default {
 		let path: string;
 		try { path = decodeURIComponent(new URL(request.url).pathname); }
 		catch { return new Response('Invalid URL.', { status: 400 }); }
-		if (isNotebookPath(path)) return handleNotebook(request, env);
+		if (isNotebookPath(path)) return handleNotebook(request, env, path);
 		return env.ASSETS.fetch(request);
 	},
 };

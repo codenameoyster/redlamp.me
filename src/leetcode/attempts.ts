@@ -28,6 +28,14 @@ function documentValue(value: unknown): AttemptDocument {
 	}
 	return doc as unknown as AttemptDocument;
 }
+function attemptSearch(document: AttemptDocument): string {
+	return searchText([document.notes, ...document.approaches.flatMap(a => [a.label, a.idea, a.correctness, a.timeComplexity, a.spaceComplexity, a.edgeCases, a.mistakes])].join(' '));
+}
+// Run directly after the statement that finalizes the attempt: changes() reads its row count. https://www.sqlite.org/lang_corefunc.html#changes
+export function saveProgress(env: Env, problemId: string, attemptId: string, data: Record<string, unknown>, now: string): D1PreparedStatement {
+	const hasDate = Object.hasOwn(data, 'nextReviewDate');
+	return env.DB.prepare('UPDATE problems SET understanding=(SELECT understanding FROM attempts WHERE id=?),next_review_date=CASE WHEN ? THEN ? ELSE next_review_date END,progress_version=progress_version+1,updated_at=? WHERE id=? AND changes()=1').bind(attemptId, hasDate ? 1 : 0, hasDate ? calendarDate(data.nextReviewDate) : null, now, problemId);
+}
 
 export async function handleAttempts(request: Request, env: Env, user: SessionUser): Promise<Response | null> {
 	const url = new URL(request.url);
@@ -36,7 +44,7 @@ export async function handleAttempts(request: Request, env: Env, user: SessionUs
 	const problemId = uuid(match[1]);
 	const id = match[2] ? uuid(match[2]) : null;
 	methods(request, id ? match[3] ? ['POST'] : ['GET', 'PUT'] : ['GET', 'POST']);
-	await getProblem(env, problemId);
+	if (request.method === 'GET' || !id) await getProblem(env, problemId);
 	if (request.method === 'GET') {
 		if (id) return Response.json(await getAttempt(env, problemId, id));
 		const { limit, offset } = pagination(url);
@@ -52,22 +60,20 @@ export async function handleAttempts(request: Request, env: Env, user: SessionUs
 		const document = source ? { ...source.document, approaches: source.document.approaches.map(approach => ({ ...approach, id: crypto.randomUUID() })) } : { notes: '', approaches: [newApproach()] };
 		const newId = crypto.randomUUID();
 		const result = await env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'draft',?,?,?,?,?,?) ON CONFLICT DO NOTHING")
-			.bind(newId, problemId, JSON.stringify(document), searchText(JSON.stringify(document)), source?.acceptance ?? 'not_submitted', source?.understanding ?? 'needs_practice', now, now).run();
+			.bind(newId, problemId, JSON.stringify(document), attemptSearch(document), source?.acceptance ?? 'not_submitted', source?.understanding ?? 'needs_practice', now, now).run();
 		if (!result.meta.changes) {
 			const draft = await env.DB.prepare("SELECT id FROM attempts WHERE problem_id=? AND state='draft'").bind(problemId).first<{ id: string }>();
 			throw new HttpError(409, 'draft_exists', 'Open the current draft before starting another attempt.', { attemptId: draft!.id });
 		}
 		return Response.json(await getAttempt(env, problemId, newId), { status: 201 });
 	}
-	await getAttempt(env, problemId, id);
 	if (match[3]) {
 		const data = object(await readJson(request), ['version', 'nextReviewDate']);
-		const hasDate = Object.hasOwn(data, 'nextReviewDate');
-		const date = hasDate ? calendarDate(data.nextReviewDate) : null;
 		const results = await env.DB.batch([
 			env.DB.prepare("UPDATE attempts SET state='saved',version=version+1,saved_at=?,updated_at=? WHERE id=? AND problem_id=? AND state='draft' AND version=?").bind(now, now, id, problemId, integer(data.version)),
-			env.DB.prepare('UPDATE problems SET understanding=(SELECT understanding FROM attempts WHERE id=?),next_review_date=CASE WHEN ? THEN ? ELSE next_review_date END,version=version+1,updated_at=? WHERE id=? AND changes()=1').bind(id, hasDate ? 1 : 0, date, now, problemId),
+			saveProgress(env, problemId, id, data, now),
 		]);
+		if (!results[0].meta.changes) await getAttempt(env, problemId, id);
 		changed(results[0]);
 		return Response.json(await getAttempt(env, problemId, id));
 	}
@@ -77,8 +83,7 @@ export async function handleAttempts(request: Request, env: Env, user: SessionUs
 	if (new TextEncoder().encode(serialized).byteLength > MAX_DOCUMENT_BYTES) throw new HttpError(413, 'too_large', 'Keep this attempt within 256,000 bytes.');
 	const acceptance = choice(data.acceptance, ['not_submitted', 'not_accepted', 'accepted']);
 	const understanding = choice(data.understanding, ['needs_practice', 'with_help', 'independent']);
-	const search = searchText([document.notes, ...document.approaches.flatMap(a => [a.label, a.idea, a.correctness, a.timeComplexity, a.spaceComplexity, a.edgeCases, a.mistakes])].join(' '));
-	const row = await env.DB.prepare(`UPDATE attempts SET document=?,search_text=?,acceptance=?,understanding=?,version=version+1,updated_at=? WHERE id=? AND problem_id=? AND state='draft' AND version=? RETURNING ${attemptColumns},document`).bind(serialized, search, acceptance, understanding, now, id, problemId, integer(data.version)).first<AttemptRow>();
-	if (!row) throw new HttpError(409, 'conflict', 'This draft changed. Compare your work with the saved copy.');
+	const row = await env.DB.prepare(`UPDATE attempts SET document=?,search_text=?,acceptance=?,understanding=?,version=version+1,updated_at=? WHERE id=? AND problem_id=? AND state='draft' AND version=? RETURNING ${attemptColumns},document`).bind(serialized, attemptSearch(document), acceptance, understanding, now, id, problemId, integer(data.version)).first<AttemptRow>();
+	if (!row) { await getAttempt(env, problemId, id); throw new HttpError(409, 'conflict', 'This draft changed. Compare your work with the saved copy.'); }
 	return Response.json(attemptValue(row));
 }

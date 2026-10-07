@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import * as dates from '../shared/dates';
+import type { Dashboard, Problem } from '../shared/leetcode';
 import { login, request } from './client';
 
 let cookie: string, first: string;
@@ -32,20 +33,18 @@ it('counts accepted problems separately from current understanding', async () =>
 	expect(await dashboard.json()).toMatchObject({ counts: { recorded: 3, solved: 2, independent: 1 }, topics: [{ topic: 'Arrays', solved: 2, independent: 1 }, { topic: 'Graphs', solved: 1, independent: 0 }] });
 	const value = { version: 1, result: 'needs_practice', note: 'Missed the invariant.', reviewedOn: '2026-10-07', nextReviewDate: '2026-10-08' };
 	expect((await request(`/problems/${first}/reviews`, 'POST', value, cookie)).status).toBe(201);
-	expect((await request(`/problems/${first}/reviews`, 'POST', value, cookie)).status).toBe(409);
-	expect(await env.DB.prepare('SELECT count(*) AS count FROM reviews').first()).toEqual({ count: 1 });
 	expect(await (await request('/dashboard?today=2026-10-07', 'GET', undefined, cookie)).json()).toMatchObject({ counts: { solved: 2, independent: 0 } });
 	expect(await (await request(`/problems/${first}`, 'GET', undefined, cookie)).json()).toMatchObject({ solved: true, understanding: 'needs_practice', nextReviewDate: '2026-10-08' });
 });
 
 it.each([
-	{ name: 'before due day', today: '2026-10-06', dueReviews: 0, overdueHomework: 0 },
-	{ name: 'same-day revision and homework', today: '2026-10-07', dueReviews: 3, overdueHomework: 0 },
-	{ name: 'homework overdue the next day', today: '2026-10-08', dueReviews: 3, overdueHomework: 1 },
-])('$name', async ({ today, dueReviews, overdueHomework }) => {
+	{ name: 'before due day', today: '2026-10-06', dueReviews: 0 },
+	{ name: 'same-day revision', today: '2026-10-07', dueReviews: 3 },
+	{ name: 'revision overdue the next day', today: '2026-10-08', dueReviews: 3 },
+])('$name', async ({ today, dueReviews }) => {
 	const response = await request(`/dashboard?today=${today}`, 'GET', undefined, cookie);
 	expect(response.status).toBe(200);
-	expect(await response.json()).toMatchObject({ counts: { dueReviews, overdueHomework } });
+	expect((await response.json() as Dashboard).counts).toEqual({ recorded: 3, solved: 2, independent: 1, waitingReview: 0, dueReviews });
 });
 
 it.each([
@@ -54,17 +53,44 @@ it.each([
 	{ name: 'timestamp in place of date', today: '2026-10-07T00:00:00Z' },
 ])('$name', async ({ today }) => { expect((await request(`/dashboard?today=${today}`, 'GET', undefined, cookie)).status).toBe(400); });
 
-it('clears reminders, checks versions, and denies parent progress writes', async () => {
-	const path = `/problems/${first}/review-date`;
-	expect((await request(path, 'PATCH', { version: 1, nextReviewDate: '2026-02-30' }, cookie)).status).toBe(400);
-	expect((await request(path, 'PATCH', { version: 1, nextReviewDate: null }, await login('parent'))).status).toBe(403);
-	expect((await request(path, 'PATCH', { version: 1, nextReviewDate: null }, cookie)).status).toBe(200);
-	expect((await request(path, 'PATCH', { version: 1, nextReviewDate: '2026-10-09' }, cookie)).status).toBe(409);
-	expect(await (await request(`/problems/${first}`, 'GET', undefined, cookie)).json()).toMatchObject({ nextReviewDate: null, understanding: 'independent' });
+it.each([
+	{ name: 'parent review', role: 'parent', nextReviewDate: '2026-10-08', expected: 403 },
+	{ name: 'impossible next review date', role: 'student', nextReviewDate: '2026-02-30', expected: 400 },
+])('$name', async ({ role, nextReviewDate, expected }) => {
+	const value = { version: 1, result: 'with_help', note: '', reviewedOn: '2026-10-07', nextReviewDate };
+	expect((await request(`/problems/${first}/reviews`, 'POST', value, role === 'student' ? cookie : await login('parent'))).status).toBe(expected);
+	expect(await env.DB.prepare('SELECT count(*) AS count FROM reviews').first()).toEqual({ count: 0 });
 });
 
-it('excludes archived problems and avoids counting repeated accepted attempts', async () => {
-	await env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'saved','{}','','accepted','independent','now','now')").bind(crypto.randomUUID(), first).run();
-	await env.DB.prepare("UPDATE problems SET archived_at='now' WHERE slug='three'").run();
-	expect(await (await request('/dashboard?today=2026-10-07', 'GET', undefined, cookie)).json()).toMatchObject({ counts: { recorded: 2, solved: 2, independent: 1, dueReviews: 2 } });
+it.each([
+	{ name: 'repeated accepted attempt counts one solved problem', change: 'attempt', counts: { recorded: 3, solved: 2, independent: 1, dueReviews: 3 } },
+	{ name: 'archived problem leaves the counts', change: 'archive', counts: { recorded: 2, solved: 2, independent: 1, dueReviews: 2 } },
+	{ name: 'submitted homework waits for review', change: 'submit', counts: { waitingReview: 1 } },
+	{ name: 'archived problem hides submitted homework', change: 'submit archived', counts: { waitingReview: 0 } },
+])('$name', async ({ change, counts }) => {
+	if (change === 'attempt') await env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'saved','{}','','accepted','independent','now','now')").bind(crypto.randomUUID(), first).run();
+	if (change === 'archive') await env.DB.prepare("UPDATE problems SET archived_at='now' WHERE slug='three'").run();
+	if (change.startsWith('submit')) await env.DB.prepare("UPDATE homework SET state='submitted'").run();
+	if (change === 'submit archived') await env.DB.prepare("UPDATE problems SET archived_at='now' WHERE id=?").bind(first).run();
+	expect(await (await request('/dashboard?today=2026-10-07', 'GET', undefined, cookie)).json()).toMatchObject({ counts });
+});
+
+it.each([
+	{ name: 'parent edit after a student save', earlier: 'save', later: 'edit', expected: 200, fields: { version: 2, progressVersion: 2 }, reviews: 0 },
+	{ name: 'student review after a parent edit', earlier: 'edit', later: 'review', expected: 201, fields: { version: 2, progressVersion: 2, nextReviewDate: null }, reviews: 1 },
+	{ name: 'second review with the same progress version', earlier: 'review', later: 'review', expected: 409, fields: { version: 1, progressVersion: 2 }, reviews: 1 },
+	{ name: 'parent edit after a homework submission of a draft', earlier: 'submit', later: 'edit', expected: 200, fields: { version: 2, progressVersion: 2 }, reviews: 0 },
+])('$name', async ({ earlier, later, expected, fields, reviews }) => {
+	const draftId = crypto.randomUUID(), parent = await login('parent');
+	await env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'draft',?,'','accepted','with_help','now','now')").bind(draftId, first, JSON.stringify({ notes: 'Explain the invariant.', approaches: [] })).run();
+	const homework = await env.DB.prepare('SELECT id FROM homework').first<{ id: string }>();
+	const problem = await (await request(`/problems/${first}`, 'GET', undefined, cookie)).json() as Problem;
+	const write = (kind: string) => kind === 'save' ? request(`/problems/${first}/attempts/${draftId}/save`, 'POST', { version: 1 }, cookie)
+		: kind === 'submit' ? request(`/homework/${homework!.id}/submit`, 'POST', { version: 1, attemptId: draftId, attemptVersion: 1 }, cookie)
+		: kind === 'edit' ? request(`/problems/${first}`, 'PATCH', { url: 'https://leetcode.com/problems/one/', number: null, title: 'Edited', difficulty: 'medium', topics: [], summary: '', version: problem.version }, parent)
+		: request(`/problems/${first}/reviews`, 'POST', { version: problem.progressVersion, result: 'with_help', note: '', reviewedOn: '2026-10-07', nextReviewDate: null }, cookie);
+	expect((await write(earlier)).ok).toBe(true);
+	expect((await write(later)).status).toBe(expected);
+	expect(await (await request(`/problems/${first}`, 'GET', undefined, cookie)).json()).toMatchObject(fields);
+	expect(await env.DB.prepare('SELECT count(*) AS count FROM reviews').first()).toEqual({ count: reviews });
 });

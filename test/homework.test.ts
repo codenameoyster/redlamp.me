@@ -50,29 +50,51 @@ it.each([
 	expect((await request(`/homework/${homeworkId}/submit`, 'POST', { version: 1, attemptId, attemptVersion: 1 }, student)).status).toBe(409);
 	expect(await env.DB.prepare('SELECT state,version FROM attempts').first()).toEqual({ state: 'draft', version: attemptVersion });
 	expect(await env.DB.prepare('SELECT count(*) AS count FROM submissions').first()).toEqual({ count: 0 });
+	expect(await (await request(`/problems/${problemId}`, 'GET', undefined, student)).json()).toMatchObject({ understanding: 'needs_practice', progressVersion: 1 });
 });
 
-it('keeps review decisions attached to the exact submission', async () => {
-	const submit = await request(`/homework/${homeworkId}/submit`, 'POST', { version: 1, attemptId, attemptVersion: 1 }, student);
-	expect(submit.status).toBe(200);
-	const record = await submit.json() as { submissionId: string };
-	expect((await request(`/homework/${homeworkId}/submit`, 'POST', { version: 1, attemptId, attemptVersion: 1 }, student)).status).toBe(409);
-	expect((await request(`/homework/${homeworkId}/review`, 'POST', { version: 2, submissionId: record.submissionId, decision: 'changes_requested', body: '  ' }, parent)).status).toBe(400);
-	expect((await request(`/homework/${homeworkId}/review`, 'POST', { version: 2, submissionId: crypto.randomUUID(), decision: 'completed', body: '' }, parent)).status).toBe(409);
-	const decision = { version: 2, submissionId: record.submissionId, decision: 'changes_requested', body: 'Add a proof.' };
-	expect((await request(`/homework/${homeworkId}/review`, 'POST', decision, parent)).status).toBe(200);
-	expect((await request(`/homework/${homeworkId}/review`, 'POST', decision, parent)).status).toBe(409);
+it.each([
+	{ name: 'blank change request', current: true, decision: 'changes_requested', body: '  ', expected: 400 },
+	{ name: 'review of another submission', current: false, decision: 'completed', body: '', expected: 409 },
+])('$name', async ({ current, decision, body, expected }) => {
+	const record = await (await request(`/homework/${homeworkId}/submit`, 'POST', { version: 1, attemptId, attemptVersion: 1 }, student)).json() as { submissionId: string };
+	expect((await request(`/homework/${homeworkId}/review`, 'POST', { version: 2, submissionId: current ? record.submissionId : crypto.randomUUID(), decision, body }, parent)).status).toBe(expected);
+	expect(await env.DB.prepare('SELECT state,version FROM homework').first()).toEqual({ state: 'submitted', version: 2 });
+	expect(await env.DB.prepare('SELECT count(*) AS count FROM feedback').first()).toEqual({ count: 0 });
+});
+
+it('rejects a repeated submission', async () => {
+	const submit = () => request(`/homework/${homeworkId}/submit`, 'POST', { version: 1, attemptId, attemptVersion: 1 }, student);
+	expect((await submit()).status).toBe(200);
+	expect((await submit()).status).toBe(409);
+});
+
+it('rejects a repeated review decision', async () => {
+	const record = await (await request(`/homework/${homeworkId}/submit`, 'POST', { version: 1, attemptId, attemptVersion: 1 }, student)).json() as { submissionId: string };
+	const review = () => request(`/homework/${homeworkId}/review`, 'POST', { version: 2, submissionId: record.submissionId, decision: 'changes_requested', body: 'Add a proof.' }, parent);
+	expect((await review()).status).toBe(200);
+	expect((await review()).status).toBe(409);
 	expect(await env.DB.prepare('SELECT count(*) AS count FROM feedback').first()).toEqual({ count: 1 });
 });
 
-it('rejects empty work and work from another problem', async () => {
-	await env.DB.prepare("UPDATE attempts SET document=json_set(document,'$.notes','')").run();
-	expect((await request(`/homework/${homeworkId}/submit`, 'POST', { version: 1, attemptId, attemptVersion: 1 }, student)).status).toBe(400);
-	expect((await request(`/homework/${homeworkId}/submit`, 'POST', { version: 1, attemptId: crypto.randomUUID(), attemptVersion: 1 }, student)).status).toBe(404);
+it.each([
+	{ name: 'submission of empty work', empty: true, unknownAttempt: false, expected: 400 },
+	{ name: 'submission of an unknown attempt', empty: false, unknownAttempt: true, expected: 404 },
+])('$name', async ({ empty, unknownAttempt, expected }) => {
+	if (empty) await env.DB.prepare("UPDATE attempts SET document=json_set(document,'$.notes','')").run();
+	expect((await request(`/homework/${homeworkId}/submit`, 'POST', { version: 1, attemptId: unknownAttempt ? crypto.randomUUID() : attemptId, attemptVersion: 1 }, student)).status).toBe(expected);
 });
 
-it.each([{ name: 'student cannot assign', role: 'student', expected: 403 }, { name: 'one active assignment', role: 'parent', expected: 409 }])('$name', async ({ role, expected }) => {
-	expect((await request('/homework', 'POST', { problemId, instructions: '', dueDate: null }, role === 'parent' ? parent : student)).status).toBe(expected);
+it.each([
+	{ name: 'student cannot assign', role: 'student', known: true, archived: false, expected: 403, error: { code: 'forbidden' } },
+	{ name: 'one active assignment', role: 'parent', known: true, archived: false, expected: 409, error: { code: 'active_homework', message: 'This problem already has active homework. Complete or cancel it first.' } },
+	{ name: 'assignment for an archived problem', role: 'parent', known: true, archived: true, expected: 409, error: { code: 'archived', message: 'Restore this problem before you assign homework.' } },
+	{ name: 'assignment for an unknown problem', role: 'parent', known: false, archived: false, expected: 404, error: { code: 'not_found' } },
+])('$name', async ({ role, known, archived, expected, error }) => {
+	if (archived) await env.DB.batch([env.DB.prepare("UPDATE homework SET state='completed'"), env.DB.prepare("UPDATE problems SET archived_at='now'")]);
+	const response = await request('/homework', 'POST', { problemId: known ? problemId : crypto.randomUUID(), instructions: '', dueDate: null }, role === 'parent' ? parent : student);
+	expect(response.status).toBe(expected);
+	expect(await response.json()).toMatchObject({ error });
 });
 
 it.each([{ name: 'parent reply after completion', role: 'parent' }, { name: 'student reply after completion', role: 'student' }])('$name', async ({ role }) => {

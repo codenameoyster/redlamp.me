@@ -3,7 +3,7 @@ import type { Problem, ProblemInput } from '../../shared/leetcode';
 import { calendarDate, changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, topics, uuid } from './http';
 
 export const solvedSQL = "EXISTS(SELECT 1 FROM attempts a WHERE a.problem_id=p.id AND a.state='saved' AND a.acceptance='accepted')";
-export const problemColumns = `p.id,p.slug,p.number,p.title,p.difficulty,p.topics,p.summary,p.version,p.understanding,
+export const problemColumns = `p.id,p.slug,p.number,p.title,p.difficulty,p.topics,p.summary,p.version,p.progress_version AS progressVersion,p.understanding,
 p.next_review_date AS nextReviewDate,p.archived_at AS archivedAt,p.created_at AS createdAt,p.updated_at AS updatedAt,${solvedSQL} AS solved`;
 type ProblemRow = Omit<Problem, 'topics' | 'url' | 'solved'> & { topics: string; solved: number };
 export function problemValue(row: ProblemRow): Problem { return { ...row, topics: JSON.parse(row.topics), solved: Boolean(row.solved), url: `https://leetcode.com/problems/${row.slug}/` }; }
@@ -25,7 +25,7 @@ function metadata(data: Record<string, unknown>): ProblemInput & { slug: string 
 
 export async function handleProblems(request: Request, env: Env): Promise<Response | null> {
 	const url = new URL(request.url);
-	const match = /^\/leetcode\/api\/problems(?:\/([^/]+)(\/archive)?)?$/.exec(url.pathname);
+	const match = /^\/leetcode\/api\/problems(?:\/([^/]+)(?:\/(archive|restore))?)?$/.exec(url.pathname);
 	if (!match) return null;
 	const id = match[1] ? uuid(match[1]) : null;
 	methods(request, id ? match[2] ? ['POST'] : ['GET', 'PATCH'] : ['GET', 'POST']);
@@ -48,8 +48,14 @@ export async function handleProblems(request: Request, env: Env): Promise<Respon
 	const data = object(await readJson(request), match[2] ? ['version'] : ['url', 'number', 'title', 'difficulty', 'topics', 'summary', ...(id ? ['version'] : [])]);
 	const now = new Date().toISOString();
 	if (id) await getProblem(env, id);
+	if (match[2] === 'restore') {
+		changed(await env.DB.prepare('UPDATE problems SET archived_at=NULL,version=version+1,updated_at=? WHERE id=? AND version=?').bind(now, id, integer(data.version)).run());
+		return Response.json(await getProblem(env, id!));
+	}
 	if (match[2]) {
-		changed(await env.DB.prepare("UPDATE problems SET archived_at=?,version=version+1,updated_at=? WHERE id=? AND version=? AND NOT EXISTS(SELECT 1 FROM homework WHERE problem_id=? AND state NOT IN ('completed','cancelled'))").bind(now, now, id, integer(data.version), id).run());
+		const result = await env.DB.prepare("UPDATE problems SET archived_at=?,version=version+1,updated_at=? WHERE id=? AND version=? AND NOT EXISTS(SELECT 1 FROM homework WHERE problem_id=? AND state NOT IN ('completed','cancelled'))").bind(now, now, id, integer(data.version), id).run();
+		if (!result.meta.changes && await env.DB.prepare("SELECT 1 FROM homework WHERE problem_id=? AND state NOT IN ('completed','cancelled')").bind(id).first()) throw new HttpError(409, 'active_homework', 'Complete or cancel the active homework before you archive this problem.');
+		changed(result);
 		return Response.json(await getProblem(env, id!));
 	}
 	const value = metadata(data);

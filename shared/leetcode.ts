@@ -1,6 +1,7 @@
 export type Role = 'parent' | 'student';
 export interface SessionUser { role: Role; username: string }
 export interface Page<T> { items: T[]; nextOffset: number | null }
+export const NOTEBOOK_PAGE = /^\/leetcode(?:\/(?:problems|homework|lessons)(?:\/[a-f0-9-]{36}(?:\/review)?)?)?$/;
 export type Acceptance = 'not_submitted' | 'not_accepted' | 'accepted';
 export type Understanding = 'needs_practice' | 'with_help' | 'independent';
 export type Difficulty = 'easy' | 'medium' | 'hard';
@@ -16,6 +17,7 @@ export interface Problem extends ProblemInput {
 	id: string;
 	slug: string;
 	version: number;
+	progressVersion: number;
 	solved: boolean;
 	understanding: Understanding;
 	nextReviewDate: string | null;
@@ -61,7 +63,7 @@ export const MAX_LESSON_BYTES = 1_000_000;
 export const MAX_UPLOAD_BYTES = 1_032_768;
 export interface Revision { id: string; problemId: string; result: Understanding; note: string; reviewedOn: string; nextReviewDate: string | null; createdAt: string }
 export interface Dashboard {
-	counts: { recorded: number; solved: number; independent: number; activeHomework: number; waitingReview: number; dueReviews: number; overdueHomework: number };
+	counts: { recorded: number; solved: number; independent: number; waitingReview: number; dueReviews: number };
 	topics: { topic: string; solved: number; independent: number }[];
 	homework: Homework[];
 	drafts: (AttemptSummary & { problemTitle: string })[];

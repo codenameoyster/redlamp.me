@@ -1,6 +1,6 @@
 # LeetCode notebook
 
-The private notebook at `https://redlamp.me/leetcode` supports one parent and one student. Run and submit code on LeetCode. Use this notebook for explanations, saved attempts, homework, feedback, lessons, and review reminders.
+The private notebook at `https://redlamp.me/leetcode` supports one parent and one student. Use LeetCode for code runs and submissions. Use this notebook for explanations, saved attempts, homework, feedback, lessons, and review reminders.
 
 The application uses the existing Worker, one D1 database, React, and Bun. Workers Free and D1 Free require no billing subscription for this setup.
 
@@ -28,25 +28,26 @@ For a new checkout, create `.dev.vars` with these values:
 printf 'LEETCODE_ACCOUNTS=%s\nLEETCODE_LOCAL_HTTP=1\n' "$(cat .wrangler/leetcode-accounts.json)" > .dev.vars
 ```
 
-If `.dev.vars` already exists, add or replace these two values in that file. Preserve its other values. Both `.dev.vars` and `.wrangler/` are ignored by Git. The local HTTP setting enables a separate development cookie on `localhost` and `127.0.0.1`.
+If `.dev.vars` already exists, set these two values in that file. Preserve its other values. Both `.dev.vars` and `.wrangler/` are ignored by Git. The local HTTP setting enables a separate development cookie on `localhost` and `127.0.0.1`.
 
-Apply migrations and start development:
+Apply the local migrations. Then start development:
 
 ```sh
 bunx wrangler d1 migrations apply redlamp-leetcode --local
 bun run dev
 ```
 
-Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and watches `src/`, `web/`, and `shared/`. Public site files are copied from `public/` to `dist/` during the build.
+Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and watches `src/`, `web/`, `shared/`, and `public/`. The build copies the public site files from `public/` to `dist/`.
 
 ## Use the notebook
 
 - Add a LeetCode problem with its title, difficulty, and topics.
-- As the student, start a draft and record one or more approaches. The editor autosaves changed content. Use **Save attempt** to preserve an immutable copy.
+- As the student, start a draft. A draft can hold one or more approaches. The editor autosaves changed content. Use **Save attempt** to preserve an immutable copy.
 - Record LeetCode acceptance and understanding separately. An accepted solution can still need practice.
-- As the parent, assign homework and link lessons. The student submits an exact attempt for review. The parent can request another attempt or complete the assignment.
-- Use **Recall this problem** to practise before revealing saved work. Record the result and choose the next review date.
-- If a save fails, keep the page open and use **Retry save** or **Copy unsaved work**. Reload recovery is available in the same tab when browser session storage works. Conflicting edits require an explicit choice of the server copy.
+- As the parent, assign homework. The parent can also link lessons to problems and homework. The student submits an exact attempt for review. The parent can request another attempt or complete the assignment.
+- Use **Recall this problem** to practise before revealing saved work. Record the result. Choose the next review date.
+- **Archive problem** moves a problem to **Archived problems** in the library and blocks new homework for it. **Restore problem** returns it.
+- If a save fails, keep the page open. Use **Retry save** or **Copy unsaved work**. Reload recovery is available in the same tab when browser session storage works. Conflicting edits require an explicit choice of the server copy.
 
 ## HTML lessons
 
@@ -58,24 +59,21 @@ The viewer permits inline JavaScript in an isolated frame. Its HTTP content secu
 
 Use an account with Workers Free and D1 Free. Check the account's existing usage before deployment. The application uses no R2 storage or paid service.
 
-Authenticate Wrangler and create the database:
+Authenticate Wrangler:
 
 ```sh
 bunx wrangler login
+```
+
+The `[[d1_databases]]` binding in `wrangler.toml` contains the ID of the production database. To use a new database, create it:
+
+```sh
 bunx wrangler d1 create redlamp-leetcode
 ```
 
-Copy the returned database ID into `wrangler.toml`, in the existing `[[d1_databases]]` binding:
+Then replace the `database_id` value in `wrangler.toml` with the returned ID.
 
-```toml
-[[d1_databases]]
-binding = "DB"
-database_name = "redlamp-leetcode"
-database_id = "REPLACE_WITH_THE_RETURNED_ID"
-migrations_dir = "migrations"
-```
-
-Apply remote migrations and upload the account secret:
+Apply the remote migrations. Then upload the account secret:
 
 ```sh
 bunx wrangler d1 migrations apply redlamp-leetcode --remote
@@ -94,7 +92,7 @@ Check login, logout, a normal draft save, and a 1,000,000-byte lesson upload and
 
 ## Credential rotation
 
-Run the account-generation command again with the intended usernames. Save the new passwords, then upload the new `LEETCODE_ACCOUNTS` secret. The command generates new credentials for both accounts. Changing an account's username or password digest invalidates its existing sessions. For local development, replace the account-secret value in `.dev.vars` and restart Wrangler.
+Run the account-generation command again with the intended usernames. Save the new passwords. Then upload the new `LEETCODE_ACCOUNTS` secret. The command generates new credentials for both accounts. Changing an account's username or password digest invalidates its existing sessions. For local development, replace the account-secret value in `.dev.vars`. Then restart Wrangler.
 
 ## Database export and recovery
 
@@ -112,7 +110,7 @@ bunx wrangler d1 time-travel info redlamp-leetcode
 bunx wrangler d1 time-travel info redlamp-leetcode --timestamp "2026-10-07T10:00:00+00:00"
 ```
 
-Select and check the intended point before restoring. Restore replaces the whole database, including session records. Later notebook changes are removed. Set `BOOKMARK` to the selected value from the command output, then run:
+Select the intended point. Check it before you restore the database. Restore replaces the whole database, including session records. Later notebook changes are removed. Set `BOOKMARK` to the selected value from the command output. Then run this command:
 
 ```sh
 bunx wrangler d1 time-travel restore redlamp-leetcode --bookmark "$BOOKMARK"
