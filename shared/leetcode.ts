@@ -59,6 +59,9 @@ export interface SubmitInput { version: number; attemptId: string; attemptVersio
 export interface Submission { id: string; homeworkId: string; attemptId: string; homeworkVersion: number; createdAt: string }
 export interface Feedback { id: string; problemId: string; homeworkId: string | null; submissionId: string | null; author: Role; kind: 'reply' | 'changes_requested' | 'completed'; body: string; createdAt: string }
 export interface HomeworkDetails { homework: Homework; submissions: Submission[]; feedback: Feedback[] }
+export interface Lesson { id: string; title: string; description: string; topics: string[]; filename: string; byteCount: number; archivedAt: string | null; version: number; createdAt: string; updatedAt: string }
+export const MAX_LESSON_BYTES = 1_000_000;
+export const MAX_UPLOAD_BYTES = 1_032_768;
 export function newApproach(): Approach {
 	return { id: crypto.randomUUID(), label: '', idea: '', correctness: '', timeComplexity: '', spaceComplexity: '', edgeCases: '', mistakes: '', language: '', code: '' };
 }

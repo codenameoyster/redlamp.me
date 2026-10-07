@@ -6,6 +6,7 @@ import { Problems } from './Problems';
 import { Problem } from './Problem';
 import type { LeaveGuard } from './useDraft';
 import { Homework } from './Homework';
+import { Lessons } from './Lessons';
 
 export function Layout({ user, children, logout }: { user: SessionUser; children: ReactNode; logout: () => void }) {
 	const [dark, setDark] = useState(() => {
@@ -72,6 +73,7 @@ export function App() {
 	const path = location.pathname;
 	const match = /^\/leetcode\/problems\/([a-f0-9-]{36})$/.exec(path);
 	const homework = /^\/leetcode\/homework(?:\/([a-f0-9-]{36}))?$/.exec(path);
-	const screen = path === '/leetcode/problems' ? <Problems /> : match ? <Problem id={match[1]} user={user} registerGuard={registerGuard} /> : homework ? <Homework id={homework[1]} user={user} /> : <><h1>Today</h1><p>Your learning starts with a problem.</p><a className="button primary" href="/leetcode/problems">Open problems</a></>;
+	const lessons = /^\/leetcode\/lessons(?:\/([a-f0-9-]{36}))?$/.exec(path);
+	const screen = path === '/leetcode/problems' ? <Problems /> : match ? <Problem id={match[1]} user={user} registerGuard={registerGuard} /> : homework ? <Homework id={homework[1]} user={user} /> : lessons ? <Lessons id={lessons[1]} user={user} /> : <><h1>Today</h1><p>Your learning starts with a problem.</p><a className="button primary" href="/leetcode/problems">Open problems</a></>;
 	return <Layout user={user} logout={logout}>{error && <p className="error" role="alert">{error}</p>}{screen}</Layout>;
 }

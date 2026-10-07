@@ -5,6 +5,7 @@ import { useResource } from './useResource';
 import { useDraft, type LeaveGuard, type RegisterGuard } from './useDraft';
 import { ProblemForm } from './Problems';
 import { Discussion, homeworkLabels } from './Homework';
+import { LessonLinks } from './Lessons';
 
 export const understandingLabels = { needs_practice: 'Needs practice', with_help: 'With help', independent: 'Independent' };
 export const acceptanceLabels = { not_submitted: 'Not submitted', not_accepted: 'Not accepted', accepted: 'Accepted on LeetCode' };
@@ -95,6 +96,7 @@ export function Problem({ id, user, registerGuard }: { id: string; user: Session
 		{homework.data?.items.map(h => <article className="card card-pad stack" key={h.id}><h2><a href={`/leetcode/homework/${h.id}`}>Homework: {homeworkLabels[h.state]}</a></h2><p className="prose">{h.instructions}</p></article>)}
 		{current.data ? <DraftEditor key={`${current.data.id}:${current.data.state}`} initial={current.data} user={user} registerGuard={register} nextReviewDate={record.nextReviewDate} homework={homework.data?.items[0]} saved={attempt => { setSelected(attempt.id); current.reload(); attempts.reload(); problem.reload(); homework.reload(); }} /> : <p className="empty">{attemptId ? 'Opening attempt...' : 'No attempts yet. Start an attempt to record your reasoning.'}</p>}
 		<Discussion problemId={id} />
+		<LessonLinks problemId={id} user={user} />
 		{editing && <ProblemForm problem={record} close={() => setEditing(false)} saved={() => { setEditing(false); problem.reload(); }} />}
 	</div>;
 }
