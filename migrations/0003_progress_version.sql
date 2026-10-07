@@ -1,0 +1,1 @@
+ALTER TABLE problems ADD COLUMN progress_version INTEGER NOT NULL DEFAULT 1;
