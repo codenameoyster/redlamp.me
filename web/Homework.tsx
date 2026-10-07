@@ -18,7 +18,7 @@ export function Discussion({ problemId, homeworkId, submissionId, homeworkVersio
 	}
 	return <section className="card card-pad stack"><h2>Discussion</h2>{(error || comments.error) && <p className="error" role="alert">{error || comments.error}</p>}
 		{comments.data?.items.length === 0 && <p>No feedback yet. Add a question or a learning note.</p>}
-		{comments.data?.items.map(comment => <article className="feedback" key={comment.id}><small>{comment.author} - {new Date(comment.createdAt).toLocaleString()}{comment.kind !== 'reply' && ` - ${homeworkLabels[comment.kind]}`}</small><p className="prose">{comment.body}</p>{comment.submissionId && <small>Submission: {comment.submissionId.slice(0, 8)}</small>}</article>)}
+		{comments.data?.items.map(comment => <article className={`feedback ${comment.author}`} key={comment.id}><small>{comment.author} - {new Date(comment.createdAt).toLocaleString()}{comment.kind !== 'reply' && ` - ${homeworkLabels[comment.kind]}`}</small><p className="prose">{comment.body}</p>{comment.submissionId && <small>Submission: {comment.submissionId.slice(0, 8)}</small>}</article>)}
 		<div className="row">{offset > 0 && <button onClick={() => setOffset(Math.max(0, offset - 50))}>Newer replies</button>}{comments.data?.nextOffset != null && <button onClick={() => setOffset(comments.data!.nextOffset!)}>Older replies</button>}</div>
 		<form className="stack" onSubmit={reply}><label>Reply<textarea aria-label="Reply" value={body} onChange={event => setBody(event.target.value)} required maxLength={8000} /></label><button disabled={busy}>Add reply</button></form>
 	</section>;
