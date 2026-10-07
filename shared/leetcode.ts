@@ -24,3 +24,32 @@ export interface Problem extends ProblemInput {
 	createdAt: string;
 	updatedAt: string;
 }
+export interface Approach {
+	id: string;
+	label: string;
+	idea: string;
+	correctness: string;
+	timeComplexity: string;
+	spaceComplexity: string;
+	edgeCases: string;
+	mistakes: string;
+	language: string;
+	code: string;
+}
+export interface AttemptDocument { notes: string; approaches: Approach[] }
+export interface DraftValue { document: AttemptDocument; acceptance: Acceptance; understanding: Understanding }
+export interface DraftUpdate extends DraftValue { version: number }
+export interface Attempt extends DraftValue {
+	id: string;
+	problemId: string;
+	state: 'draft' | 'saved';
+	version: number;
+	createdAt: string;
+	updatedAt: string;
+	savedAt: string | null;
+}
+export type AttemptSummary = Omit<Attempt, 'document'>;
+export const MAX_DOCUMENT_BYTES = 256_000;
+export function newApproach(): Approach {
+	return { id: crypto.randomUUID(), label: '', idea: '', correctness: '', timeComplexity: '', spaceComplexity: '', edgeCases: '', mistakes: '', language: '', code: '' };
+}
