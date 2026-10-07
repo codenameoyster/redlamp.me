@@ -6,7 +6,11 @@ import { useResource } from './useResource';
 export function ProblemForm({ problem, close, saved }: { problem?: Problem; close: () => void; saved: (problem: Problem) => void }) {
 	const dialog = useRef<HTMLDialogElement>(null);
 	const [error, setError] = useState(''), [busy, setBusy] = useState(false);
-	useEffect(() => { dialog.current?.showModal(); }, []);
+	useEffect(() => {
+		const previous = document.activeElement, element = dialog.current;
+		element?.showModal();
+		return () => { element?.close(); if (previous instanceof HTMLElement) previous.focus(); };
+	}, []);
 	async function submit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault(); setBusy(true); setError('');
 		const form = new FormData(event.currentTarget);

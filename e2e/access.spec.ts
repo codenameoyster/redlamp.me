@@ -17,3 +17,18 @@ test('protects direct paths and serves the public site', async ({ page, request 
 	expect((await request.get('/')).status()).toBe(200);
 	expect((await request.get('/leetcode/assets/main.js')).status()).toBe(200);
 });
+
+const aliases = [
+	{ name: 'notebook slash', path: '/leetcode/' },
+	{ name: 'notebook index', path: '/leetcode/index.html' },
+	{ name: 'root HTML alias', path: '/leetcode.html' },
+	{ name: 'library HTML alias', path: '/leetcode/problems.html' },
+];
+for (const { name, path } of aliases) {
+	test(`${name} requires login with real assets`, async ({ request }) => {
+		const response = await request.get(path, { maxRedirects: 0 });
+		expect(response.status()).toBe(302);
+		expect(response.headers().location).toMatch(/^\/leetcode\/login/);
+		expect(response.headers()['cache-control']).toBe('private, no-store');
+	});
+}

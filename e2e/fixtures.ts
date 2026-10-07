@@ -1,8 +1,10 @@
 import { test as base, expect, type Page } from '@playwright/test';
 import { createTestHarness, type TestHarness } from 'wrangler';
 import { testAccountSecret } from '../test/fixtures';
-import type { Env } from '../src/index';
+import type { D1Database } from '@cloudflare/workers-types';
 import type { Attempt, Problem, Role } from '../shared/leetcode';
+
+export interface TestEnv { DB: D1Database }
 
 export async function signIn(page: Page, role: Role = 'student') {
 	await page.goto('/leetcode/login');
@@ -21,7 +23,7 @@ export const test = base.extend<{ reset: void; notebook: { problem: Problem; att
 	}, { scope: 'worker' }],
 	baseURL: async ({ server }, use) => { await use((await server.listen()).url.href); },
 	reset: [async ({ server }, use) => {
-		await server.getWorker<Env>().applyD1Migrations('DB');
+		await server.getWorker<TestEnv>().applyD1Migrations('DB');
 		try { await use(); } finally { await server.reset(); }
 	}, { auto: true }],
 	notebook: async ({ page, baseURL }, use) => {

@@ -1,5 +1,4 @@
-import { test, expect, signIn } from './fixtures';
-import type { Env } from '../src/index';
+import { test, expect, signIn, type TestEnv } from './fixtures';
 
 test('keeps edits made during a pending save', async ({ page, notebook }) => {
 	let release!: () => void, entered!: () => void;
@@ -60,7 +59,7 @@ test('recovers after the same account signs in', async ({ page, server, notebook
 	await expect(page.getByLabel('Key idea', { exact: true })).toBeVisible();
 	await page.clock.install();
 	await page.getByLabel('Key idea', { exact: true }).fill('Keep this unsaved explanation');
-	const { DB } = await server.getWorker<Env>().getEnv();
+	const { DB } = await server.getWorker<TestEnv>().getEnv();
 	await DB.prepare("DELETE FROM sessions WHERE role='student'").run();
 	await page.clock.runFor(1_600);
 	await expect(page.getByRole('status', { name: 'Save state' })).toHaveText('Sign in to save');
