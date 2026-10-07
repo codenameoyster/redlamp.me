@@ -41,8 +41,7 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		if (id) {
 			const homework = await getHomework(env, id);
 			const submissions = await env.DB.prepare('SELECT id,homework_id AS homeworkId,attempt_id AS attemptId,homework_version AS homeworkVersion,created_at AS createdAt FROM submissions WHERE homework_id=? ORDER BY created_at DESC,id DESC LIMIT 50').bind(id).all<Submission>();
-			const feedback = await env.DB.prepare(`SELECT ${feedbackColumns} FROM feedback WHERE homework_id=? ORDER BY created_at DESC,id DESC LIMIT 50`).bind(id).all<Feedback>();
-			return Response.json({ homework, submissions: submissions.results, feedback: feedback.results });
+			return Response.json({ homework, submissions: submissions.results });
 		}
 		const { limit, offset } = pagination(url), where = ['1=1'], args: string[] = [];
 		if (url.searchParams.has('problemId')) { where.push('h.problem_id=?'); args.push(uuid(url.searchParams.get('problemId'))); }

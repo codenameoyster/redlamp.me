@@ -1,6 +1,5 @@
 export type Role = 'parent' | 'student';
 export interface SessionUser { role: Role; username: string }
-export interface ApiFailure { error: { code: string; message: string; fields?: Record<string, string> } }
 export interface Page<T> { items: T[]; nextOffset: number | null }
 export type Acceptance = 'not_submitted' | 'not_accepted' | 'accepted';
 export type Understanding = 'needs_practice' | 'with_help' | 'independent';
@@ -38,7 +37,6 @@ export interface Approach {
 }
 export interface AttemptDocument { notes: string; approaches: Approach[] }
 export interface DraftValue { document: AttemptDocument; acceptance: Acceptance; understanding: Understanding }
-export interface DraftUpdate extends DraftValue { version: number }
 export interface Attempt extends DraftValue {
 	id: string;
 	problemId: string;
@@ -55,14 +53,12 @@ export interface Homework {
 	id: string; problemId: string; problemTitle: string; instructions: string; dueDate: string | null;
 	state: HomeworkState; submissionId: string | null; version: number; createdAt: string; updatedAt: string;
 }
-export interface SubmitInput { version: number; attemptId: string; attemptVersion: number; nextReviewDate?: string | null }
 export interface Submission { id: string; homeworkId: string; attemptId: string; homeworkVersion: number; createdAt: string }
 export interface Feedback { id: string; problemId: string; homeworkId: string | null; submissionId: string | null; author: Role; kind: 'reply' | 'changes_requested' | 'completed'; body: string; createdAt: string }
-export interface HomeworkDetails { homework: Homework; submissions: Submission[]; feedback: Feedback[] }
+export interface HomeworkDetails { homework: Homework; submissions: Submission[] }
 export interface Lesson { id: string; title: string; description: string; topics: string[]; filename: string; byteCount: number; archivedAt: string | null; version: number; createdAt: string; updatedAt: string }
 export const MAX_LESSON_BYTES = 1_000_000;
 export const MAX_UPLOAD_BYTES = 1_032_768;
-export interface RevisionInput { version: number; result: Understanding; note: string; reviewedOn: string; nextReviewDate: string | null }
 export interface Revision { id: string; problemId: string; result: Understanding; note: string; reviewedOn: string; nextReviewDate: string | null; createdAt: string }
 export interface Dashboard {
 	counts: { recorded: number; solved: number; independent: number; activeHomework: number; waitingReview: number; dueReviews: number; overdueHomework: number };
