@@ -13,6 +13,7 @@ routes = [
 [[d1_databases]]
 binding = "DB"
 database_name = "redlamp-leetcode"
+database_id = "a46590bf-fd31-4c67-b162-986f9e55f4da"
 migrations_dir = "migrations"
 
 [[ratelimits]]
