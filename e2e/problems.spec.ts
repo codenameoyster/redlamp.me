@@ -73,3 +73,19 @@ test.describe('LeetCode details', () => {
 		await expect(dialog.getByLabel('LeetCode URL')).toHaveValue(url);
 	});
 });
+
+const fieldButtons = [
+	{ name: 'aligns the link button with the lesson field', role: 'parent', field: 'Related lesson', button: 'Link lesson' },
+	{ name: 'aligns the save button with the review date field', role: 'student', field: 'Next review', button: 'Save attempt' },
+] as const;
+for (const row of fieldButtons) {
+	test(row.name, async ({ page, notebook }) => {
+		if (row.role === 'parent') await signIn(page, 'parent');
+		await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+		await expect(page.getByLabel('Key idea', { exact: true })).toBeVisible();
+		await expect(page.getByText('No lessons linked yet.', { exact: true })).toBeVisible();
+		const field = await page.getByLabel(row.field, { exact: true }).boundingBox();
+		const button = await page.getByRole('button', { name: row.button, exact: true }).boundingBox();
+		expect(Math.abs(field!.y + field!.height - (button!.y + button!.height))).toBeLessThanOrEqual(1);
+	});
+}
