@@ -4,6 +4,7 @@ import { handleSession, readSession } from './auth';
 import { HttpError, methods } from './http';
 import { handleProblems } from './problems';
 import { handleAttempts } from './attempts';
+import { handleHomework } from './homework';
 
 export function isNotebookPath(path: string): boolean {
 	return path === '/leetcode' || path === '/leetcode.html' || path.startsWith('/leetcode/');
@@ -25,7 +26,7 @@ async function route(request: Request, env: Env): Promise<Response> {
 	const user = await readSession(request, env);
 	if (path.startsWith('/leetcode/api/')) {
 		if (!user) throw new HttpError(401, 'unauthorized', 'Sign in to continue.');
-		const response = await handleProblems(request, env) ?? await handleAttempts(request, env, user);
+		const response = await handleProblems(request, env) ?? await handleAttempts(request, env, user) ?? await handleHomework(request, env, user);
 		if (response) return response;
 		throw new HttpError(404, 'not_found', 'This notebook request does not exist.');
 	}

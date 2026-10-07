@@ -50,6 +50,15 @@ export interface Attempt extends DraftValue {
 }
 export type AttemptSummary = Omit<Attempt, 'document'>;
 export const MAX_DOCUMENT_BYTES = 256_000;
+export type HomeworkState = 'assigned' | 'in_progress' | 'submitted' | 'changes_requested' | 'completed' | 'cancelled';
+export interface Homework {
+	id: string; problemId: string; problemTitle: string; instructions: string; dueDate: string | null;
+	state: HomeworkState; submissionId: string | null; version: number; createdAt: string; updatedAt: string;
+}
+export interface SubmitInput { version: number; attemptId: string; attemptVersion: number; nextReviewDate?: string | null }
+export interface Submission { id: string; homeworkId: string; attemptId: string; homeworkVersion: number; createdAt: string }
+export interface Feedback { id: string; problemId: string; homeworkId: string | null; submissionId: string | null; author: Role; kind: 'reply' | 'changes_requested' | 'completed'; body: string; createdAt: string }
+export interface HomeworkDetails { homework: Homework; submissions: Submission[]; feedback: Feedback[] }
 export function newApproach(): Approach {
 	return { id: crypto.randomUUID(), label: '', idea: '', correctness: '', timeComplexity: '', spaceComplexity: '', edgeCases: '', mistakes: '', language: '', code: '' };
 }

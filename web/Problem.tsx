@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { newApproach, type Approach, type Attempt, type AttemptSummary, type DraftValue, type Page, type Problem as ProblemRecord, type SessionUser } from '../shared/leetcode';
+import { newApproach, type Approach, type Attempt, type AttemptSummary, type DraftValue, type Homework, type Page, type Problem as ProblemRecord, type SessionUser } from '../shared/leetcode';
 import { api, ApiError, message } from './api';
 import { useResource } from './useResource';
 import { useDraft, type LeaveGuard, type RegisterGuard } from './useDraft';
 import { ProblemForm } from './Problems';
+import { Discussion, homeworkLabels } from './Homework';
 
 export const understandingLabels = { needs_practice: 'Needs practice', with_help: 'With help', independent: 'Independent' };
 export const acceptanceLabels = { not_submitted: 'Not submitted', not_accepted: 'Not accepted', accepted: 'Accepted on LeetCode' };
@@ -27,7 +28,7 @@ export function AttemptContent({ value, change }: { value: DraftValue; change?: 
 	</div>;
 }
 
-export function DraftEditor({ initial, user, registerGuard, saved, nextReviewDate }: { initial: Attempt; user: SessionUser; registerGuard: RegisterGuard; saved: (attempt: Attempt) => void; nextReviewDate: string | null }) {
+export function DraftEditor({ initial, user, registerGuard, saved, nextReviewDate, homework }: { initial: Attempt; user: SessionUser; registerGuard: RegisterGuard; saved: (attempt: Attempt) => void; nextReviewDate: string | null; homework?: Homework }) {
 	const draft = useDraft(initial, user);
 	const [busy, setBusy] = useState(false), [error, setError] = useState(''), [date, setDate] = useState(nextReviewDate ?? '');
 	const editable = user.role === 'student' && initial.state === 'draft';
@@ -40,6 +41,16 @@ export function DraftEditor({ initial, user, registerGuard, saved, nextReviewDat
 		} catch (error) { setError(message(error)); }
 		finally { setBusy(false); }
 	}
+	async function submit() {
+		setBusy(true); setError('');
+		try {
+			const persisted = await draft.flush();
+			if (persisted) {
+				await api(`/homework/${homework!.id}/submit`, { method: 'POST', body: JSON.stringify({ version: homework!.version, attemptId: persisted.id, attemptVersion: persisted.version, nextReviewDate: date || null }) });
+				saved(await api<Attempt>(`/problems/${initial.problemId}/attempts/${initial.id}`));
+			}
+		} catch (error) { setError(message(error)); } finally { setBusy(false); }
+	}
 	return <div className="stack">
 		{editable && <p role="status" aria-label="Save state" aria-live="polite">{{ saved: 'Saved', saving: 'Saving', unsaved: 'Not saved', conflict: 'Conflicting edits', login_required: 'Sign in to save' }[draft.status]}</p>}
 		{draft.storageError && <p className="notice" role="status">{draft.storageError}</p>}
@@ -48,12 +59,14 @@ export function DraftEditor({ initial, user, registerGuard, saved, nextReviewDat
 		{draft.conflict && <section className="notice stack"><h2>Server copy</h2><p>Your editor still contains your local copy. Copy it before replacing it.</p><pre>{JSON.stringify(draft.conflict.document, null, 2)}</pre><button onClick={draft.reload}>Use server copy</button></section>}
 		<fieldset disabled={busy || Boolean(draft.recovery)}><AttemptContent value={draft.value} change={editable ? draft.change : undefined} /></fieldset>
 		{editable && <div className="card card-pad row spread"><label>Next review<input type="date" value={date} onChange={event => setDate(event.target.value)} /></label><button className="primary" disabled={busy || Boolean(draft.recovery)} onClick={saveAttempt}>Save attempt</button></div>}
+		{editable && homework && ['assigned', 'in_progress', 'changes_requested'].includes(homework.state) && <button className="primary" disabled={busy || Boolean(draft.recovery)} onClick={submit}>Submit for review</button>}
 	</div>;
 }
 
 export function Problem({ id, user, registerGuard }: { id: string; user: SessionUser; registerGuard: RegisterGuard }) {
 	const problem = useResource<ProblemRecord>(`/problems/${id}`);
 	const attempts = useResource<Page<AttemptSummary>>(`/problems/${id}/attempts`);
+	const homework = useResource<Page<Homework>>(`/homework?problemId=${id}&active=1`);
 	const [selected, setSelected] = useState<string | null>(new URLSearchParams(location.search).get('attempt'));
 	const attemptId = selected ?? attempts.data?.items[0]?.id;
 	const current = useResource<Attempt>(attemptId ? `/problems/${id}/attempts/${attemptId}` : null);
@@ -79,7 +92,9 @@ export function Problem({ id, user, registerGuard }: { id: string; user: Session
 		<p className="prose">{record.summary}</p><div className="row"><a href={`/leetcode/problems/${id}/review`}>Recall this problem</a>{!record.archivedAt && <button onClick={archive}>Archive problem</button>}</div>
 		{(error || attempts.error || current.error) && <p className="error" role="alert">{error || attempts.error || current.error}</p>}
 		<div className="row spread"><label>Attempt history<select value={attemptId ?? ''} onChange={event => void choose(event.target.value)}><option value="" disabled>Select an attempt</option>{attempts.data?.items.map((attempt, index) => <option key={attempt.id} value={attempt.id}>{attempt.state === 'draft' ? 'Current draft' : `Saved attempt ${attempts.data!.items.length - index}`} - {new Date(attempt.createdAt).toLocaleString()}</option>)}</select></label>{user.role === 'student' && current.data?.state !== 'draft' && <div className="row"><button onClick={() => void start()}>Start another attempt</button>{current.data && <button onClick={() => void start(current.data!.id)}>Copy into new draft</button>}</div>}</div>
-		{current.data ? <DraftEditor key={`${current.data.id}:${current.data.state}`} initial={current.data} user={user} registerGuard={register} nextReviewDate={record.nextReviewDate} saved={attempt => { setSelected(attempt.id); current.reload(); attempts.reload(); problem.reload(); }} /> : <p className="empty">{attemptId ? 'Opening attempt...' : 'No attempts yet. Start an attempt to record your reasoning.'}</p>}
+		{homework.data?.items.map(h => <article className="card card-pad stack" key={h.id}><h2><a href={`/leetcode/homework/${h.id}`}>Homework: {homeworkLabels[h.state]}</a></h2><p className="prose">{h.instructions}</p></article>)}
+		{current.data ? <DraftEditor key={`${current.data.id}:${current.data.state}`} initial={current.data} user={user} registerGuard={register} nextReviewDate={record.nextReviewDate} homework={homework.data?.items[0]} saved={attempt => { setSelected(attempt.id); current.reload(); attempts.reload(); problem.reload(); homework.reload(); }} /> : <p className="empty">{attemptId ? 'Opening attempt...' : 'No attempts yet. Start an attempt to record your reasoning.'}</p>}
+		<Discussion problemId={id} />
 		{editing && <ProblemForm problem={record} close={() => setEditing(false)} saved={() => { setEditing(false); problem.reload(); }} />}
 	</div>;
 }

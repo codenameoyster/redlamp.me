@@ -1,0 +1,34 @@
+import { test, expect, signIn } from './fixtures';
+
+test('assigns, submits, requests changes, and completes homework', async ({ page, notebook }) => {
+	await signIn(page, 'parent');
+	await page.getByRole('link', { name: 'Homework', exact: true }).click();
+	await page.getByRole('combobox', { name: 'Problem', exact: true }).selectOption(notebook.problem.id);
+	await page.getByLabel('Instructions', { exact: true }).fill('Explain the invariant.');
+	await page.getByRole('button', { name: 'Assign homework', exact: true }).click();
+	await expect(page.getByText('Assigned', { exact: true })).toBeVisible();
+	const homeworkURL = page.url();
+	await signIn(page);
+	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+	await page.getByLabel('Key idea', { exact: true }).fill('Track the needed values.');
+	await page.getByRole('button', { name: 'Submit for review', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Copy into new draft' })).toBeVisible();
+	await page.goto(homeworkURL);
+	await expect(page.getByText('Submitted for review', { exact: true })).toBeVisible();
+	await signIn(page, 'parent');
+	await page.goto(homeworkURL);
+	await expect(page.getByLabel('Key idea', { exact: true })).toHaveValue('Track the needed values.');
+	await page.getByLabel('Review feedback', { exact: true }).fill('Add a correctness argument.');
+	await page.getByRole('button', { name: 'Request another attempt' }).click();
+	await expect(page.getByText('Another attempt requested', { exact: true }).first()).toBeVisible();
+	await signIn(page);
+	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+	await page.getByRole('button', { name: 'Copy into new draft' }).click();
+	await page.getByLabel('Why it works', { exact: true }).fill('Every earlier value is in the frequency map.');
+	await page.getByRole('button', { name: 'Submit for review', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Copy into new draft' })).toBeVisible();
+	await signIn(page, 'parent');
+	await page.goto(homeworkURL);
+	await page.getByRole('button', { name: 'Complete homework' }).click();
+	await expect(page.getByText('Completed', { exact: true }).first()).toBeVisible();
+});

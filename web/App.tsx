@@ -5,6 +5,7 @@ import { Login } from './Login';
 import { Problems } from './Problems';
 import { Problem } from './Problem';
 import type { LeaveGuard } from './useDraft';
+import { Homework } from './Homework';
 
 export function Layout({ user, children, logout }: { user: SessionUser; children: ReactNode; logout: () => void }) {
 	const [dark, setDark] = useState(() => {
@@ -70,6 +71,7 @@ export function App() {
 	if (!user) return <main>{error ? <p role="alert">{error}</p> : <p role="status">Opening your notebook...</p>}</main>;
 	const path = location.pathname;
 	const match = /^\/leetcode\/problems\/([a-f0-9-]{36})$/.exec(path);
-	const screen = path === '/leetcode/problems' ? <Problems /> : match ? <Problem id={match[1]} user={user} registerGuard={registerGuard} /> : <><h1>Today</h1><p>Your learning starts with a problem.</p><a className="button primary" href="/leetcode/problems">Open problems</a></>;
+	const homework = /^\/leetcode\/homework(?:\/([a-f0-9-]{36}))?$/.exec(path);
+	const screen = path === '/leetcode/problems' ? <Problems /> : match ? <Problem id={match[1]} user={user} registerGuard={registerGuard} /> : homework ? <Homework id={homework[1]} user={user} /> : <><h1>Today</h1><p>Your learning starts with a problem.</p><a className="button primary" href="/leetcode/problems">Open problems</a></>;
 	return <Layout user={user} logout={logout}>{error && <p className="error" role="alert">{error}</p>}{screen}</Layout>;
 }
