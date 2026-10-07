@@ -62,6 +62,15 @@ export interface HomeworkDetails { homework: Homework; submissions: Submission[]
 export interface Lesson { id: string; title: string; description: string; topics: string[]; filename: string; byteCount: number; archivedAt: string | null; version: number; createdAt: string; updatedAt: string }
 export const MAX_LESSON_BYTES = 1_000_000;
 export const MAX_UPLOAD_BYTES = 1_032_768;
+export interface RevisionInput { version: number; result: Understanding; note: string; reviewedOn: string; nextReviewDate: string | null }
+export interface Revision { id: string; problemId: string; result: Understanding; note: string; reviewedOn: string; nextReviewDate: string | null; createdAt: string }
+export interface Dashboard {
+	counts: { recorded: number; solved: number; independent: number; activeHomework: number; waitingReview: number; dueReviews: number; overdueHomework: number };
+	topics: { topic: string; solved: number; independent: number }[];
+	homework: Homework[];
+	drafts: (AttemptSummary & { problemTitle: string })[];
+	dueReviews: Problem[];
+}
 export function newApproach(): Approach {
 	return { id: crypto.randomUUID(), label: '', idea: '', correctness: '', timeComplexity: '', spaceComplexity: '', edgeCases: '', mistakes: '', language: '', code: '' };
 }

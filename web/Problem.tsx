@@ -6,6 +6,7 @@ import { useDraft, type LeaveGuard, type RegisterGuard } from './useDraft';
 import { ProblemForm } from './Problems';
 import { Discussion, homeworkLabels } from './Homework';
 import { LessonLinks } from './Lessons';
+import { addCalendarDays, localDate } from '../shared/dates';
 
 export const understandingLabels = { needs_practice: 'Needs practice', with_help: 'With help', independent: 'Independent' };
 export const acceptanceLabels = { not_submitted: 'Not submitted', not_accepted: 'Not accepted', accepted: 'Accepted on LeetCode' };
@@ -59,7 +60,7 @@ export function DraftEditor({ initial, user, registerGuard, saved, nextReviewDat
 		{(error || draft.error) && <div className="error" role="alert">{error || draft.error}<div className="row">{draft.status === 'login_required' ? <button onClick={draft.signIn}>Sign in again</button> : !draft.conflict && <button onClick={() => void draft.flush()}>Retry save</button>}<button onClick={async () => { try { await navigator.clipboard.writeText(JSON.stringify(draft.value, null, 2)); } catch { setError('Select and copy your text from the editor.'); } }}>Copy unsaved work</button></div></div>}
 		{draft.conflict && <section className="notice stack"><h2>Server copy</h2><p>Your editor still contains your local copy. Copy it before replacing it.</p><pre>{JSON.stringify(draft.conflict.document, null, 2)}</pre><button onClick={draft.reload}>Use server copy</button></section>}
 		<fieldset disabled={busy || Boolean(draft.recovery)}><AttemptContent value={draft.value} change={editable ? draft.change : undefined} /></fieldset>
-		{editable && <div className="card card-pad row spread"><label>Next review<input type="date" value={date} onChange={event => setDate(event.target.value)} /></label><button className="primary" disabled={busy || Boolean(draft.recovery)} onClick={saveAttempt}>Save attempt</button></div>}
+		{editable && <div className="card card-pad stack"><div className="row spread"><label>Next review<input type="date" value={date} onChange={event => setDate(event.target.value)} /></label><button className="primary" disabled={busy || Boolean(draft.recovery)} onClick={saveAttempt}>Save attempt</button></div>{draft.value.acceptance === 'accepted' && <div className="row"><span>Review reminder:</span><button type="button" onClick={() => setDate(addCalendarDays(localDate(), 1))}>Tomorrow</button><button type="button" onClick={() => setDate(addCalendarDays(localDate(), 3))}>In three days</button><button type="button" onClick={() => setDate(addCalendarDays(localDate(), 7))}>In seven days</button><button type="button" onClick={() => setDate('')}>Clear reminder</button></div>}</div>}
 		{editable && homework && ['assigned', 'in_progress', 'changes_requested'].includes(homework.state) && <button className="primary" disabled={busy || Boolean(draft.recovery)} onClick={submit}>Submit for review</button>}
 	</div>;
 }
