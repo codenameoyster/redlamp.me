@@ -93,9 +93,13 @@ for (const row of emptyStates) {
 	});
 }
 
-test('keeps the dark appearance after a reload', async ({ page }) => {
+test('switches the appearance from the top bar and keeps it after a reload', async ({ page }) => {
 	await signIn(page, 'parent');
-	await page.getByRole('button', { name: 'Dark appearance', exact: true }).click();
+	const bar = page.getByRole('banner');
+	await expect(bar.getByText('parent-test', { exact: true })).toBeVisible();
+	await expect(bar.getByRole('button', { name: 'Log out', exact: true })).toBeVisible();
+	await bar.getByRole('button', { name: 'Dark appearance', exact: true }).click();
+	await expect(bar.getByRole('button', { name: 'Light appearance', exact: true })).toBeVisible();
 	await page.reload();
 	await expect(page.locator('html')).toHaveAttribute('data-appearance', 'dark');
 });
