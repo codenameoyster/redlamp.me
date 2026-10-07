@@ -1,5 +1,37 @@
+import type { Page } from '../../shared/leetcode';
+import { isCalendarDate } from '../../shared/dates';
+
 export class HttpError extends Error {
 	constructor(public status: number, public code: string, message: string, public fields?: Record<string, string>) { super(message); }
+}
+
+export function integer(value: unknown, min = 1, max = Number.MAX_SAFE_INTEGER): number {
+	if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < min || value > max) throw new HttpError(400, 'invalid_input', 'Check the number fields.');
+	return value;
+}
+export function choice<T extends string>(value: unknown, options: readonly T[]): T {
+	if (typeof value !== 'string' || !options.includes(value as T)) throw new HttpError(400, 'invalid_input', 'Choose a valid value.');
+	return value as T;
+}
+export function uuid(value: unknown): string {
+	if (typeof value !== 'string' || !/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(value)) throw new HttpError(400, 'invalid_input', 'The record ID is invalid.');
+	return value;
+}
+export function topics(value: unknown): string[] {
+	if (!Array.isArray(value) || value.length > 12) throw new HttpError(400, 'invalid_input', 'Use at most 12 topics.');
+	return [...new Set(value.map(item => text(item, 40, true).trim()))];
+}
+export function calendarDate(value: unknown): string | null {
+	if (value === null) return null;
+	if (!isCalendarDate(value)) throw new HttpError(400, 'invalid_input', 'Use a valid calendar date.');
+	return value;
+}
+export function pagination(url: URL): { limit: number; offset: number } {
+	return { limit: integer(Number(url.searchParams.get('limit') ?? 50), 1, 50), offset: integer(Number(url.searchParams.get('offset') ?? 0), 0) };
+}
+export function page<T>(items: T[], limit: number, offset: number): Page<T> { return { items: items.slice(0, limit), nextOffset: items.length > limit ? offset + limit : null }; }
+export function changed(result: D1Result): void {
+	if (!result.meta.changes) throw new HttpError(409, 'conflict', 'This record changed. Reload it before trying again.');
 }
 
 export function object(value: unknown, keys: string[]): Record<string, unknown> {
