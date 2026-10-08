@@ -3,6 +3,10 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { login, request } from './client';
 
 let cookie: string;
+const addTask = (problemId: string, state: string) => env.DB.batch([
+	env.DB.prepare("INSERT INTO homework (id,title,instructions,created_at,updated_at) VALUES ('77777777-7777-4777-8777-777777777777','Week 41','Explain','now','now')"),
+	env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) VALUES (?,'77777777-7777-4777-8777-777777777777',?,?,'now','now')").bind(crypto.randomUUID(), problemId, state),
+]);
 const input = { url: 'https://leetcode.com/problems/two-sum/', number: 1, title: 'Two Sum', difficulty: 'easy', topics: ['Arrays'], summary: '' };
 beforeEach(async () => { cookie = await login(); });
 afterEach(() => { vi.restoreAllMocks(); });
@@ -52,22 +56,22 @@ it.each([
 it('archives a problem after its active homework completes', async () => {
 	const problem = await (await request('/problems', 'POST', input, cookie)).json() as { id: string };
 	const path = `/problems/${problem.id}`;
-	await env.DB.prepare("INSERT INTO homework (id,problem_id,instructions,state,created_at,updated_at) VALUES (?,?,'Explain','assigned','now','now')").bind(crypto.randomUUID(), problem.id).run();
+	await addTask(problem.id, 'assigned');
 	expect((await request(`${path}/archive`, 'POST', { version: 1 }, cookie)).status).toBe(409);
-	await env.DB.prepare("UPDATE homework SET state='completed'").run();
+	await env.DB.prepare("UPDATE homework_tasks SET state='completed'").run();
 	expect((await request(`${path}/archive`, 'POST', { version: 1 }, cookie)).status).toBe(200);
 	expect(await (await request('/problems', 'GET', undefined, cookie)).json()).toMatchObject({ items: [] });
 	expect(await (await request(path, 'GET', undefined, cookie)).json()).toMatchObject({ title: input.title });
 });
 
 it.each([
-	{ name: 'archive with active homework', action: 'archive', archivedAt: null, homework: 'assigned', stored: 1, error: { code: 'active_homework', message: 'Complete or cancel the active homework before you archive this problem.' } },
+	{ name: 'archive with active homework', action: 'archive', archivedAt: null, homework: 'assigned', stored: 1, error: { code: 'active_homework', message: 'Complete or cancel the active task before you archive this problem.' } },
 	{ name: 'stale archive', action: 'archive', archivedAt: null, homework: 'completed', stored: 2, error: { code: 'conflict' } },
 	{ name: 'stale restore', action: 'restore', archivedAt: 'now', homework: 'completed', stored: 2, error: { code: 'conflict' } },
 ])('$name', async ({ action, archivedAt, homework, stored, error }) => {
 	const problem = await (await request('/problems', 'POST', input, cookie)).json() as { id: string };
 	await env.DB.prepare('UPDATE problems SET archived_at=?,version=?').bind(archivedAt, stored).run();
-	await env.DB.prepare("INSERT INTO homework (id,problem_id,instructions,state,created_at,updated_at) VALUES (?,?,'Explain',?,'now','now')").bind(crypto.randomUUID(), problem.id, homework).run();
+	await addTask(problem.id, homework);
 	const response = await request(`/problems/${problem.id}/${action}`, 'POST', { version: 1 }, cookie);
 	expect(response.status).toBe(409);
 	expect(await response.json()).toMatchObject({ error });
@@ -82,7 +86,8 @@ it('restores an archived problem to the library and to homework', async () => {
 	expect(restored.status).toBe(200);
 	expect(await restored.json()).toMatchObject({ id: problem.id, archivedAt: null, version: 3 });
 	expect(await (await request('/problems', 'GET', undefined, cookie)).json()).toMatchObject({ items: [{ id: problem.id }] });
-	expect((await request('/homework', 'POST', { problemId: problem.id, instructions: '', dueDate: null }, parent)).status).toBe(201);
+	const homework = await (await request('/homework', 'POST', { title: 'Week 41', instructions: '', dueDate: null }, parent)).json() as { id: string };
+	expect((await request('/tasks', 'POST', { homeworkId: homework.id, problemId: problem.id }, parent)).status).toBe(201);
 });
 
 it.each([

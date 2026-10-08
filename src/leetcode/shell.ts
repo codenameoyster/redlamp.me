@@ -8,7 +8,7 @@ ${user ? `<script id="session" type="application/json">${JSON.stringify(user)}</
 <body><div id="root"></div><noscript>Enable JavaScript to use the notebook.</noscript></body></html>`, {
 		headers: {
 			'Content-Type': 'text/html; charset=utf-8',
-			'Content-Security-Policy': `default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-src ${origin}/leetcode/api/lessons/; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
+			'Content-Security-Policy': `default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-src ${origin}/leetcode/api/lessons/ ${origin}/leetcode/api/sets/; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
 		},
 	});
 }

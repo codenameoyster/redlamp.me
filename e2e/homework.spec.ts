@@ -1,23 +1,33 @@
-import { test, expect, signIn, type TestEnv } from './fixtures';
-import type { Attempt } from '../shared/leetcode';
+import { test, expect, signIn, addTask, type TestEnv } from './fixtures';
+import type { Attempt, Homework } from '../shared/leetcode';
 
 test('assigns, submits, requests changes, and completes homework', async ({ page, notebook }) => {
 	await signIn(page, 'parent');
 	await page.getByRole('link', { name: 'Homework', exact: true }).click();
-	await page.getByRole('combobox', { name: 'Problem', exact: true }).selectOption(notebook.problem.id);
+	await page.getByLabel('Title', { exact: true }).fill('Week 41: hash maps');
 	await page.getByLabel('Instructions', { exact: true }).fill('Explain the invariant.');
-	await page.getByRole('button', { name: 'Assign homework', exact: true }).click();
+	await page.getByRole('button', { name: 'Create homework', exact: true }).click();
+	await expect(page.getByRole('heading', { name: 'Week 41: hash maps', level: 1 })).toBeVisible();
+	await page.getByRole('button', { name: 'Edit homework', exact: true }).click();
+	await page.getByLabel('Due date', { exact: true }).fill('2026-10-20');
+	await page.getByRole('button', { name: 'Save homework', exact: true }).click();
+	await expect(page.getByText('Due 2026-10-20', { exact: true })).toBeVisible();
+	await page.getByRole('combobox', { name: 'Problem', exact: true }).selectOption(notebook.problem.id);
+	await page.getByRole('button', { name: 'Add task', exact: true }).click();
 	await expect(page.getByText('Assigned', { exact: true })).toBeVisible();
-	const homeworkURL = page.url();
+	await page.getByRole('link', { name: notebook.problem.title, exact: true }).click();
+	await expect(page.getByText('Explain the invariant.', { exact: true })).toBeVisible();
+	const taskURL = page.url();
 	await signIn(page);
 	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+	await expect(page.getByRole('link', { name: 'Week 41: hash maps', exact: true })).toHaveAttribute('href', new URL(taskURL).pathname);
 	await page.getByLabel('Key idea', { exact: true }).fill('Track the needed values.');
 	await page.getByRole('button', { name: 'Submit for review', exact: true }).click();
 	await expect(page.getByRole('button', { name: 'Copy into new draft' })).toBeVisible();
-	await page.goto(homeworkURL);
+	await page.goto(taskURL);
 	await expect(page.getByText('Submitted for review', { exact: true })).toBeVisible();
 	await signIn(page, 'parent');
-	await page.goto(homeworkURL);
+	await page.goto(taskURL);
 	await expect(page.getByLabel('Key idea', { exact: true })).toHaveValue('Track the needed values.');
 	await page.getByLabel('Review feedback', { exact: true }).fill('Add a correctness argument.');
 	await page.getByRole('button', { name: 'Request another attempt' }).click();
@@ -30,33 +40,34 @@ test('assigns, submits, requests changes, and completes homework', async ({ page
 	await page.getByRole('button', { name: 'Submit for review', exact: true }).click();
 	await expect(page.getByRole('button', { name: 'Copy into new draft' })).toBeVisible();
 	await signIn(page, 'parent');
-	await page.goto(homeworkURL);
-	await page.getByRole('button', { name: 'Complete homework' }).click();
+	await page.goto(taskURL);
+	await page.getByRole('button', { name: 'Complete task' }).click();
 	await expect(page.getByText('Completed', { exact: true }).first()).toBeVisible();
+	await page.getByRole('link', { name: 'Week 41: hash maps', exact: true }).click();
+	await expect(page.getByText('Completed', { exact: true })).toBeVisible();
+	await page.getByRole('link', { name: 'Homework', exact: true }).click();
+	await expect(page.getByText('1 of 1 completed', { exact: true })).toBeVisible();
 });
 
-test('keeps a discussion reply and opens the newest replies when the parent saves assignment details', async ({ page, notebook, baseURL, server }) => {
-	const { DB } = await server.getWorker<TestEnv>().getEnv();
+test('keeps a discussion reply and opens the newest replies when the parent cancels the task', async ({ page, notebook, baseURL, server }) => {
+	const { DB } = await server.getWorker<TestEnv>().getEnv(), headers = { Origin: new URL(baseURL!).origin };
 	await DB.batch(Array.from({ length: 51 }, (_, i) => DB.prepare("INSERT INTO feedback (id,problem_id,author,kind,body,created_at) VALUES (?,?,'student','reply',?,?)").bind(crypto.randomUUID(), notebook.problem.id, `Comment ${i + 1}`, new Date(Date.UTC(2020, 0, 1, 0, i)).toISOString())));
 	await signIn(page, 'parent');
-	const response = await page.request.post('/leetcode/api/homework', {
-		headers: { Origin: new URL(baseURL!).origin },
-		data: { problemId: notebook.problem.id, instructions: 'Explain the invariant.', dueDate: null },
-	});
+	const homework = await (await page.request.post('/leetcode/api/homework', { headers, data: { title: 'Week 41', instructions: 'Explain the invariant.', dueDate: null } })).json() as Homework;
+	const response = await page.request.post('/leetcode/api/tasks', { headers, data: { homeworkId: homework.id, problemId: notebook.problem.id } });
 	expect(response.status()).toBe(201);
-	const homework = await response.json();
-	await page.goto(`/leetcode/homework/${homework.id}`);
+	const task = await response.json();
+	await page.goto(`/leetcode/tasks/${task.id}`);
 	await page.getByRole('button', { name: 'Older replies', exact: true }).click();
 	await expect(page.getByText('Comment 1', { exact: true })).toBeVisible();
-	await page.getByLabel('Reply', { exact: true }).fill('Please compare the two approaches in this assignment.');
-	await page.getByRole('button', { name: 'Edit assignment', exact: true }).click();
-	await page.getByLabel('Instructions', { exact: true }).fill('Explain the invariant and the time complexity.');
-	await page.getByRole('button', { name: 'Save assignment', exact: true }).click();
-	await expect(page.getByText('Explain the invariant and the time complexity.', { exact: true })).toBeVisible();
+	await page.getByLabel('Reply', { exact: true }).fill('Please compare the two approaches in this task.');
+	page.once('dialog', dialog => dialog.accept());
+	await page.getByRole('button', { name: 'Cancel task', exact: true }).click();
+	await expect(page.getByText('Cancelled', { exact: true })).toBeVisible();
 	await expect(page.getByText('Comment 51', { exact: true })).toBeVisible();
-	await expect(page.getByLabel('Reply', { exact: true })).toHaveValue('Please compare the two approaches in this assignment.');
+	await expect(page.getByLabel('Reply', { exact: true })).toHaveValue('Please compare the two approaches in this task.');
 	await page.getByRole('button', { name: 'Add reply', exact: true }).click();
-	await expect(page.getByText('Please compare the two approaches in this assignment.', { exact: true })).toBeVisible();
+	await expect(page.getByText('Please compare the two approaches in this task.', { exact: true })).toBeVisible();
 });
 
 test('numbers attempts to submit like the notebook history', async ({ page, notebook, baseURL, server }) => {
@@ -65,22 +76,23 @@ test('numbers attempts to submit like the notebook history', async ({ page, note
 	const second = await (await page.request.post(attempts, { headers, data: {} })).json() as Attempt;
 	expect((await page.request.post(`${attempts}/${second.id}/save`, { headers, data: { version: second.version } })).status()).toBe(200);
 	expect((await page.request.post(attempts, { headers, data: {} })).status()).toBe(201);
-	const { DB } = await server.getWorker<TestEnv>().getEnv(), homeworkId = crypto.randomUUID();
-	await DB.prepare("INSERT INTO homework (id,problem_id,instructions,state,created_at,updated_at) VALUES (?,?,'Explain','assigned','now','now')").bind(homeworkId, notebook.problem.id).run();
+	const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id);
 	await page.reload();
 	const history = page.getByRole('combobox', { name: 'Attempt history', exact: true }).locator('option:not([disabled])');
 	await expect(history).toHaveCount(3);
 	const labels = await history.allTextContents();
 	expect(labels.map(label => label.split(' - ')[0])).toEqual(['Current draft', 'Saved attempt 2', 'Saved attempt 1']);
-	await page.goto(`/leetcode/homework/${homeworkId}`);
+	await page.goto(`/leetcode/tasks/${taskId}`);
 	await expect(page.getByRole('combobox', { name: 'Attempt to submit', exact: true }).locator('option')).toHaveText(labels);
 });
 
 test('assigns the selected problem after the problem search refreshes', async ({ page, notebook, baseURL }) => {
-	const created = await page.request.post('/leetcode/api/problems', { headers: { Origin: new URL(baseURL!).origin }, data: { url: 'https://leetcode.com/problems/3sum/', number: 15, title: '3Sum', difficulty: 'medium', topics: ['Arrays'], summary: 'Find triplets with a zero sum.' } });
+	const headers = { Origin: new URL(baseURL!).origin };
+	const created = await page.request.post('/leetcode/api/problems', { headers, data: { url: 'https://leetcode.com/problems/3sum/', number: 15, title: '3Sum', difficulty: 'medium', topics: ['Arrays'], summary: 'Find triplets with a zero sum.' } });
 	expect(created.status()).toBe(201);
 	await signIn(page, 'parent');
-	await page.goto('/leetcode/homework');
+	const homework = await (await page.request.post('/leetcode/api/homework', { headers, data: { title: 'Week 41', instructions: '', dueDate: null } })).json() as Homework;
+	await page.goto(`/leetcode/homework/${homework.id}`);
 	const problem = page.getByRole('combobox', { name: 'Problem', exact: true });
 	await problem.selectOption(notebook.problem.id);
 	let release!: () => void;
@@ -96,6 +108,25 @@ test('assigns the selected problem after the problem search refreshes', async ({
 	await page.getByRole('searchbox', { name: 'Find a problem', exact: true }).fill('3Sum');
 	await expect(problem.locator('option')).toHaveText(['Select a problem', notebook.problem.title, '3Sum']);
 	await expect(problem).toHaveValue(notebook.problem.id);
-	await page.getByRole('button', { name: 'Assign homework', exact: true }).click();
-	await expect(page.getByRole('heading', { name: notebook.problem.title, level: 1 })).toBeVisible();
+	await page.getByRole('button', { name: 'Add task', exact: true }).click();
+	await expect(page.getByRole('region', { name: 'Tasks' }).getByRole('link', { name: notebook.problem.title, exact: true })).toBeVisible();
+});
+
+test('shows a new message until the parent opens the discussion', async ({ page, notebook, server }) => {
+	const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id);
+	await page.goto(`/leetcode/tasks/${taskId}`);
+	await page.getByLabel('Reply', { exact: true }).fill('How do I prove the invariant?');
+	await page.getByRole('button', { name: 'Add reply', exact: true }).click();
+	await expect(page.getByText('How do I prove the invariant?', { exact: true })).toBeVisible();
+	await signIn(page, 'parent');
+	await page.getByRole('link', { name: 'Homework', exact: true }).click();
+	const dot = page.getByRole('img', { name: 'New message', exact: true });
+	await expect(page.getByRole('article').filter({ hasText: 'Week 41' }).getByRole('img', { name: 'New message', exact: true })).toBeVisible();
+	await page.getByRole('link', { name: 'Week 41', exact: true }).click();
+	await expect(page.getByRole('region', { name: 'Tasks' }).getByRole('img', { name: 'New message', exact: true })).toBeVisible();
+	await page.getByRole('link', { name: notebook.problem.title, exact: true }).click();
+	await expect(page.getByText('How do I prove the invariant?', { exact: true })).toBeVisible();
+	await page.getByRole('link', { name: 'Homework', exact: true }).click();
+	await expect(page.getByRole('link', { name: 'Week 41', exact: true })).toBeVisible();
+	await expect(dot).toHaveCount(0);
 });

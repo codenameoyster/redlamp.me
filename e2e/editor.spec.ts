@@ -1,4 +1,4 @@
-import { test, expect, signIn, type TestEnv } from './fixtures';
+import { test, expect, signIn, addTask, type TestEnv } from './fixtures';
 
 test('keeps edits made during a pending save', async ({ page, notebook }) => {
 	let release!: () => void, entered!: () => void;
@@ -155,7 +155,7 @@ for (const row of reminders) {
 		const { DB } = await server.getWorker<TestEnv>().getEnv();
 		const review = DB.prepare('UPDATE problems SET next_review_date=? WHERE id=?');
 		await review.bind(row.initial, notebook.problem.id).run();
-		await DB.prepare("INSERT INTO homework (id,problem_id,instructions,state,created_at,updated_at) VALUES (?,?,'Explain','assigned','now','now')").bind(crypto.randomUUID(), notebook.problem.id).run();
+		await addTask(DB, notebook.problem.id);
 		await page.reload();
 		await expect(page.getByLabel('Next review', { exact: true })).toHaveValue(row.initial ?? '');
 		await review.bind('2026-11-15', notebook.problem.id).run();
@@ -169,14 +169,13 @@ for (const row of reminders) {
 
 const failedFinalActions = [
 	{ name: 'retries a failed attempt save', endpoint: '**/attempts/*/save', button: 'Save attempt', retry: 'Retry save attempt', stored: false, state: 'assigned', submissions: 0 },
-	{ name: 'retries a failed submission', endpoint: '**/homework/*/submit', button: 'Submit for review', retry: 'Retry submission', stored: false, state: 'submitted', submissions: 1 },
+	{ name: 'retries a failed submission', endpoint: '**/tasks/*/submit', button: 'Submit for review', retry: 'Retry submission', stored: false, state: 'submitted', submissions: 1 },
 	{ name: 'recognizes a finalized attempt after a lost acknowledgement', endpoint: '**/attempts/*/save', button: 'Save attempt', retry: 'Retry save attempt', stored: true, state: 'assigned', submissions: 0 },
-	{ name: 'recognizes a submission after a lost acknowledgement', endpoint: '**/homework/*/submit', button: 'Submit for review', retry: 'Retry submission', stored: true, state: 'submitted', submissions: 1 },
+	{ name: 'recognizes a submission after a lost acknowledgement', endpoint: '**/tasks/*/submit', button: 'Submit for review', retry: 'Retry submission', stored: true, state: 'submitted', submissions: 1 },
 ];
 for (const row of failedFinalActions) {
 	test(row.name, async ({ page, notebook, server }) => {
-		const { DB } = await server.getWorker<TestEnv>().getEnv(), homeworkId = crypto.randomUUID();
-		await DB.prepare("INSERT INTO homework (id,problem_id,instructions,state,created_at,updated_at) VALUES (?,?,'Explain','assigned','now','now')").bind(homeworkId, notebook.problem.id).run();
+		const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id);
 		await page.reload();
 		await page.getByLabel('Key idea', { exact: true }).fill('A complete explanation');
 		await expect(page.getByRole('status', { name: 'Save state' })).toHaveText('Saved');
@@ -184,19 +183,18 @@ for (const row of failedFinalActions) {
 		await page.getByRole('button', { name: row.button, exact: true }).click();
 		await page.getByRole('button', { name: row.retry, exact: true }).click();
 		await expect(page.getByRole('button', { name: 'Copy into new draft' })).toBeVisible();
-		const response = await (await page.request.get(`/leetcode/api/homework/${homeworkId}`)).json();
-		expect(response.homework.state).toBe(row.state); expect(response.submissions).toHaveLength(row.submissions);
+		const response = await (await page.request.get(`/leetcode/api/tasks/${taskId}`)).json();
+		expect(response.task.state).toBe(row.state); expect(response.submissions).toHaveLength(row.submissions);
 	});
 }
 
 const rejectedFinalActions = [
 	{ name: 'recovers login after attempt-save rejection', endpoint: '**/attempts/*/save', button: 'Save attempt', state: 'assigned', submissions: 0 },
-	{ name: 'recovers login after submission rejection', endpoint: '**/homework/*/submit', button: 'Submit for review', state: 'submitted', submissions: 1 },
+	{ name: 'recovers login after submission rejection', endpoint: '**/tasks/*/submit', button: 'Submit for review', state: 'submitted', submissions: 1 },
 ];
 for (const row of rejectedFinalActions) {
 	test(row.name, async ({ page, notebook, server }) => {
-		const { DB } = await server.getWorker<TestEnv>().getEnv(), homeworkId = crypto.randomUUID();
-		await DB.prepare("INSERT INTO homework (id,problem_id,instructions,state,created_at,updated_at) VALUES (?,?,'Explain','assigned','now','now')").bind(homeworkId, notebook.problem.id).run();
+		const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id);
 		await page.reload();
 		await page.getByLabel('Key idea', { exact: true }).fill('A complete explanation');
 		await expect(page.getByRole('status', { name: 'Save state' })).toHaveText('Saved');
@@ -208,37 +206,35 @@ for (const row of rejectedFinalActions) {
 		await expect(page.getByLabel('Key idea', { exact: true })).toHaveValue('A complete explanation');
 		await page.getByRole('button', { name: row.button, exact: true }).click();
 		await expect(page.getByRole('button', { name: 'Copy into new draft' })).toBeVisible();
-		const response = await (await page.request.get(`/leetcode/api/homework/${homeworkId}`)).json();
-		expect(response.homework.state).toBe(row.state); expect(response.submissions).toHaveLength(row.submissions);
+		const response = await (await page.request.get(`/leetcode/api/tasks/${taskId}`)).json();
+		expect(response.task.state).toBe(row.state); expect(response.submissions).toHaveLength(row.submissions);
 	});
 }
 
-test('retries a submission with the changed homework version', async ({ page, notebook, server }) => {
-	const { DB } = await server.getWorker<TestEnv>().getEnv(), homeworkId = crypto.randomUUID();
-	await DB.prepare("INSERT INTO homework (id,problem_id,instructions,state,created_at,updated_at) VALUES (?,?,'Explain','assigned','now','now')").bind(homeworkId, notebook.problem.id).run();
+test('retries a submission with the changed task version', async ({ page, notebook, server }) => {
+	const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id);
 	await page.reload();
 	await page.getByLabel('Key idea', { exact: true }).fill('A complete explanation');
 	await expect(page.getByRole('status', { name: 'Save state' })).toHaveText('Saved');
-	await DB.prepare("UPDATE homework SET instructions='Changed',version=version+1 WHERE id=?").bind(homeworkId).run();
+	await DB.prepare("UPDATE homework_tasks SET state='in_progress',version=version+1 WHERE id=?").bind(taskId).run();
 	await page.getByRole('button', { name: 'Submit for review', exact: true }).click();
-	await expect(page.getByText('Changed', { exact: true })).toBeVisible();
+	await expect(page.getByText('In progress', { exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Retry submission', exact: true }).click();
 	await expect(page.getByRole('button', { name: 'Copy into new draft' })).toBeVisible();
-	expect((await (await page.request.get(`/leetcode/api/homework/${homeworkId}`)).json()).homework.state).toBe('submitted');
+	expect((await (await page.request.get(`/leetcode/api/tasks/${taskId}`)).json()).task.state).toBe('submitted');
 });
 
-test('hides the submission retry after the homework is cancelled', async ({ page, notebook, server }) => {
-	const { DB } = await server.getWorker<TestEnv>().getEnv(), homeworkId = crypto.randomUUID();
-	await DB.prepare("INSERT INTO homework (id,problem_id,instructions,state,created_at,updated_at) VALUES (?,?,'Explain','assigned','now','now')").bind(homeworkId, notebook.problem.id).run();
+test('hides the submission retry after the task is cancelled', async ({ page, notebook, server }) => {
+	const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id);
 	await page.reload();
 	await page.getByLabel('Key idea', { exact: true }).fill('A complete explanation');
 	await expect(page.getByRole('status', { name: 'Save state' })).toHaveText('Saved');
-	await DB.prepare("UPDATE homework SET state='cancelled',version=version+1 WHERE id=?").bind(homeworkId).run();
+	await DB.prepare("UPDATE homework_tasks SET state='cancelled',version=version+1 WHERE id=?").bind(taskId).run();
 	await page.getByRole('button', { name: 'Submit for review', exact: true }).click();
 	await expect(page.getByRole('button', { name: 'Submit for review', exact: true })).toHaveCount(0);
 	await expect(page.getByRole('alert')).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Retry submission', exact: true })).toHaveCount(0);
-	expect((await (await page.request.get(`/leetcode/api/homework/${homeworkId}`)).json()).homework.state).toBe('cancelled');
+	expect((await (await page.request.get(`/leetcode/api/tasks/${taskId}`)).json()).task.state).toBe('cancelled');
 });
 
 test('shows the server copy when another tab changed the draft before the attempt save', async ({ page, context, notebook }) => {

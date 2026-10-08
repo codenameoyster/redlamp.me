@@ -1,0 +1,1266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Permutations and combinations</title>
+<style>
+:root{color-scheme:light dark;--paper:#f7f9fc;--surface:#fff;--sunken:#eef2f8;--ink:#1d2433;--muted:#5b6578;--line:#dbe2ec;--pen:#2f5bea;--pen-bg:#eaf0ff;--on-pen:#fff;--margin:#c93426;--margin-bg:#fdecea;--green:#1d7f54;--green-bg:#e4f4ec;--amber:#9a5a00;--amber-bg:#fff1d6;--grey:#7d8799;--sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+@media (prefers-color-scheme:dark){:root{--paper:#0f141d;--surface:#161d29;--sunken:#1d2635;--ink:#e7ecf4;--muted:#9ba7bb;--line:#2c384b;--pen:#8fa9ff;--pen-bg:#1d2a4a;--on-pen:#0f141d;--margin:#ff7b6b;--margin-bg:#3a1f1e;--green:#62d39c;--green-bg:#16301f;--amber:#f0c064;--amber-bg:#36290f;--grey:#7f8aa0}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 17px/1.6 var(--sans);overflow-wrap:break-word}
+main{max-width:46rem;margin:0 auto;padding:28px 16px 72px}
+h1{font-size:2rem;line-height:1.15;margin:0 0 12px;letter-spacing:-.01em}
+h2{font-size:1.4rem;line-height:1.3;margin:60px 0 10px;display:flex;gap:10px;align-items:baseline}
+h2 .n{font:600 .8rem/1 var(--mono);color:var(--margin);border:1px solid currentColor;border-radius:6px;padding:4px 6px;flex-shrink:0}
+h3{font-size:1.1rem;line-height:1.3;margin:28px 0 8px}
+h4{font-size:.9rem;margin:14px 0 6px;color:var(--muted)}
+p,ul,ol{margin:0 0 14px}
+ul,ol{padding-left:1.4rem}
+li{margin:4px 0}
+a{color:var(--pen);text-underline-offset:3px}
+sup{line-height:0}
+.lead{font-size:1.1rem;color:var(--muted)}
+.muted{color:var(--muted)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 18px;padding:0;list-style:none}
+.tags li{margin:0;font-size:13px;line-height:1.4;padding:3px 10px;border-radius:999px;background:var(--pen-bg);color:var(--pen)}
+h2+.tags{margin-top:-2px}
+nav ol{columns:2 15rem;column-gap:24px;padding-left:1.6rem}
+nav li{break-inside:avoid}
+code{font-family:var(--mono);font-size:.86em;background:var(--sunken);padding:1px 5px;border-radius:5px}
+pre{font:14px/1.55 var(--mono);background:var(--sunken);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;margin:0 0 14px;tab-size:4}
+pre code{background:none;padding:0;font-size:inherit;border-radius:0}
+pre.out{background:var(--surface);border-left:4px solid var(--green);white-space:pre-wrap}
+pre.out::before{content:"Output";display:block;font:600 12px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--green);margin-bottom:8px}
+.box{border-left:4px solid var(--pen);background:var(--pen-bg);padding:12px 16px;border-radius:0 10px 10px 0;margin:0 0 16px}
+.box p:last-child,.box ul:last-child,.box ol:last-child{margin-bottom:0}
+.example{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 16px;margin:0 0 16px}
+.example>:last-child{margin-bottom:0}
+.label{font:600 12px/1.2 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.tw{overflow-x:auto;margin:0 0 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+th{font-weight:600;background:var(--sunken)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.grid3 td{text-align:center;font:600 15px var(--mono);width:3rem}
+.grid3{width:auto}
+button{font:inherit;font-size:15px;font-weight:600;line-height:1.2;min-height:40px;padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer}
+button:hover{background:var(--sunken)}
+button.primary{background:var(--pen);border-color:var(--pen);color:var(--on-pen)}
+button[aria-pressed=true]{border-color:var(--pen);background:var(--pen-bg);color:var(--pen)}
+:focus-visible{outline:3px solid var(--pen);outline-offset:2px}
+input[type=text],input[type=number]{font:inherit;font-size:16px;min-height:40px;padding:6px 10px;border:1px solid var(--grey);border-radius:8px;background:var(--paper);color:var(--ink);width:6.5rem;min-width:0}
+input[type=checkbox],input[type=radio]{width:18px;height:18px;margin:0;accent-color:var(--pen);flex-shrink:0}
+fieldset{border:0;padding:0;margin:0;min-width:0}
+legend{font-size:14px;font-weight:600;color:var(--muted);padding:0;margin-bottom:6px}
+.widget{border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:16px;margin:24px 0}
+.widget h3{margin-top:0}
+.controls{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:flex-end;margin:0 0 12px}
+.controls>label{display:grid;gap:4px;font-size:14px;font-weight:600;color:var(--muted)}
+.controls>label.chk,.seg label{display:inline-flex;align-items:center;gap:8px;min-height:40px;color:var(--ink);font-size:15px;font-weight:500}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg label{border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;background:var(--paper)}
+.seg label:has(input:checked){border-color:var(--pen);background:var(--pen-bg)}
+.vals{width:9rem!important}
+.err{color:var(--margin);font-weight:600}
+dl.calc{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 14px;margin:0 0 12px;padding:12px 14px;background:var(--sunken);border-radius:10px}
+dl.calc dt{color:var(--muted);font-size:15px}
+dl.calc dd{margin:0;font-family:var(--mono);font-size:15px}
+dl.calc dd.big{font-size:1.25rem;font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0 0 12px}
+.chips li{margin:0;font:600 14px/1 var(--mono);padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper)}
+.groups{list-style:none;padding:0;margin:0 0 12px}
+.groups li{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.groups .key{font:600 14px var(--mono);color:var(--green);min-width:6.5rem}
+.groups .chips{margin:0}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.stepno{font-size:14px;color:var(--muted);margin-left:auto}
+.status{min-height:3.3em;margin:10px 0;padding:8px 12px;background:var(--sunken);border-radius:8px;font-size:15px}
+.tree{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:4px 0;margin:0 0 6px}
+.tree svg{display:block;margin:0 auto}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);margin:0 0 10px;padding:0;list-style:none}
+.legend li{margin:0;display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:50%;border:2px solid var(--muted);background:var(--surface)}
+.sw.cur{background:var(--pen);border-color:var(--pen)}
+.sw.on{background:var(--pen-bg);border-color:var(--pen)}
+.sw.saved{background:var(--green-bg);border-color:var(--green)}
+.sw.off{border:2px dashed var(--grey);background:var(--paper)}
+.sw.dead{background:var(--margin-bg);border-color:var(--margin)}
+.panes{display:grid;grid-template-columns:minmax(0,1fr);gap:4px 16px}
+.panes pre{margin-bottom:8px;font-size:13px}
+.res{white-space:pre-wrap;max-height:13rem;overflow:auto}
+.counters{font-size:14px;margin:0 0 8px}
+.code span{display:block;padding:0 8px;margin:0 -8px;border-radius:4px;white-space:pre}
+.code span.hot{background:var(--amber-bg);box-shadow:inset 3px 0 var(--amber)}
+.ed{stroke:var(--muted);stroke-width:1.5}
+.ed.fut{stroke:var(--line);stroke-dasharray:2 4}
+.ed.off{stroke:var(--grey);stroke-dasharray:4 3}
+.ed.on{stroke:var(--pen);stroke-width:3}
+.nd circle{fill:var(--surface);stroke:var(--muted);stroke-width:1.5}
+.nd text{fill:var(--ink);font:600 12px var(--mono);text-anchor:middle;dominant-baseline:central}
+.nd text.sub{font:500 10px var(--mono);fill:var(--muted);paint-order:stroke;stroke:var(--paper);stroke-width:3px}
+.nd.fut{opacity:.28}
+.nd.saved circle{fill:var(--green-bg);stroke:var(--green);stroke-width:2}
+.nd.on circle{fill:var(--pen-bg);stroke:var(--pen);stroke-width:2}
+.nd.off circle{fill:var(--paper);stroke:var(--grey);stroke-dasharray:3 3}
+.nd.off text{fill:var(--muted)}
+.nd.dead circle{fill:var(--margin-bg);stroke:var(--margin)}
+.nd.cur circle{fill:var(--pen);stroke:var(--pen);stroke-width:3}
+.nd.cur text.v{fill:var(--on-pen)}
+.nd.mark circle{stroke:var(--amber);stroke-width:3;stroke-dasharray:none}
+.check{border:1px solid var(--line);border-left:4px solid var(--amber);background:var(--surface);border-radius:0 12px 12px 0;padding:14px 16px;margin:20px 0}
+.check>p{margin-bottom:10px}
+.try{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin:0 0 8px}
+.try label{display:grid;gap:4px;font-size:14px;font-weight:600;color:var(--muted)}
+.verdict{margin:0 0 8px!important;font-weight:600}
+.verdict.ok{color:var(--green)}
+.verdict.no{color:var(--margin)}
+.ans{margin-top:10px;padding:10px 14px;background:var(--green-bg);border-radius:8px}
+.ans>:last-child{margin-bottom:0}
+.check pre{font-size:13px}
+.bug{background:var(--margin-bg);box-shadow:inset 3px 0 var(--margin);display:inline-block;min-width:100%}
+.stages{list-style:none;padding:0}
+.stages li{border-left:3px solid var(--line);padding:2px 0 2px 14px;margin:0 0 12px}
+.stages b{display:block}
+@media (max-width:30rem){table{font-size:14px}th,td{padding:6px 5px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>Permutations and combinations</h1>
+<p class="lead">This lesson teaches you how to count permutations, combinations and subsets. Then you use one backtracking template to list them, remove duplicates and stop bad branches early.</p>
+<ul class="tags" aria-label="Topics"><li>Backtracking</li><li>Recursion</li><li>Combinatorics</li><li>Math</li></ul>
+<p>Before you start, you must know Python lists, loops and functions. You must also know what a recursive function is. The code examples use Python 3.</p>
+<p>Most sections have a short explanation, an example and a self-check. Do the self-check before you go to the next section. The interactive parts work with the mouse, touch and the keyboard.</p>
+</header>
+
+<nav aria-labelledby="toc">
+<h2 id="toc">Contents</h2>
+<ol>
+<li><a href="#s1">Count before you code</a></li>
+<li><a href="#s2">Counting rules</a></li>
+<li><a href="#s3">The decision tree</a></li>
+<li><a href="#s4">The backtracking template</a></li>
+<li><a href="#s5">Permutations: used[]</a></li>
+<li><a href="#s6">Combinations: the start index</a></li>
+<li><a href="#s7">Subsets</a></li>
+<li><a href="#s8">Duplicate input values</a></li>
+<li><a href="#s9">Pruning</a></li>
+<li><a href="#s10">Order and counting without a list</a></li>
+<li><a href="#s11">Complexity</a></li>
+<li><a href="#s12">Common mistakes</a></li>
+<li><a href="#s13">Final self-check</a></li>
+<li><a href="#s14">How to use the tasks in this set</a></li>
+</ol>
+</nav>
+
+<section aria-labelledby="s1">
+<h2 id="s1"><span class="n">1</span> Count before you code</h2>
+<ul class="tags" aria-label="Concepts"><li>Combinatorics</li><li>Complexity</li></ul>
+<p>Before you write a search, count the answers. Each item is in a subset or not in it, so n items have 2<sup>n</sup> subsets. n different items have n! orders. n! (n factorial) is n × (n - 1) × ... × 1. A program that lists all answers does at least one step for each answer. So the count tells you if a solution that lists all answers is fast enough.</p>
+<div class="tw"><table>
+<caption class="label" style="text-align:left;padding:10px 12px 0">How fast the counts grow</caption>
+<thead><tr><th scope="col">n</th><th scope="col" class="num">2<sup>n</sup> (subsets)</th><th scope="col" class="num">n! (orders)</th></tr></thead>
+<tbody>
+<tr><td>5</td><td class="num">32</td><td class="num">120</td></tr>
+<tr><td>10</td><td class="num">1,024</td><td class="num">3,628,800</td></tr>
+<tr><td>12</td><td class="num">4,096</td><td class="num">479,001,600</td></tr>
+<tr><td>20</td><td class="num">1,048,576</td><td class="num">2,432,902,008,176,640,000</td></tr>
+</tbody></table></div>
+<div class="box">
+<p><b>Rule for LeetCode limits.</b> Read the limits in the problem first.</p>
+<ul>
+<li>If n is about 9 or less, a search over all orders (n!) is usually fast enough. In Python, 10! orders take some seconds and a lot of memory.</li>
+<li>If n is about 20 or less, a search over all subsets (2<sup>n</sup>) is usually fast enough.</li>
+</ul>
+</div>
+<div class="check">
+<p class="label">Self-check</p>
+<p>The input has 20 items. Can you list all subsets fast enough?</p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>Yes. 2<sup>20</sup> = 1,048,576. That is about one million subsets.</p></div>
+</div>
+</section>
+
+<section aria-labelledby="s2">
+<h2 id="s2"><span class="n">2</span> Counting rules</h2>
+<ul class="tags" aria-label="Concepts"><li>Combinatorics</li><li>Math</li></ul>
+<h3>The product rule</h3>
+<p>You make k independent choices. Choice 1 has a<sub>1</sub> options, choice 2 has a<sub>2</sub> options, and so on. Then the number of results is a<sub>1</sub> × a<sub>2</sub> × ... × a<sub>k</sub>.</p>
+<div class="example">
+<p class="label">Worked example: Letter Combinations of a Phone Number</p>
+<p>The digit 2 gives "abc" and the digit 3 gives "def". The input "23" has 2 choices with 3 options each. The result has 3 × 3 = 9 strings.</p>
+</div>
+<h3>Two questions select the formula</h3>
+<p>Ask two questions about the problem. Does the order of the items matter? Can an item repeat? The table gives the formula for each pair of answers. The last column uses n = 5 items and k = 3 places.</p>
+<div class="tw"><table>
+<thead><tr><th scope="col">Order matters</th><th scope="col">Repe&shy;tition</th><th scope="col">Name</th><th scope="col">Formula</th><th scope="col" class="num">n = 5, k = 3</th></tr></thead>
+<tbody>
+<tr><td>yes</td><td>no</td><td>permu&shy;tation P(n, k)</td><td>n! / (n - k)!</td><td class="num">60</td></tr>
+<tr><td>yes</td><td>yes</td><td>sequence</td><td>n<sup>k</sup></td><td class="num">125</td></tr>
+<tr><td>no</td><td>no</td><td>combi&shy;nation C(n, k)</td><td>n! / (k! × (n - k)!)</td><td class="num">10</td></tr>
+<tr><td>no</td><td>yes</td><td>multiset (extra)</td><td>C(n + k - 1, k)</td><td class="num">35</td></tr>
+</tbody></table></div>
+<p>The product rule gives the first two rows. For P(5, 3), the first place has 5 options, the second place has 4 options and the third place has 3 options. So P(5, 3) = 5 × 4 × 3 = 60. For a sequence, each place has 5 options. So the count is 5 × 5 × 5 = 125.</p>
+<h3>Facts that you use often</h3>
+<ul>
+<li>n! = n × (n - 1) × ... × 1. This is P(n, n): all orders of all n items. By definition, 0! = 1.</li>
+<li>C(n, k) = P(n, k) / k!. Each group of k items appears in k! different orders. Example: 60 / 3! = 60 / 6 = 10.</li>
+<li>Repeated values: equal values can change places and the list stays the same. So divide n! by the number of orders of each group of equal values. The formula is n! / (a! × b! × ...), where a, b, ... are the counts of each repeated value. "BOOK" has two O letters, so it gives 4! / 2! = 12 words. The list [1, 1, 2] gives 3! / 2! = 3 orders.</li>
+<li>The sum of C(n, k) for k = 0 to n is 2<sup>n</sup>. Each subset has exactly one size.</li>
+<li>C(n, k) = C(n - 1, k - 1) + C(n - 1, k). You take the first item and choose k - 1 from the rest, or you skip it and choose k from the rest.</li>
+</ul>
+<div class="example">
+<p class="label">Worked example: Unique Paths</p>
+<p>A robot moves on a grid with 3 rows and 7 columns. It moves only down or right, from the top-left cell to the bottom-right cell. Each path has 2 down moves and 6 right moves: 8 moves in total. When you know which 2 of the 8 moves go down, you know the path. So the count is C(8, 2) = 28.</p>
+</div>
+<p>Python has these formulas in the <code>math</code> module. Use them to check the counts that you calculate by hand.</p>
+<pre><code class="py">from math import comb, factorial, perm
+
+print(perm(5, 3), 5 ** 3, comb(5, 3), comb(5 + 3 - 1, 3))
+print(perm(5, 3) // factorial(3))
+print(factorial(4) // factorial(2))
+print(sum(comb(5, k) for k in range(6)), 2 ** 5)
+print(comb(8, 2))</code></pre>
+<pre class="out"><code>60 125 10 35
+10
+12
+32 32
+28</code></pre>
+
+<div class="widget" id="w1">
+<p class="label">Interactive</p>
+<h3>Counting calculator</h3>
+<p>Set n and k. Then answer the two questions with the checkboxes. When n is 5 or less and the result is 120 or less, the calculator lists every result with the letters A to E.</p>
+<div class="controls">
+<label>n (items, 0 to 20)<input type="number" class="n" min="0" max="20" value="5" inputmode="numeric"></label>
+<label>k (places)<input type="number" class="k" min="0" max="5" value="3" inputmode="numeric"></label>
+<label class="chk"><input type="checkbox" class="order" checked> Order matters</label>
+<label class="chk"><input type="checkbox" class="rep"> Repetition allowed</label>
+</div>
+<dl class="calc" aria-live="polite">
+<dt>Rule</dt><dd class="o-name"></dd>
+<dt>Formula</dt><dd class="o-formula"></dd>
+<dt>Your numbers</dt><dd class="o-work"></dd>
+<dt>Result</dt><dd class="o-count big"></dd>
+</dl>
+<button type="button" class="group" aria-pressed="false">Group by letters</button>
+<div class="list" style="margin-top:12px"></div>
+</div>
+<p>Push "Group by letters" when order matters and repetition is off. The list changes into C(n, k) rows. Each row has the k! orders of the same k letters. This shows why C(n, k) = P(n, k) / k!.</p>
+
+<div class="check">
+<p class="label">Self-check</p>
+<p>The digit 7 gives "pqrs" and the digit 9 gives "wxyz". How many strings does Letter Combinations give for the input "79"?</p>
+<div class="try"><label>Number of strings<input type="text" inputmode="numeric" autocomplete="off" data-answer="16"></label><button type="button" class="test">Check</button></div>
+<p class="verdict" aria-live="polite"></p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>16. Each digit has 4 letters, so the product rule gives 4 × 4 = 16.</p></div>
+</div>
+<p class="muted">The final self-check in section 13 has more counting questions (questions 1 to 6 and 12).</p>
+</section>
+
+<section aria-labelledby="s3">
+<h2 id="s3"><span class="n">3</span> The decision tree</h2>
+<ul class="tags" aria-label="Concepts"><li>Backtracking</li><li>Recursion</li></ul>
+<p>A backtracking search builds an answer one decision at a time. Draw these decisions as a tree before you write code. Hello Interview calls this tree the solution space tree.</p>
+<ul>
+<li>One level of the tree is one decision.</li>
+<li>The path from the root to a node is a partial answer.</li>
+<li>Each node is one call of the recursive function.</li>
+<li>The number of answer nodes is the count from section 2.</li>
+</ul>
+<h3>Method</h3>
+<ol>
+<li>Build some answers by hand for a small input.</li>
+<li>Draw the tree for these answers.</li>
+<li>For each node, write the data that the node needs to make its children. This data becomes the function parameters.</li>
+<li>Write the loop over the children and the base case.</li>
+<li>Write the outer function that starts the search at the root.</li>
+</ol>
+<h3>Three trees for the input [1, 2, 3]</h3>
+<ul>
+<li><b>Permutations.</b> Level 1 has 3 options, level 2 has 2 options and level 3 has 1 option. The tree has 6 leaves and 1 + 3 + 6 + 6 = 16 nodes.</li>
+<li><b>Combinations.</b> A child uses only items to the right of the last choice. So [2, 1] never appears, because [1, 2] already has these items.</li>
+<li><b>Subsets.</b> Use the combinations tree, but every node is an answer, not only the leaves. The tree has 8 nodes and 8 answers.</li>
+</ul>
+<h3>Two tree shapes</h3>
+<ul>
+<li><b>Loop over the options.</b> Each node has one child for each option. Letter Combinations of a Phone Number uses this shape: one level for each digit and one branch for each letter.</li>
+<li><b>Take or skip.</b> Each node has two children: take the next item, or skip it. This gives a binary tree with depth n. Only the leaves are answers. Sum of All Subset XOR Totals and Subsets can use this shape. Letter Case Permutation uses the same binary shape: each letter is lower case or upper case.</li>
+</ul>
+<div class="example">
+<p class="label">Worked example: Letter Case Permutation</p>
+<p>The input "a1b2" has 2 letters. A letter gives 2 options: lower case or upper case. A digit gives only 1 option, so it adds no branch. The tree has 2 levels with 2 branches each, and 2 × 2 = 4 leaves: "a1b2", "a1B2", "A1b2" and "A1B2".</p>
+</div>
+
+<div class="widget" id="w2">
+<p class="label">Interactive</p>
+<h3>Decision tree stepper</h3>
+<p>Select a mode. Then push Step. The tree marks the current call. The code marks the current line. Each circle is one call of <code>backtrack</code>. The number in a circle is the value that the call added to <code>path</code>. Sections 4 to 7 use this stepper too.</p>
+<div class="controls">
+<label>Input values (1 to 4 integers)<input type="text" class="vals" value="1, 2, 3" spellcheck="false" autocomplete="off"></label>
+<fieldset><legend>Mode</legend><div class="seg">
+<label><input type="radio" name="w2mode" value="perm" checked> Permutations</label>
+<label><input type="radio" name="w2mode" value="comb"> Combinations</label>
+<label><input type="radio" name="w2mode" value="sub"> Subsets</label>
+</div></fieldset>
+<label class="kbox" hidden>k<input type="number" class="k" min="0" max="3" value="2" inputmode="numeric"></label>
+<label class="chk"><input type="checkbox" class="copy" checked> Save a copy (path[:])</label>
+</div>
+<p class="err" role="alert" hidden></p>
+<div class="bar">
+<button type="button" data-act="back">Back</button>
+<button type="button" data-act="step" class="primary">Step</button>
+<button type="button" data-act="play">Play</button>
+<button type="button" data-act="reset">Reset</button>
+<span class="stepno"></span>
+</div>
+<p class="status" aria-live="polite"></p>
+<div class="tree" tabindex="0" role="group" aria-label="Decision tree"></div>
+<ul class="legend"><li><span class="sw cur"></span>Current call</li><li><span class="sw on"></span>On the path</li><li><span class="sw saved"></span>Answer saved</li><li><span class="sw"></span>Visited</li></ul>
+<div class="panes">
+<div><h4>State</h4><pre class="vars"></pre><p class="counters"></p><h4>Results</h4><pre class="res"></pre></div>
+<div><h4>Code</h4><pre class="code"></pre></div>
+</div>
+</div>
+
+<div class="check">
+<p class="label">Self-check</p>
+<p>How many leaves and how many nodes does the permutation tree of [1, 2, 3] have?</p>
+<div class="try"><label>Leaves<input type="text" inputmode="numeric" autocomplete="off" data-answer="6"></label><label>Nodes<input type="text" inputmode="numeric" autocomplete="off" data-answer="16"></label><button type="button" class="test">Check</button></div>
+<p class="verdict" aria-live="polite"></p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>6 leaves and 16 nodes. The levels have 1, 3, 6 and 6 nodes, and 1 + 3 + 6 + 6 = 16.</p></div>
+</div>
+</section>
+
+<section aria-labelledby="s4">
+<h2 id="s4"><span class="n">4</span> The backtracking template</h2>
+<ul class="tags" aria-label="Concepts"><li>Backtracking</li><li>Recursion</li></ul>
+<p>All searches in this lesson use one template. The names <code>is_answer</code>, <code>choices</code> and <code>next_state</code> change for each problem.</p>
+<pre><code class="py">def backtrack(state):
+    if is_answer(state):
+        res.append(path[:])    # save a copy
+        return
+    for choice in choices(state):
+        path.append(choice)    # choose
+        backtrack(next_state(state, choice))    # explore
+        path.pop()             # unchoose</code></pre>
+<ol>
+<li><b>Choose.</b> Add the choice to <code>path</code>.</li>
+<li><b>Explore.</b> Call the function for the child node.</li>
+<li><b>Unchoose.</b> Remove the choice. Now <code>path</code> is the same as before the choice, and the loop can try the next choice.</li>
+</ol>
+<div class="box"><p><b>Rule.</b> Every "choose" step has one "unchoose" step that undoes it exactly. If the choose step also sets <code>used[i] = True</code>, the unchoose step also sets <code>used[i] = False</code>.</p></div>
+<p>If the path is a string <code>s</code>, <code>s + bit</code> makes a new string. Each call gets its own string, so the code needs no unchoose step. Letter Combinations of a Phone Number can use this form.</p>
+<pre><code class="py">def binary_strings(n):
+    res = []
+    def backtrack(s):
+        if len(s) == n:
+            res.append(s)
+            return
+        for bit in "01":
+            backtrack(s + bit)
+    backtrack("")
+    return res
+
+print(binary_strings(2))</code></pre>
+<pre class="out"><code>['00', '01', '10', '11']</code></pre>
+<p>Look at the stepper in section 3. A choose step marks the <code>path.append</code> line and the recursive call. An unchoose step marks the <code>path.pop()</code> line.</p>
+<div class="check">
+<p class="label">Self-check</p>
+<p>Why does the code save <code>path[:]</code> and not <code>path</code>?</p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>All calls share one <code>path</code> list. <code>res.append(path)</code> saves a reference to this list, not its values. Later calls change the list, and at the end it is empty. So every saved entry shows <code>[]</code>. To see this, clear "Save a copy" in the stepper. Then push Play.</p></div>
+</div>
+<p class="muted">Final question 7 in section 13 also checks this section.</p>
+</section>
+
+<section aria-labelledby="s5">
+<h2 id="s5"><span class="n">5</span> Permutations: used[]</h2>
+<ul class="tags" aria-label="Concepts"><li>Backtracking</li></ul>
+<p>A permutation uses every item one time. At each level, any item that is not on the path can come next. A <code>used</code> list records the items on the path.</p>
+<pre><code class="py">def permute(nums):
+    res, path, used = [], [], [False] * len(nums)
+    def backtrack():
+        if len(path) == len(nums):
+            res.append(path[:])
+            return
+        for i in range(len(nums)):
+            if used[i]:
+                continue
+            used[i] = True
+            path.append(nums[i])
+            backtrack()
+            path.pop()
+            used[i] = False
+    backtrack()
+    return res
+
+print(permute([1, 2, 3]))</code></pre>
+<pre class="out"><code>[[1, 2, 3], [1, 3, 2], [2, 1, 3], [2, 3, 1], [3, 1, 2], [3, 2, 1]]</code></pre>
+<ul>
+<li>The base case: <code>path</code> has n items. Save a copy and return.</li>
+<li>The choose step sets <code>used[i] = True</code>. The unchoose step sets <code>used[i] = False</code>.</li>
+<li>In the stepper, select Permutations. Look at <code>used</code> in the State panel.</li>
+</ul>
+<h3>Extra: the swap version</h3>
+<p>This version needs no <code>used</code> list and no <code>path</code>. The part <code>nums[:first]</code> is the path. The part <code>nums[first:]</code> holds the items that are not used. The output is not in sorted order.</p>
+<pre><code class="py">def permute_swap(nums):
+    res = []
+    def backtrack(first):
+        if first == len(nums):
+            res.append(nums[:])
+            return
+        for i in range(first, len(nums)):
+            nums[first], nums[i] = nums[i], nums[first]
+            backtrack(first + 1)
+            nums[first], nums[i] = nums[i], nums[first]
+    backtrack(0)
+    return res
+
+print(permute_swap([1, 2, 3]))</code></pre>
+<pre class="out"><code>[[1, 2, 3], [1, 3, 2], [2, 1, 3], [2, 3, 1], [3, 2, 1], [3, 1, 2]]</code></pre>
+<div class="check">
+<p class="label">Self-check</p>
+<p>You remove the line <code>used[i] = False</code> from <code>permute</code>. What does <code>permute([1, 2, 3])</code> return?</p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p><code>[[1, 2, 3]]</code>. After the first answer, all items stay marked as used. So no other branch can start.</p></div>
+</div>
+</section>
+
+<section aria-labelledby="s6">
+<h2 id="s6"><span class="n">6</span> Combinations: the start index</h2>
+<ul class="tags" aria-label="Concepts"><li>Backtracking</li></ul>
+<p>In a combination, the order does not matter. [1, 2] and [2, 1] are the same group. To make each group one time only, keep each group in increasing order. A start index does this: the loop starts after the last choice.</p>
+<pre><code class="py">def combine(n, k):
+    res, path = [], []
+    def backtrack(start):
+        if len(path) == k:
+            res.append(path[:])
+            return
+        for i in range(start, n + 1):
+            path.append(i)
+            backtrack(i + 1)
+            path.pop()
+    backtrack(1)
+    return res
+
+print(combine(4, 2))</code></pre>
+<pre class="out"><code>[[1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4]]</code></pre>
+<p>The table compares the three loops over a list <code>nums</code>. Only the loop and the recursive call change.</p>
+<div class="tw"><table>
+<thead><tr><th scope="col">Problem</th><th scope="col">Loop</th><th scope="col">Recursive call</th></tr></thead>
+<tbody>
+<tr><td>Permutations</td><td><code>range(len(nums))</code> and <code>used[]</code></td><td><code>backtrack()</code></td></tr>
+<tr><td>Combinations, no reuse</td><td><code>range(start, len(nums))</code></td><td><code>backtrack(i + 1)</code></td></tr>
+<tr><td>Combinations, reuse allowed (Combination Sum)</td><td><code>range(start, len(nums))</code></td><td><code>backtrack(i)</code></td></tr>
+</tbody></table></div>
+<p>With <code>backtrack(i)</code>, the next level can take the same item again. With <code>backtrack(i + 1)</code>, it cannot.</p>
+<p>Combination Sum has no fixed path length. The search uses <code>remain</code>: the sum that the path still needs. Save the path when <code>remain</code> is 0. Return when <code>remain</code> is less than 0. Call <code>backtrack(i, remain - candidates[i])</code>.</p>
+<div class="check">
+<p class="label">Self-check</p>
+<p>How many lists does <code>combine(6, 2)</code> return?</p>
+<div class="try"><label>Number of lists<input type="text" inputmode="numeric" autocomplete="off" data-answer="15"></label><button type="button" class="test">Check</button></div>
+<p class="verdict" aria-live="polite"></p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>15. C(6, 2) = 6! / (2! × 4!) = 15. The first list is [1, 2] and the last list is [5, 6].</p></div>
+</div>
+<p class="muted">Final question 8 in section 13 also checks this section.</p>
+</section>
+
+<section aria-labelledby="s7">
+<h2 id="s7"><span class="n">7</span> Subsets</h2>
+<ul class="tags" aria-label="Concepts"><li>Backtracking</li><li>Bit manipulation</li></ul>
+<p>A subset is a combination of any size, from 0 to n items. So use the combination code, but save <code>path</code> at every node. There is no length check. The result has 2<sup>n</sup> answers.</p>
+<pre><code class="py">def subsets(nums):
+    res, path = [], []
+    def backtrack(start):
+        res.append(path[:])    # every node is an answer
+        for i in range(start, len(nums)):
+            path.append(nums[i])
+            backtrack(i + 1)
+            path.pop()
+    backtrack(0)
+    return res
+
+print(subsets([1, 2, 3]))</code></pre>
+<pre class="out"><code>[[], [1], [1, 2], [1, 2, 3], [1, 3], [2], [2, 3], [3]]</code></pre>
+<h3>Second view: take or skip</h3>
+<p>For each item, take it or skip it. This gives a binary tree with depth n. Each answer is a leaf.</p>
+<pre><code class="py">def subsets_take_skip(nums):
+    res, path = [], []
+    def backtrack(i):
+        if i == len(nums):
+            res.append(path[:])
+            return
+        path.append(nums[i])    # take nums[i]
+        backtrack(i + 1)
+        path.pop()
+        backtrack(i + 1)        # skip nums[i]
+    backtrack(0)
+    return res
+
+print(subsets_take_skip([1, 2, 3]))</code></pre>
+<pre class="out"><code>[[1, 2, 3], [1, 2], [1, 3], [1], [2, 3], [2], [3], []]</code></pre>
+<p>Sum of All Subset XOR Totals uses the Python operator <code>^</code>. <code>a ^ b</code> is the bitwise XOR of a and b. The XOR total of the empty subset is 0. This search needs no path. Pass the XOR of the items that you took as a parameter. At each leaf, add this value to a total in the outer function. Declare the total with <code>nonlocal</code> in the nested function. Without <code>nonlocal</code>, Python raises <code>UnboundLocalError</code>.</p>
+<h3>Third view (extra): bitmasks</h3>
+<p>Count from 0 to 2<sup>n</sup> - 1. Bit j of the number <code>mask</code> tells if <code>nums[j]</code> is in the subset.</p>
+<pre><code class="py">nums = [1, 2, 3]
+for mask in range(1 &lt;&lt; len(nums)):
+    subset = [nums[j] for j in range(len(nums)) if mask &gt;&gt; j &amp; 1]
+    print(format(mask, "03b"), subset)</code></pre>
+<pre class="out"><code>000 []
+001 [1]
+010 [2]
+011 [1, 2]
+100 [3]
+101 [1, 3]
+110 [2, 3]
+111 [1, 2, 3]</code></pre>
+<div class="check">
+<p class="label">Self-check</p>
+<p>How many lists does <code>subsets([1, 2, 3, 4])</code> return?</p>
+<div class="try"><label>Number of lists<input type="text" inputmode="numeric" autocomplete="off" data-answer="16"></label><button type="button" class="test">Check</button></div>
+<p class="verdict" aria-live="polite"></p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>16. A set of 4 items has 2<sup>4</sup> = 16 subsets. 6 of them have 2 items: C(4, 2) = 6.</p></div>
+</div>
+<p class="muted">Final question 6 in section 13 also checks this section.</p>
+</section>
+
+<section aria-labelledby="s8">
+<h2 id="s8"><span class="n">8</span> Duplicate input values</h2>
+<ul class="tags" aria-label="Concepts"><li>Backtracking</li><li>Sorting</li></ul>
+<p>If the input has equal values, the search makes equal answers. For example, the permutations of [1, 1, 2] contain [1, 1, 2] two times. The two 1 values are different items, but they make the same list.</p>
+<ol>
+<li>Sort the input first. Equal values are then neighbours.</li>
+<li>Among the children of one node (one run of the loop), use each value one time only. A deeper level can use the same value again. The short name for this rule is "skip at the same level".</li>
+</ol>
+<p>For subsets and combinations, use this skip rule in the loop:</p>
+<pre><code class="py">nums.sort()    # one time, before the first call
+for i in range(start, len(nums)):
+    if i &gt; start and nums[i] == nums[i - 1]:
+        continue    # this level already used this value</code></pre>
+<p>For permutations, use this skip rule in the loop:</p>
+<pre><code class="py">nums.sort()    # one time, before the first call
+for i in range(len(nums)):
+    if used[i]:
+        continue
+    if i &gt; 0 and nums[i] == nums[i - 1] and not used[i - 1]:
+        continue    # this level already used this value</code></pre>
+<p>Example with [1, 1, 2]. At the root, the code uses <code>nums[0]</code> = 1 and explores that branch. Then the unchoose step sets <code>used[0]</code> to False. <code>nums[1]</code> is also 1. It can only make the same branch again, so the code skips it. In the branch [1], <code>used[0]</code> is True. There, <code>nums[1]</code> is the second 1 at a deeper level. The code uses it and makes [1, 1].</p>
+<p>Rule: when <code>used[i - 1]</code> is False and the values are equal, skip <code>nums[i]</code>.</p>
+<div class="example">
+<p class="label">Worked example: the input [1, 1, 2]</p>
+<div class="tw" style="margin:0"><table>
+<thead><tr><th scope="col">Mode</th><th scope="col" class="num">No skip</th><th scope="col" class="num">Skip at the same level</th><th scope="col" class="num">Wrong rule</th></tr></thead>
+<tbody>
+<tr><td>Subsets</td><td class="num">8</td><td class="num">6</td><td class="num">4</td></tr>
+<tr><td>Permutations</td><td class="num">6</td><td class="num">3 (= 3! / 2!)</td><td class="num">0</td></tr>
+</tbody></table></div>
+</div>
+<p>The wrong rule for subsets is <code>i &gt; 0</code> in place of <code>i &gt; start</code>. The wrong rule for permutations has no <code>not used[i - 1]</code>. Try all three rules in the lab.</p>
+
+<div class="widget" id="w3">
+<p class="label">Interactive</p>
+<h3>Duplicates and pruning lab</h3>
+<p>Preset A shows the skip rules. Preset B shows pruning (section 9). Grey circles with a dashed border are branches that the code did not call. The text under a grey circle gives the reason.</p>
+<div class="controls">
+<fieldset><legend>Preset</legend><div class="seg">
+<label><input type="radio" name="w3preset" value="A" checked> A: duplicates in [1, 1, 2]</label>
+<label><input type="radio" name="w3preset" value="B"> B: Combination Sum, [2, 3, 6, 7], target 7</label>
+</div></fieldset>
+</div>
+<div class="controls pa">
+<fieldset><legend>Mode</legend><div class="seg">
+<label><input type="radio" name="w3mode" value="sub" checked> Subsets</label>
+<label><input type="radio" name="w3mode" value="perm"> Permutations</label>
+</div></fieldset>
+<fieldset><legend>Duplicate rule</legend><div class="seg">
+<label><input type="radio" name="w3dup" value="none" checked> No skip</label>
+<label><input type="radio" name="w3dup" value="level"> Skip at the same level</label>
+<label><input type="radio" name="w3dup" value="wrong"> Wrong rule</label>
+</div></fieldset>
+</div>
+<div class="controls pb" hidden>
+<label class="chk"><input type="checkbox" class="prune"> Prune: break when value &gt; remain</label>
+</div>
+<div class="bar">
+<button type="button" data-act="back">Back</button>
+<button type="button" data-act="step" class="primary">Step</button>
+<button type="button" data-act="play">Play</button>
+<button type="button" data-act="reset">Reset</button>
+<span class="stepno"></span>
+</div>
+<p class="status" aria-live="polite"></p>
+<div class="tree" tabindex="0" role="group" aria-label="Decision tree"></div>
+<ul class="legend"><li><span class="sw cur"></span>Current call</li><li><span class="sw on"></span>On the path</li><li><span class="sw saved"></span>Answer saved</li><li><span class="sw off"></span>Skipped or pruned</li><li><span class="sw dead"></span>remain &lt; 0</li></ul>
+<div class="panes">
+<div><h4>State</h4><pre class="vars"></pre><p class="counters"></p><h4>Results</h4><pre class="res"></pre></div>
+<div><h4>Code</h4><pre class="code"></pre></div>
+</div>
+</div>
+
+<div class="check">
+<p class="label">Self-check</p>
+<p>Subsets II uses the skip rule. How many lists does it return for [1, 2, 2]?</p>
+<div class="try"><label>Number of lists<input type="text" inputmode="numeric" autocomplete="off" data-answer="6"></label><button type="button" class="test">Check</button></div>
+<p class="verdict" aria-live="polite"></p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>6: [], [1], [1, 2], [1, 2, 2], [2] and [2, 2]. Without the skip rule, [2] and [1, 2] appear two times, and the result has 8 lists.</p></div>
+</div>
+<p class="muted">Final question 9 in section 13 also checks this section.</p>
+</section>
+
+<section aria-labelledby="s9">
+<h2 id="s9"><span class="n">9</span> Pruning</h2>
+<ul class="tags" aria-label="Concepts"><li>Backtracking</li><li>Sorting</li></ul>
+<p>Pruning stops a branch when no answer can be below it. The code does not call the function for that branch.</p>
+<h3>Sort, then break</h3>
+<p>In Combination Sum, <code>remain</code> is the sum that the path still needs. Sort the input. Then stop the loop when the value is larger than <code>remain</code>:</p>
+<pre><code class="py">candidates.sort()    # one time, before the first call
+for i in range(start, len(candidates)):
+    if candidates[i] &gt; remain:
+        break    # all later values are larger too</code></pre>
+<p>Use <code>break</code>, not <code>continue</code>. The input is sorted, so all later values are larger too.</p>
+<div class="tw"><table>
+<thead><tr><th scope="col">Task and input</th><th scope="col" class="num">Calls without prune</th><th scope="col" class="num">Calls with prune</th><th scope="col">Result</th></tr></thead>
+<tbody>
+<tr><td>Combination Sum: [2, 3, 6, 7], target 7</td><td class="num">28</td><td class="num">10</td><td>[[2, 2, 3], [7]]</td></tr>
+<tr><td>Combination Sum II: [10, 1, 2, 7, 6, 1, 5], target 8</td><td class="num">47</td><td class="num">17</td><td>[[1, 1, 6], [1, 2, 5], [1, 7], [2, 6]]</td></tr>
+</tbody></table></div>
+<p>In the lab in section 8, select preset B. Push Play with the prune checkbox clear. Then select the checkbox. Push Play again. Compare the number of calls.</p>
+<h3>Stop when too few items remain</h3>
+<p>In <code>combine(n, k)</code>, the path needs <code>need = k - len(path)</code> more numbers. The numbers from <code>i</code> to <code>n</code> must give <code>need</code> numbers, so <code>n - i + 1</code> must be at least <code>need</code>. So the largest value of <code>i</code> is <code>n - need + 1</code>. <code>range</code> stops before its end value, so the end is <code>n - need + 2</code>:</p>
+<pre><code class="py">for i in range(start, n - (k - len(path)) + 2):
+    path.append(i)
+    backtrack(i + 1)
+    path.pop()</code></pre>
+<h3>Validity rules are a prune</h3>
+<p>Generate Parentheses adds "(" only when <code>open &lt; n</code>. It adds ")" only when <code>close &lt; open</code>. These two rules remove every branch that cannot give a valid string. For n = 3 the result has 5 strings. This is the Catalan number C(2n, n) / (n + 1) = C(6, 3) / 4 = 5.</p>
+<h3>Constraint sets are a prune</h3>
+<p>N-Queens puts one queen in each row. Keep three sets: the used columns, the used values of <code>r - c</code> and the used values of <code>r + c</code>. All cells on one down-right diagonal have the same <code>r - c</code>. All cells on one down-left diagonal have the same <code>r + c</code>. Skip a cell when its column or one of its diagonals is in a set. When you remove a queen, remove its three values from the sets. A 4 × 4 board has 2 solutions. An 8 × 8 board has 92 solutions.</p>
+<div class="box"><p>The sort then break prune does not change the worst case. It only removes calls on real inputs. Validity rules can remove most of the tree. For n = 3, the two rules in Generate Parentheses give 5 strings, not all 2<sup>6</sup> = 64 strings of 6 brackets.</p></div>
+<div class="check">
+<p class="label">Self-check</p>
+<p>How many strings does Generate Parentheses return for n = 4?</p>
+<div class="try"><label>Number of strings<input type="text" inputmode="numeric" autocomplete="off" data-answer="14"></label><button type="button" class="test">Check</button></div>
+<p class="verdict" aria-live="polite"></p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>14. The Catalan number for n = 4 is C(8, 4) / 5 = 70 / 5 = 14.</p></div>
+</div>
+<p class="muted">Final question 11 in section 13 also checks this section.</p>
+</section>
+
+<section aria-labelledby="s10">
+<h2 id="s10"><span class="n">10</span> Order and counting without a list</h2>
+<ul class="tags" aria-label="Concepts"><li>Math</li><li>Two pointers</li><li>Combinatorics</li></ul>
+<p>Some tasks ask for one permutation, or only for a count. Use the order of the permutations, or a formula. For Next Permutation (up to 100 items) and Unique Paths, a list of all answers is too slow. For Permutation Sequence, the block method needs only n steps in place of n! steps.</p>
+<h3>Lexicographic order</h3>
+<p>Compare two lists item by item, as you compare words in a dictionary. The first different item decides the order. The permutations of [1, 2, 3] in this order are 123, 132, 213, 231, 312 and 321.</p>
+<h3>Next permutation</h3>
+<ol>
+<li>From the right, find the first index i with <code>nums[i] &lt; nums[i + 1]</code>. This is the pivot.</li>
+<li>From the right, find the first value that is larger than <code>nums[i]</code>. The part after the pivot is in decreasing order, so this is the smallest value in the part that is larger than the pivot. Swap the two values.</li>
+<li>Reverse the part after index i.</li>
+</ol>
+<div class="example">
+<p class="label">Worked example: [1, 3, 5, 4, 2]</p>
+<div class="tw" style="margin:0 0 12px"><table>
+<thead><tr><th scope="col">Step</th><th scope="col">Action</th><th scope="col">List</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>From the right, 3 &lt; 5 is the first increase. The pivot is 3 at index 1.</td><td><code>[1, 3, 5, 4, 2]</code></td></tr>
+<tr><td>2</td><td>From the right, 4 is the first value larger than 3. Swap 3 and 4.</td><td><code>[1, 4, 5, 3, 2]</code></td></tr>
+<tr><td>3</td><td>Reverse the part after index 1: [5, 3, 2] becomes [2, 3, 5].</td><td><code>[1, 4, 2, 3, 5]</code></td></tr>
+</tbody></table></div>
+<p>Why reverse? The part after the pivot is in decreasing order. This is the last order of these items. After the swap, the part is still in decreasing order. The reverse makes it increasing, and that is the first order.</p>
+</div>
+<p>If no pivot exists, the list is the last permutation. Reverse all of it to get the first permutation.</p>
+<p>LeetCode checks <code>nums</code> after your function returns. Change <code>nums</code> in place, for example with <code>nums[i + 1:] = reversed(nums[i + 1:])</code>. Do not assign a new list to <code>nums</code>.</p>
+<h3>The k-th permutation</h3>
+<p>The permutations of n digits come in n blocks of (n - 1)! permutations. All permutations in one block start with the same digit. So <code>(k - 1) // (n - 1)!</code> gives the index of the first digit. Then repeat with the remainder and the digits that are left.</p>
+<div class="example">
+<p class="label">Worked example: n = 4, k = 9</p>
+<p>Count from 0, so the start index is k - 1 = 8.</p>
+<div class="tw" style="margin:0 0 12px"><table>
+<thead><tr><th scope="col">Digits left</th><th scope="col" class="num">Index</th><th scope="col" class="num">Block size</th><th scope="col" class="num">Index // size</th><th scope="col" class="num">Digit</th><th scope="col" class="num">Index % size</th></tr></thead>
+<tbody>
+<tr><td>[1, 2, 3, 4]</td><td class="num">8</td><td class="num">3! = 6</td><td class="num">1</td><td class="num">2</td><td class="num">2</td></tr>
+<tr><td>[1, 3, 4]</td><td class="num">2</td><td class="num">2! = 2</td><td class="num">1</td><td class="num">3</td><td class="num">0</td></tr>
+<tr><td>[1, 4]</td><td class="num">0</td><td class="num">1! = 1</td><td class="num">0</td><td class="num">1</td><td class="num">0</td></tr>
+<tr><td>[4]</td><td class="num">0</td><td class="num">0! = 1</td><td class="num">0</td><td class="num">4</td><td class="num">0</td></tr>
+</tbody></table></div>
+<p>The answer is "2314".</p>
+</div>
+<h3>Counting without a list</h3>
+<p>A grid has m rows and n columns. In Unique Paths, the formula C(m + n - 2, m - 1) gives the count directly. Check the formula with a dynamic programming (DP) table on a 3 × 3 grid. Each cell in the top row and in the left column has 1 path. Each other cell is the sum of the cell above it and the cell to its left.</p>
+<div class="tw" style="width:max-content;max-width:100%"><table class="grid3" aria-label="Number of paths to each cell of a 3 by 3 grid">
+<tbody>
+<tr><td>1</td><td>1</td><td>1</td></tr>
+<tr><td>1</td><td>2</td><td>3</td></tr>
+<tr><td>1</td><td>3</td><td>6</td></tr>
+</tbody></table></div>
+<p>The formula gives C(4, 2) = 6. The DP table also gives 6.</p>
+<p>Use <code>itertools</code> to check your answers on a small input. Do not use it in your task solution.</p>
+<pre><code class="py">from itertools import permutations
+from math import comb
+
+order = sorted(permutations([1, 2, 3, 4, 5]))
+print(order[order.index((1, 3, 5, 4, 2)) + 1])
+print(sorted(permutations([1, 2, 3, 4]))[9 - 1])
+print(comb(3 + 3 - 2, 3 - 1), comb(3 + 7 - 2, 3 - 1))</code></pre>
+<pre class="out"><code>(1, 4, 2, 3, 5)
+(2, 3, 1, 4)
+6 28</code></pre>
+<div class="check">
+<p class="label">Self-check</p>
+<p>What is the next permutation of [2, 3, 1]? What is the 3rd permutation of "123"?</p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>[3, 1, 2]. The pivot is 2. Swap it with 3 to get [3, 2, 1]. Then reverse [2, 1] to get [3, 1, 2].</p><p>"213". The order is 123, 132, 213. With the blocks: k - 1 = 2, and 2 // 2! = 1, so the first digit is 2.</p></div>
+</div>
+</section>
+
+<section aria-labelledby="s11">
+<h2 id="s11"><span class="n">11</span> Complexity</h2>
+<ul class="tags" aria-label="Concepts"><li>Complexity</li><li>Recursion</li></ul>
+<p>A search that lists all answers cannot be faster than the size of its output. Each saved answer is a copy of a path, and the copy of a path with length n costs O(n).</p>
+<div class="tw"><table>
+<thead><tr><th scope="col">Problem</th><th scope="col">Answers</th><th scope="col">Time</th></tr></thead>
+<tbody>
+<tr><td>Permutations</td><td>n!</td><td>O(n × n!)</td></tr>
+<tr><td>Subsets</td><td>2<sup>n</sup></td><td>O(n × 2<sup>n</sup>)</td></tr>
+<tr><td>Combinations</td><td>C(n, k)</td><td>O(k × C(n, k)) with the prune from section 9</td></tr>
+<tr><td>Letter Combinations of a Phone Number</td><td>up to 4<sup>n</sup></td><td>O(n × 4<sup>n</sup>)</td></tr>
+</tbody></table></div>
+<ul>
+<li>The permutation tree has fewer than e × n! nodes. e is a math constant, about 2.718. For n = 3 the tree has 16 nodes, and e × 3! is about 16.3.</li>
+<li>The extra space is O(n) for the path and the recursion depth. This does not include the output.</li>
+<li>Each recursive call uses one frame on the call stack. So a search with depth n uses O(n) stack space, not O(1).</li>
+<li>The default recursion limit in Python is 1000. All tasks in this set stay far below it.</li>
+</ul>
+<pre><code class="py">import sys
+from math import factorial
+
+print(factorial(12), 2 ** 12)
+print(sys.getrecursionlimit())</code></pre>
+<pre class="out"><code>479001600 4096
+1000</code></pre>
+<div class="box"><p><b>In your explanation,</b> write the time as the number of calls × the work in one call. When every leaf is an answer, the time is about the number of answers × the cost to copy one answer. In Combination Sum and N-Queens, most calls give no answer. For these searches, use an upper bound for the number of calls. For example, row r in N-Queens has at most n - r free columns, so N-Queens makes O(n!) calls. In Combination Sum, the depth is at most target / min(candidates) and each call has at most n children. So it makes at most O(n<sup>target / min(candidates) + 1</sup>) calls. Write the extra space as the depth of the tree.</p></div>
+<div class="check">
+<p class="label">Self-check</p>
+<p>How many lists does <code>combine(20, 3)</code> return? Is a full search fast enough?</p>
+<div class="try"><label>Number of lists<input type="text" inputmode="numeric" autocomplete="off" data-answer="1140"></label><button type="button" class="test">Check</button></div>
+<p class="verdict" aria-live="polite"></p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>1,140. C(20, 3) = 20 × 19 × 18 / 3! = 1,140. Yes, a full search is fast enough.</p></div>
+</div>
+<p class="muted">Final question 10 in section 13 also checks this section.</p>
+</section>
+
+<section aria-labelledby="s12">
+<h2 id="s12"><span class="n">12</span> Common mistakes</h2>
+<ul class="tags" aria-label="Concepts"><li>Debugging</li></ul>
+<div class="tw"><table>
+<thead><tr><th scope="col">Symptom</th><th scope="col">Cause</th><th scope="col">Fix</th></tr></thead>
+<tbody>
+<tr><td>Subsets of [1, 2] gives <code>[[], [], [], []]</code>.</td><td><code>res.append(path)</code> saves a reference to one list.</td><td><code>res.append(path[:])</code></td></tr>
+<tr><td>Subsets of [1, 2, 3] gives 16 lists, with [3, 2] and [3, 3].</td><td>The call is <code>backtrack(start + 1)</code>.</td><td><code>backtrack(i + 1)</code></td></tr>
+<tr><td>[1, 2] and [2, 1] both appear in combinations.</td><td>The loop starts at 0.</td><td>Start the loop at <code>start</code>.</td></tr>
+<tr><td>Subsets II on [1, 1, 2] gives 4 lists. [1, 1] and [1, 1, 2] are missing.</td><td>The skip uses the wrong level: <code>i &gt; 0</code>.</td><td><code>i &gt; start</code></td></tr>
+<tr><td>Permutations II on [1, 1, 2] gives <code>[]</code>.</td><td>The skip rule has no <code>not used[i - 1]</code>.</td><td>Add <code>not used[i - 1]</code>.</td></tr>
+<tr><td>The output still has duplicates.</td><td>The input is not sorted.</td><td>Sort the input first.</td></tr>
+<tr><td>Combination Sum raises <code>RecursionError</code>.</td><td>No stop for <code>remain &lt; 0</code> and no prune.</td><td>Add one of them.</td></tr>
+</tbody></table></div>
+<p>To see the path[:] mistake, clear "Save a copy" in the stepper in section 3. To see the Subsets II and Permutations II mistakes, select "Wrong rule" in the lab in section 8.</p>
+<div class="check">
+<p class="label">Find the bug</p>
+<p>This Combination Sum code raises <code>RecursionError</code> for [2, 3, 6, 7] and target 7. Find the place where a line is missing.</p>
+<pre><code class="py">def backtrack(start, remain):
+    if remain == 0:
+        res.append(path[:])
+        return
+<span data-bug>        </span>
+    for i in range(start, len(candidates)):
+        path.append(candidates[i])
+        backtrack(i, remain - candidates[i])
+        path.pop()</code></pre>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>The code has no stop before the loop. When <code>remain</code> is less than 0, the loop still adds values and calls <code>backtrack</code> again. The recursion goes deeper until Python raises <code>RecursionError</code>. Add <code>if remain &lt; 0: return</code> before the loop. Another fix: sort the input. Then add <code>if candidates[i] &gt; remain: break</code> in the loop.</p></div>
+</div>
+</section>
+
+<section aria-labelledby="s13">
+<h2 id="s13"><span class="n">13</span> Final self-check</h2>
+<p>The answers stay hidden until you push "Show answer". For a number question, type the number. Then push "Check". The page does not record a score.</p>
+
+<div class="check">
+<p class="label">Question 1</p>
+<p>In how many ways can you put 4 books on a shelf?</p>
+<div class="try"><label>Answer<input type="text" inputmode="numeric" autocomplete="off" data-answer="24"></label><button type="button" class="test">Check</button></div>
+<p class="verdict" aria-live="polite"></p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>4! = 24. The order matters and you use each book one time.</p></div>
+</div>
+
+<div class="check">
+<p class="label">Question 2</p>
+<p>5 runners compete for gold, silver and bronze. How many results are possible?</p>
+<div class="try"><label>Answer<input type="text" inputmode="numeric" autocomplete="off" data-answer="60"></label><button type="button" class="test">Check</button></div>
+<p class="verdict" aria-live="polite"></p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>P(5, 3) = 5 × 4 × 3 = 60. The order matters, because gold and silver are different places.</p></div>
+</div>
+
+<div class="check">
+<p class="label">Question 3</p>
+<p>You choose 3 pizza toppings from 5. How many choices are possible?</p>
+<div class="try"><label>Answer<input type="text" inputmode="numeric" autocomplete="off" data-answer="10"></label><button type="button" class="test">Check</button></div>
+<p class="verdict" aria-live="polite"></p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>C(5, 3) = 10. This is 60 / 3!, because the order of the toppings does not matter.</p></div>
+</div>
+
+<div class="check">
+<p class="label">Question 4</p>
+<p>A PIN has 4 digits. Each digit is from 0 to 9. How many PINs are possible?</p>
+<div class="try"><label>Answer<input type="text" inputmode="numeric" autocomplete="off" data-answer="10000"></label><button type="button" class="test">Check</button></div>
+<p class="verdict" aria-live="polite"></p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>10<sup>4</sup> = 10,000. The order matters and a digit can repeat.</p></div>
+</div>
+
+<div class="check">
+<p class="label">Question 5</p>
+<p>How many different words can you make from the letters of BOOK?</p>
+<div class="try"><label>Answer<input type="text" inputmode="numeric" autocomplete="off" data-answer="12"></label><button type="button" class="test">Check</button></div>
+<p class="verdict" aria-live="polite"></p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>4! / 2! = 12. The two O letters can change places without a change to the word.</p></div>
+</div>
+
+<div class="check">
+<p class="label">Question 6</p>
+<p>A set has 5 items. How many subsets does it have? How many of them have 2 items?</p>
+<div class="try"><label>All subsets<input type="text" inputmode="numeric" autocomplete="off" data-answer="32"></label><label>Subsets with 2 items<input type="text" inputmode="numeric" autocomplete="off" data-answer="10"></label><button type="button" class="test">Check</button></div>
+<p class="verdict" aria-live="polite"></p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>2<sup>5</sup> = 32 subsets. C(5, 2) = 10 of them have 2 items.</p></div>
+</div>
+
+<div class="check">
+<p class="label">Question 7: find the bug</p>
+<p>This code lists the subsets of <code>nums = [1, 2]</code>. What does <code>res</code> contain at the end?</p>
+<pre><code class="py">res, path = [], []
+def backtrack(start):
+<span data-bug>    res.append(path)</span>
+    for i in range(start, len(nums)):
+        path.append(nums[i])
+        backtrack(i + 1)
+        path.pop()
+backtrack(0)</code></pre>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p><code>[[], [], [], []]</code>. All 4 entries are the same list, and at the end it is empty. The fix is <code>res.append(path[:])</code>.</p></div>
+</div>
+
+<div class="check">
+<p class="label">Question 8: find the bug</p>
+<p>This code lists the subsets of <code>nums = [1, 2, 3]</code>. How many lists does <code>res</code> contain at the end?</p>
+<pre><code class="py">res, path = [], []
+def backtrack(start):
+    res.append(path[:])
+    for i in range(start, len(nums)):
+        path.append(nums[i])
+<span data-bug>        backtrack(start + 1)</span>
+        path.pop()
+backtrack(0)</code></pre>
+<div class="try"><label>Number of lists<input type="text" inputmode="numeric" autocomplete="off" data-answer="16"></label><button type="button" class="test">Check</button></div>
+<p class="verdict" aria-live="polite"></p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>16, not 8. The child starts after <code>start</code>, not after <code>i</code>. So lists such as [3, 2] and [3, 3] appear. The fix is <code>backtrack(i + 1)</code>.</p></div>
+</div>
+
+<div class="check">
+<p class="label">Question 9</p>
+<p>Why does Subsets II use <code>i &gt; start</code> and not <code>i &gt; 0</code> in the skip rule? Use the input [1, 1, 2].</p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p><code>i &gt; 0</code> also blocks the second 1 as a child of the first 1. That is a deeper level, where the same value is allowed. So [1, 1] and [1, 1, 2] are missing.</p></div>
+</div>
+
+<div class="check">
+<p class="label">Question 10</p>
+<p>The input has 12 items. Can you list all permutations fast enough? Can you list all subsets fast enough?</p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>Permutations: no. There are 12! = 479,001,600. Subsets: yes. There are only 2<sup>12</sup> = 4,096.</p></div>
+</div>
+
+<div class="check">
+<p class="label">Question 11</p>
+<p>Why does the prune in Combination Sum use <code>break</code> and not <code>continue</code>?</p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>The input is sorted. When one value is larger than <code>remain</code>, all later values are larger too. So no later branch can give an answer.</p></div>
+</div>
+
+<div class="check">
+<p class="label">Question 12 (extra)</p>
+<p>You choose 3 scoops of ice cream from 4 flavours. A flavour can repeat and the order does not matter. How many choices are possible?</p>
+<div class="try"><label>Answer<input type="text" inputmode="numeric" autocomplete="off" data-answer="20"></label><button type="button" class="test">Check</button></div>
+<p class="verdict" aria-live="polite"></p>
+<button type="button" class="reveal">Show answer</button>
+<div class="ans" hidden><p>C(4 + 3 - 1, 3) = C(6, 3) = 20. This is the multiset rule from section 2.</p></div>
+</div>
+</section>
+
+<section aria-labelledby="s14">
+<h2 id="s14"><span class="n">14</span> How to use the tasks in this set</h2>
+<p>The set page lists the tasks in five stages. Do the stages in this order.</p>
+<ul class="stages">
+<li><b>Warm-up</b> One decision for each level of the tree. Count the results before you write code. Sections 2 to 4, and the take or skip code in section 7.</li>
+<li><b>Core</b> The four basic searches: permutations, combinations, subsets, and combinations with reuse. Sections 4 to 7. For Combination Sum and Combinations, also read the first two parts of section 9.</li>
+<li><b>Duplicates and pruning</b> Sort, skip equal values at one level, and stop branches that cannot give an answer. Sections 8 and 9.</li>
+<li><b>Order and counting</b> Find one permutation or a count without a list of all answers. Section 10.</li>
+<li><b>Challenge</b> Two hard tasks. They use sections 9 and 10.</li>
+</ul>
+<h3>Steps for each task</h3>
+<ol>
+<li>Read the limits. Count the answers with a rule from section 2.</li>
+<li>Draw the tree for a small input.</li>
+<li>Write the state, the base case and the loop.</li>
+<li>Test the code on the small input. Compare the number of answers with your count from step 1.</li>
+<li>Write your explanation. Include the tree, the rule that removes duplicates or branches, and the time and space complexity.</li>
+</ol>
+<p>Each task on the set page has a short note. If you cannot continue, read the note. Then read the sections for the stage of the task. The set page also has the reading links from the Tech Interview Handbook and Hello Interview.</p>
+</section>
+</main>
+
+<script>
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const int = v => (Number.isFinite(+v) && v !== '' ? Math.trunc(+v) : 0);
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const py = v => (Array.isArray(v) ? '[' + v.map(py).join(', ') + ']' : v === true ? 'True' : v === false ? 'False' : String(v));
+const fact = n => { let r = 1n; for (let i = 2n; i <= BigInt(n); i++) r *= i; return r; };
+const nCk = (n, k) => (k < 0 || k > n ? 0n : fact(n) / (fact(k) * fact(n - k)));
+const big = v => v.toLocaleString('en-US').replaceAll(',', ',​');    // line break after a comma
+
+/* Self-check cards */
+$$('.check').forEach((card, idx) => {
+  const ans = $('.ans', card), rev = $('.reveal', card), test = $('.test', card), verdict = $('.verdict', card);
+  ans.id = 'ans' + idx;
+  rev.setAttribute('aria-controls', ans.id);
+  rev.setAttribute('aria-expanded', 'false');
+  rev.addEventListener('click', () => {
+    const open = ans.hidden;
+    ans.hidden = !open;
+    rev.textContent = open ? 'Hide answer' : 'Show answer';
+    rev.setAttribute('aria-expanded', String(open));
+    $$('[data-bug]', card).forEach(line => line.classList.toggle('bug', open));
+  });
+  if (!test) return;
+  const inputs = $$('input', card);
+  const run = () => {
+    const vals = inputs.map(x => x.value.replace(/[\s,_]/g, ''));
+    const ok = inputs.every((x, i) => vals[i] === x.dataset.answer);
+    verdict.textContent = vals.some(v => !v) ? 'Type an answer first.' : ok ? 'Correct.' : 'Not correct. Try again, or show the answer.';
+    verdict.className = 'verdict ' + (ok ? 'ok' : 'no');
+  };
+  test.addEventListener('click', run);
+  inputs.forEach(x => x.addEventListener('keydown', e => { if (e.key === 'Enter') run(); }));
+});
+
+/* W1: counting calculator */
+(() => {
+  const r = $('#w1'), nI = $('.n', r), kI = $('.k', r), ord = $('.order', r), rep = $('.rep', r), grp = $('.group', r), list = $('.list', r);
+  const out = c => $('.o-' + c, r);
+  let grouped = false;
+  // The same search as the backtracking template: order selects the loop start, repetition selects the next start.
+  function gen(items, k, order, repeat) {
+    const res = [], path = [], used = items.map(() => false);
+    (function bt(start) {
+      if (path.length === k) { res.push(path.join('')); return; }
+      for (let i = order ? 0 : start; i < items.length; i++) {
+        if (!repeat && used[i]) continue;
+        used[i] = true; path.push(items[i]);
+        bt(repeat ? i : i + 1);
+        path.pop(); used[i] = false;
+      }
+    })(0);
+    return res;
+  }
+  const chips = arr => { const ol = document.createElement('ol'); ol.className = 'chips'; arr.forEach(s => { const li = document.createElement('li'); li.textContent = s || '(empty)'; ol.append(li); }); return ol; };
+  const para = t => { const p = document.createElement('p'); p.textContent = t; return p; };
+  function update(commit) {
+    const n = clamp(int(nI.value), 0, 20), kmax = rep.checked ? 20 : n, k = clamp(int(kI.value), 0, kmax);
+    kI.max = kmax;
+    if (commit) { nI.value = n; kI.value = k; }
+    let name, formula, work, count;
+    if (ord.checked && !rep.checked) {
+      name = 'Permutation P(n, k)'; formula = 'n! / (n - k)!'; count = fact(n) / fact(n - k);
+      work = `${n}! / (${n} - ${k})! = ${big(fact(n))} / ${big(fact(n - k))} = ${big(count)}`;
+    } else if (ord.checked) {
+      name = 'Sequence'; formula = 'n^k'; count = BigInt(n) ** BigInt(k);
+      work = `${n}^${k} = ${big(count)}`;
+    } else if (!rep.checked) {
+      name = 'Combination C(n, k)'; formula = 'n! / (k! × (n - k)!)'; count = nCk(n, k);
+      work = `${n}! / (${k}! × ${n - k}!) = ${big(fact(n))} / (${big(fact(k))} × ${big(fact(n - k))}) = ${big(count)}`;
+    } else {
+      name = 'Multiset (extra)'; formula = 'C(n + k - 1, k)'; count = n === 0 ? (k === 0 ? 1n : 0n) : nCk(n + k - 1, k);
+      work = n === 0 ? 'With no items, only the empty choice is possible when k = 0.' : `C(${n} + ${k} - 1, ${k}) = C(${n + k - 1}, ${k}) = ${big(count)}`;
+    }
+    out('name').textContent = name; out('formula').textContent = formula; out('work').textContent = work; out('count').textContent = big(count);
+    const canList = n <= 5 && count <= 120n, canGroup = canList && ord.checked && !rep.checked;
+    grp.hidden = !canGroup;
+    if (!canGroup) grouped = false;
+    grp.setAttribute('aria-pressed', String(grouped));
+    list.replaceChildren();
+    if (!canList) { list.append(para(n > 5 ? 'The list shows only when n is 5 or less.' : 'The list shows only when the result is 120 or less.')); return; }
+    const items = gen('ABCDE'.slice(0, n).split(''), k, ord.checked, rep.checked);
+    if (!items.length) { list.append(para('There are no results.')); return; }
+    if (!grouped) { list.append(para(items.length === 1 ? 'The only result:' : `All ${items.length} results:`), chips(items)); return; }
+    const groups = new Map();
+    items.forEach(s => { const key = [...s].sort().join(''); groups.set(key, [...(groups.get(key) || []), s]); });
+    const s = c => (Number(c) === 1 ? '' : 's');
+    list.append(para(`${groups.size} group${s(groups.size)}, so C(${n}, ${k}) = ${groups.size}. Each group has ${k}! = ${fact(k)} order${s(fact(k))}.`));
+    const ol = document.createElement('ol'); ol.className = 'groups';
+    groups.forEach((arr, key) => { const li = document.createElement('li'), b = document.createElement('span'); b.className = 'key'; b.textContent = '{' + (key.split('').join(', ') || ' ') + '}'; li.append(b, chips(arr)); ol.append(li); });
+    list.append(ol);
+  }
+  [nI, kI].forEach(x => { x.addEventListener('input', () => update(false)); x.addEventListener('change', () => update(true)); });
+  [ord, rep].forEach(x => x.addEventListener('change', () => update(true)));
+  grp.addEventListener('click', () => { grouped = !grouped; update(false); });
+  update(true);
+})();
+
+/* W2 and W3: one search engine records the tree and every step before the stepper starts. */
+function trace(cfg) {
+  const { mode, nums } = cfg, n = nums.length, dup = cfg.dup || 'none';
+  const nodes = [], steps = [], res = [], path = [], used = nums.map(() => false);
+  let calls = 1;
+  const add = (parent, label, kind, start, remain) => {
+    const nd = { id: nodes.length, parent, label, kind, start, remain, kids: [], depth: parent ? parent.depth + 1 : 0 };
+    if (parent) parent.kids.push(nd);
+    nodes.push(nd);
+    return nd;
+  };
+  const snap = (kind, cur, text, mark) => steps.push({ kind, cur: cur.id, text, mark, path: path.slice(), used: used.slice(), res: res.length, seen: nodes.length, calls });
+  const save = cur => { cur.saved = steps.length; res.push(path.slice()); snap('save', cur, ''); };
+  function go(cur, start, remain) {
+    if (mode === 'sub') save(cur);
+    else if (mode === 'perm' ? path.length === n : mode === 'comb' ? path.length === cfg.k : remain === 0) { save(cur); return; }
+    if (mode === 'csum' && remain < 0) { cur.dead = steps.length; snap('dead', cur, `remain is ${remain}. It is less than 0, so this call returns.`); return; }
+    for (let i = mode === 'perm' ? 0 : start; i < n; i++) {
+      if (mode === 'perm' && used[i]) continue;
+      if (dup !== 'none' && i > (mode === 'perm' || dup === 'wrong' ? 0 : start) && nums[i] === nums[i - 1] && (mode !== 'perm' || dup === 'wrong' || !used[i - 1])) {
+        const same = mode === 'perm' ? !used[i - 1] : i > start;
+        const s = add(cur, nums[i], 'skip');
+        snap('skip', cur, same
+          ? `Skip ${nums[i]} at index ${i}. This level already used the value ${nums[i]}.`
+          : `Skip ${nums[i]} at index ${i} with the wrong rule. nums[${i - 1}] is on the path, so this is a deeper level. The value is allowed here, but the rule blocks it.`, s.id);
+        continue;
+      }
+      if (cfg.prune && nums[i] > remain) {
+        const s = add(cur, nums[i], 'prune');
+        snap('prune', cur, `Prune: ${nums[i]} > remain ${remain}. The later values are larger too, so break.`, s.id);
+        break;
+      }
+      if (mode === 'perm') used[i] = true;
+      path.push(nums[i]); calls++;
+      const next = mode === 'csum' ? i : i + 1, r = mode === 'csum' ? remain - nums[i] : undefined;
+      const child = add(cur, nums[i], 'call', next, r);
+      snap('choose', child, `Choose ${nums[i]} and call backtrack. path = ${py(path)}` + (r === undefined ? '.' : `, remain = ${r}.`));
+      go(child, next, r);
+      path.pop();
+      if (mode === 'perm') used[i] = false;
+      snap('unchoose', cur, `Unchoose ${nums[i]}. path = ${py(path)}.`);
+    }
+  }
+  const root = add(null, null, 'call', 0, cfg.target);
+  snap('start', root, mode === 'perm' ? 'Call backtrack(). path = [] and no item is used.' : mode === 'csum' ? `Call backtrack(0, ${cfg.target}). path = [].` : 'Call backtrack(0). path = [].');
+  go(root, 0, cfg.target);
+  snap('done', root, `Done: ${res.length} answers in ${calls} calls.`);
+  let slots = 0, depth = 0;
+  (function place(nd) {
+    depth = Math.max(depth, nd.depth);
+    if (!nd.kids.length) { nd.x = slots++; return; }
+    nd.kids.forEach(place);
+    nd.x = (nd.kids[0].x + nd.kids[nd.kids.length - 1].x) / 2;
+  })(root);
+  return { nodes, steps, res, calls, slots, depth };
+}
+
+function codeLines(cfg, copy) {
+  const L = [], add = (t, tag = '') => L.push([t, tag]), S = copy ? 'res.append(path[:])' : 'res.append(path)';
+  const sorted = cfg.dup !== undefined;
+  const dupLines = rule => {
+    if (cfg.dup === 'level') { add('            if ' + rule + ':', 'skip'); add('                continue', 'skip'); }
+    if (cfg.dup === 'wrong') { add('            if i > 0 and nums[i] == nums[i - 1]:', 'skip'); add('                continue', 'skip'); }
+  };
+  if (cfg.mode === 'perm') {
+    add('def permute(nums):');
+    if (sorted) add('    nums.sort()');
+    add('    res, path, used = [], [], [False] * len(nums)');
+    add('    def backtrack():');
+    add('        if len(path) == len(nums):');
+    add('            ' + S, 'save'); add('            return', 'save');
+    add('        for i in range(len(nums)):');
+    add('            if used[i]:'); add('                continue');
+    dupLines('i > 0 and nums[i] == nums[i - 1] and not used[i - 1]');
+    add('            used[i] = True', 'choose'); add('            path.append(nums[i])', 'choose');
+    add('            backtrack()', 'explore');
+    add('            path.pop()', 'unchoose'); add('            used[i] = False', 'unchoose');
+    add('    backtrack()', 'start');
+  } else if (cfg.mode === 'csum') {
+    add('def combination_sum(candidates, target):');
+    add('    candidates.sort()');
+    add('    res, path = [], []');
+    add('    def backtrack(start, remain):');
+    add('        if remain == 0:'); add('            ' + S, 'save'); add('            return', 'save');
+    add('        if remain < 0:', 'dead'); add('            return', 'dead');
+    add('        for i in range(start, len(candidates)):');
+    if (cfg.prune) { add('            if candidates[i] > remain:', 'prune'); add('                break', 'prune'); }
+    add('            path.append(candidates[i])', 'choose');
+    add('            backtrack(i, remain - candidates[i])', 'explore');
+    add('            path.pop()', 'unchoose');
+    add('    backtrack(0, target)', 'start');
+  } else {
+    const sub = cfg.mode === 'sub';
+    add(sub ? 'def subsets(nums):' : 'def combine(nums, k):');
+    if (sorted) add('    nums.sort()');
+    add('    res, path = [], []');
+    add('    def backtrack(start):');
+    if (sub) add('        ' + S, 'save');
+    else { add('        if len(path) == k:'); add('            ' + S, 'save'); add('            return', 'save'); }
+    add('        for i in range(start, len(nums)):');
+    dupLines('i > start and nums[i] == nums[i - 1]');
+    add('            path.append(nums[i])', 'choose');
+    add('            backtrack(i + 1)', 'explore');
+    add('            path.pop()', 'unchoose');
+    add('    backtrack(0)', 'start');
+  }
+  add('    return res', 'done');
+  return L;
+}
+
+const TAGS = { start: ['start'], choose: ['choose', 'explore'], save: ['save'], unchoose: ['unchoose'], skip: ['skip'], prune: ['prune'], dead: ['dead'], done: ['done'] };
+
+function drawTree(T, s) {
+  const st = T.steps[s], on = new Set();
+  for (let x = T.nodes[st.cur]; x; x = x.parent) on.add(x.id);
+  const X = nd => 24 + nd.x * 40, Y = nd => 22 + nd.depth * 58;
+  let edges = '', dots = '';
+  for (const nd of T.nodes) {
+    const vis = nd.id < st.seen, off = nd.kind !== 'call';
+    let c = !vis ? 'fut' : off ? 'off' : nd.dead <= s ? 'dead' : nd.saved <= s ? 'saved' : 'vis';
+    if (on.has(nd.id)) c += ' on';
+    if (nd.id === st.cur) c += ' cur';
+    if (nd.id === st.mark) c += ' mark';
+    if (nd.parent) edges += `<line class="ed ${!vis ? 'fut' : off ? 'off' : on.has(nd.id) ? 'on' : ''}" x1="${X(nd.parent)}" y1="${Y(nd.parent)}" x2="${X(nd)}" y2="${Y(nd)}"/>`;
+    const sub = nd.kind === 'skip' ? 'skip' : nd.kind === 'prune' ? 'break' : nd.remain !== undefined ? 'r=' + nd.remain : '';
+    dots += `<g class="nd ${c}"><circle cx="${X(nd)}" cy="${Y(nd)}" r="14"/><text class="v" x="${X(nd)}" y="${Y(nd)}">${nd.parent ? nd.label : '[ ]'}</text>` +
+      (sub ? `<text class="sub" x="${X(nd)}" y="${Y(nd) + 25}">${sub}</text>` : '') + '</g>';
+  }
+  const w = 48 + (T.slots - 1) * 40, h = 62 + T.depth * 58;
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Decision tree with ${T.calls} calls. The current path is ${py(st.path)}.">${edges}${dots}</svg>`;
+}
+
+function stepper(root, getCfg, totals) {
+  const q = c => $('.' + c, root), act = a => $(`[data-act=${a}]`, root);
+  const status = q('status'), tree = q('tree'), vars = q('vars'), resEl = q('res'), code = q('code'), counters = q('counters'), stepno = q('stepno'), copyBox = q('copy'), play = act('play');
+  let T, cfg, i = 0, timer = null;
+  const copy = () => !copyBox || copyBox.checked;
+  const stop = () => { clearInterval(timer); timer = null; play.textContent = 'Play'; };
+  function setCode() {
+    code.replaceChildren(...codeLines(cfg, copy()).map(([t, tag]) => { const sp = document.createElement('span'); sp.textContent = t; sp.dataset.tag = tag; return sp; }));
+  }
+  function render() {
+    const s = T.steps[i], cur = T.nodes[s.cur], c = copy();
+    stepno.textContent = `Step ${i} of ${T.steps.length - 1}`;
+    status.textContent = s.kind === 'save'
+      ? (c ? `Save a copy of path: ${py(s.path)}.` : 'Save path itself, not a copy. All saved entries are the same list.') + ` Answers: ${s.res}.`
+      : s.text;
+    tree.innerHTML = drawTree(T, i);
+    const cx = 24 + cur.x * 40;
+    if (cx < tree.scrollLeft + 40 || cx > tree.scrollLeft + tree.clientWidth - 40) tree.scrollLeft = cx - tree.clientWidth / 2;
+    const hot = TAGS[s.kind];
+    for (const sp of code.children) sp.classList.toggle('hot', hot.includes(sp.dataset.tag));
+    let v = `path = ${py(s.path)}`;
+    if (cfg.mode === 'perm') v += `\nused = ${py(s.used)}`;
+    else v += `\nstart = ${cur.start}`;
+    if (cfg.mode === 'csum') v += `\nremain = ${cur.remain}`;
+    vars.textContent = v;
+    const t = totals ? totals(cfg) : [String(T.calls), String(T.res.length)];
+    counters.textContent = `Calls: ${s.calls} of ${t[0]}. Answers: ${s.res} of ${t[1]}.`;
+    resEl.textContent = 'res = ' + py(c ? T.res.slice(0, s.res) : Array(s.res).fill(s.path));
+  }
+  const go = d => { const j = clamp(i + d, 0, T.steps.length - 1); if (j !== i) { i = j; render(); } };
+  act('step').addEventListener('click', () => { stop(); go(1); });
+  act('back').addEventListener('click', () => { stop(); go(-1); });
+  act('reset').addEventListener('click', () => { stop(); i = 0; render(); });
+  play.addEventListener('click', () => {
+    if (timer) { stop(); return; }
+    if (i === T.steps.length - 1) { i = 0; render(); }
+    play.textContent = 'Pause';
+    timer = setInterval(() => { go(1); if (i === T.steps.length - 1) stop(); }, 800);
+  });
+  if (copyBox) copyBox.addEventListener('change', () => { setCode(); render(); });
+  return () => {
+    const next = getCfg();
+    if (!next) return;
+    stop(); cfg = next; T = trace(cfg); i = 0; setCode(); render();
+  };
+}
+
+/* W2: decision tree stepper */
+(() => {
+  const r = $('#w2'), vals = $('.vals', r), kI = $('.k', r), kBox = $('.kbox', r), err = $('.err', r);
+  const levels = (n, k, f) => Array.from({ length: k + 1 }, (_, j) => f(n, j));
+  const totals = cfg => {
+    const n = cfg.nums.length, P = (a, j) => Number(fact(a) / fact(a - j)), C = (a, j) => Number(nCk(a, j));
+    const sum = a => `${a.reduce((x, y) => x + y, 0)} (${a.join(' + ')})`;
+    if (cfg.mode === 'perm') return [sum(levels(n, n, P)), `${Number(fact(n))} (${n}!)`];
+    if (cfg.mode === 'comb') return [sum(levels(n, cfg.k, C)), `${C(n, cfg.k)} (C(${n}, ${cfg.k}))`];
+    return [`${2 ** n} (2^${n})`, `${2 ** n} (2^${n})`];
+  };
+  const getCfg = () => {
+    const parts = vals.value.split(/[\s,]+/).filter(Boolean);
+    const ok = parts.length >= 1 && parts.length <= 4 && parts.every(p => /^-?\d{1,2}$/.test(p));
+    err.hidden = ok;
+    err.textContent = ok ? '' : 'Type 1 to 4 integers from -99 to 99, for example 1, 2, 3.';
+    if (!ok) return null;
+    const nums = parts.map(Number), mode = $('input[name=w2mode]:checked', r).value;
+    kI.max = nums.length;
+    const k = clamp(int(kI.value), 0, nums.length);
+    kI.value = k;
+    kBox.hidden = mode !== 'comb';
+    return { mode, nums, k };
+  };
+  const rebuild = stepper(r, getCfg, totals);
+  [vals, kI].forEach(x => x.addEventListener('change', rebuild));
+  $$('input[name=w2mode]', r).forEach(x => x.addEventListener('change', rebuild));
+  rebuild();
+})();
+
+/* W3: duplicates and pruning lab */
+(() => {
+  const r = $('#w3'), pa = $('.pa', r), pb = $('.pb', r), prune = $('.prune', r);
+  const pick = name => $(`input[name=${name}]:checked`, r).value;
+  const getCfg = () => {
+    const a = pick('w3preset') === 'A';
+    pa.hidden = !a; pb.hidden = a;
+    return a ? { mode: pick('w3mode'), nums: [1, 1, 2], dup: pick('w3dup') } : { mode: 'csum', nums: [2, 3, 6, 7], target: 7, prune: prune.checked };
+  };
+  const rebuild = stepper(r, getCfg);
+  $$('input', r).forEach(x => x.addEventListener('change', rebuild));
+  rebuild();
+})();
+</script>
+</body>
+</html>

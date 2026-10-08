@@ -44,9 +44,13 @@ Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and wa
 - Add a LeetCode problem. Paste its URL in **Add a problem**. The notebook fills the number, title, difficulty, and topics from LeetCode. If LeetCode does not answer, enter them yourself.
 - As the student, start a draft. A draft can hold one or more approaches. The editor autosaves changed content. Use **Save attempt** to preserve an immutable copy.
 - Record LeetCode acceptance and understanding separately. An accepted solution can still need practice.
-- As the parent, assign homework. The parent can also link lessons to problems and homework. The student submits an exact attempt for review. The parent can request another attempt or complete the assignment.
+- As the parent, create homework on the **Homework** page. Give it a title, instructions, and an optional due date. Use **Edit homework** to change these details later.
+- On the homework page, use **Add a task** to add a problem from the library. Each task has its own review state. A problem can have only one active task in all homework.
+- The parent can link lessons to problems and homework. A task page shows the lessons of its homework.
+- As the student, open a task from **Today**, the homework page, or the problem page. Submit an exact attempt for review. The parent can request another attempt or complete the task.
+- A red dot before a homework or a task shows a message or a review decision from the other account that you did not read. Open the discussion of the task or the problem to remove the dot.
 - Use **Recall this problem** to practise before revealing saved work. Record the result. Choose the next review date.
-- **Archive problem** moves a problem to **Archived problems** in the library and blocks new homework for it. **Restore problem** returns it.
+- **Archive problem** moves a problem to **Archived problems** in the library and blocks new homework tasks for it. **Restore problem** returns it.
 - If a save fails, keep the page open. Use **Retry save** or **Copy unsaved work**. Reload recovery is available in the same tab when browser session storage works. Conflicting edits require an explicit choice of the server copy.
 
 ## HTML lessons
@@ -54,6 +58,22 @@ Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and wa
 The parent can upload `.html` or `.htm` files. Each file must be valid UTF-8 and at most 1,000,000 bytes. Embed CSS, JavaScript, images, fonts, and media in the file. External scripts, relative files, network APIs, and persistent browser storage are unavailable.
 
 The viewer permits inline JavaScript in an isolated frame. Its HTTP content security policy also applies to full-page display. Both display and download require login. **Download original** returns the uploaded UTF-8 bytes. Archive hides lessons from new links while preserving existing links. Upload a new lesson to change its HTML content.
+
+## Learning sets
+
+A learning set is a lesson and a list of LeetCode problems about one subject. The sets are content in the repository. A deployment publishes them. The **Sets** page is read-only for both roles.
+
+A set page shows the lesson in an isolated frame, the reading links, and the problems in stages. A problem row shows **Accepted** when the library problem has an accepted saved attempt. A problem row with an active homework task shows the task state. The state links to the task.
+
+As the parent, use **Add to homework** on a problem row. The dialog shows the active homework. Use the search box to find homework by title. Use **Assign** to add the problem to that homework. Use **Create and assign** to create new homework with the problem in one step. The notebook adds the problem to the library when the library does not have it. A problem with an active task has no **Add to homework** button.
+
+To add a set:
+
+1. Create the folder `src/leetcode/sets/<slug>/`. Use lowercase letters, digits, and dashes in the slug.
+2. Write `set.ts`. Export the set data as the default export. Type it with `satisfies LearningSet`. For each task, use the problem slug from its LeetCode URL.
+3. Write `lesson.html`. Use one self-contained UTF-8 file of at most 1,000,000 bytes. The rules for uploaded lessons apply.
+4. In `src/leetcode/sets/index.ts`, import the set and its lesson. Add them to `sets`. The order of `sets` is the display order.
+5. Run `bun run test`. `test/sets.test.ts` checks each set: unique set and task slugs, the LeetCode slug format, a stage for each task, https links, and the lesson size.
 
 ## Cloudflare setup
 
