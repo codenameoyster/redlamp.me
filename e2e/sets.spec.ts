@@ -108,3 +108,13 @@ test('fits the set pages at the mobile width', async ({ page }, testInfo) => {
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 	expect(await page.getByRole('dialog').evaluate(dialog => dialog.scrollWidth <= dialog.clientWidth)).toBe(true);
 });
+
+test('links a set as a related lesson of a problem', async ({ page, notebook }) => {
+	await signIn(page, 'parent');
+	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+	await page.getByRole('combobox', { name: 'Related lesson', exact: true }).selectOption({ label: 'Permutations and combinations' });
+	await page.getByRole('button', { name: 'Link lesson', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Unlink Permutations and combinations', exact: true })).toBeVisible();
+	await page.getByRole('link', { name: 'Permutations and combinations', exact: true }).click();
+	await expect(page).toHaveURL(setPath);
+});

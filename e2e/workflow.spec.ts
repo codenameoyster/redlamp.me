@@ -29,7 +29,7 @@ test('completes learning with two accounts, two approaches, and a linked lesson'
 		await parent.getByRole('combobox', { name: 'Problem', exact: true }).selectOption(problemId);
 		await parent.getByRole('button', { name: 'Add task', exact: true }).click();
 		await expect(parent.getByText('Assigned', { exact: true })).toBeVisible();
-		await parent.getByRole('combobox', { name: 'Related lesson', exact: true }).selectOption(lessonId);
+		await parent.getByRole('combobox', { name: 'Related lesson', exact: true }).selectOption(`lessons/${lessonId}`);
 		await parent.getByRole('button', { name: 'Link lesson' }).click();
 		await expect(parent.getByRole('link', { name: 'Window invariant', exact: true })).toBeVisible();
 		await parent.getByRole('link', { name: 'Minimum Window Substring', exact: true }).click();

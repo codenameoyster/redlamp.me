@@ -1,23 +1,27 @@
 import { useState, type SubmitEvent } from 'react';
-import { MAX_LESSON_BYTES, NOTEBOOK_PAGE, type Homework, type Lesson, type Page, type SessionUser } from '../shared/leetcode';
+import { MAX_LESSON_BYTES, NOTEBOOK_PAGE, type Homework, type LearningSet, type LearningSetSummary, type Lesson, type Page, type SessionUser } from '../shared/leetcode';
 import { api, message } from './api';
 import { useResource } from './useResource';
 
 export function LessonLinks({ problemId, homework, user, changed }: { problemId?: string; homework?: Homework; user: SessionUser; changed?: () => void }) {
-	const path = homework ? `/homework/${homework.id}/lessons` : `/problems/${problemId}/lessons`;
-	const links = useResource<Page<Lesson>>(path);
+	const path = homework ? `/homework/${homework.id}` : `/problems/${problemId}`;
+	const links = useResource<Page<Lesson>>(`${path}/lessons`);
+	const setLinks = useResource<Pick<LearningSet, 'slug' | 'title'>[]>(`${path}/sets`);
 	const editable = user.role === 'parent';
 	const [offset, setOffset] = useState(0);
 	const available = useResource<Page<Lesson>>(editable ? `/lessons?offset=${offset}` : null);
+	const sets = useResource<LearningSetSummary[]>(editable ? '/sets' : null);
 	const [error, setError] = useState(''), [busy, setBusy] = useState(false);
-	async function change(id: string, method: string) {
+	async function change(target: string, method: string) {
 		setBusy(true); setError('');
-		try { await api(`${path}/${id}`, { method, body: JSON.stringify(homework ? { version: homework.version } : {}) }); links.reload(); changed?.(); }
+		try { await api(`${path}/${target}`, { method, body: JSON.stringify(homework ? { version: homework.version } : {}) }); links.reload(); setLinks.reload(); changed?.(); }
 		catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
-	return <section className="card card-pad stack"><h2>Related lessons</h2>{links.data?.items.length === 0 && <p>No lessons linked yet.</p>}{(error || links.error) && <p className="error" role="alert">{error || links.error}</p>}
-		{links.data?.items.map(lesson => <div className="row spread" key={lesson.id}><a href={`/leetcode/lessons/${lesson.id}?back=${encodeURIComponent(location.pathname)}`}>{lesson.title}</a>{editable && <button disabled={busy} onClick={() => void change(lesson.id, 'DELETE')} aria-label={`Unlink ${lesson.title}`}>Unlink</button>}</div>)}
-		{editable && <form className="row" onSubmit={event => { event.preventDefault(); void change(String(new FormData(event.currentTarget).get('lesson')), 'PUT'); }}><label className="grow">Related lesson<select aria-label="Related lesson" name="lesson" required><option value="">Select a lesson</option>{available.data?.items.filter(l => !links.data?.items.some(link => link.id === l.id)).map(l => <option key={l.id} value={l.id}>{l.title}</option>)}</select></label><button disabled={busy}>Link lesson</button>{offset > 0 && <button type="button" onClick={() => setOffset(offset - 50)}>Previous lessons</button>}{available.data?.nextOffset != null && <button type="button" onClick={() => setOffset(available.data!.nextOffset!)}>More lessons</button>}</form>}
+	const lessonOptions = available.data?.items.filter(l => !links.data?.items.some(link => link.id === l.id)) ?? [], setOptions = sets.data?.filter(s => !setLinks.data?.some(link => link.slug === s.slug)) ?? [];
+	return <section className="card card-pad stack"><h2>Related lessons</h2>{links.data?.items.length === 0 && setLinks.data?.length === 0 && <p>No lessons linked yet.</p>}{(error || links.error || setLinks.error) && <p className="error" role="alert">{error || links.error || setLinks.error}</p>}
+		{links.data?.items.map(lesson => <div className="row spread" key={lesson.id}><a href={`/leetcode/lessons/${lesson.id}?back=${encodeURIComponent(location.pathname)}`}>{lesson.title}</a>{editable && <button disabled={busy} onClick={() => void change(`lessons/${lesson.id}`, 'DELETE')} aria-label={`Unlink ${lesson.title}`}>Unlink</button>}</div>)}
+		{setLinks.data?.map(set => <div className="row spread" key={set.slug}><a href={`/leetcode/sets/${set.slug}`}>{set.title}</a>{editable && <button disabled={busy} onClick={() => void change(`sets/${set.slug}`, 'DELETE')} aria-label={`Unlink ${set.title}`}>Unlink</button>}</div>)}
+		{editable && <form className="row" onSubmit={event => { event.preventDefault(); void change(String(new FormData(event.currentTarget).get('lesson')), 'PUT'); }}><label className="grow">Related lesson<select aria-label="Related lesson" name="lesson" required><option value="">Select a lesson</option>{lessonOptions.length > 0 && <optgroup label="Lessons">{lessonOptions.map(l => <option key={l.id} value={`lessons/${l.id}`}>{l.title}</option>)}</optgroup>}{setOptions.length > 0 && <optgroup label="Sets">{setOptions.map(s => <option key={s.slug} value={`sets/${s.slug}`}>{s.title}</option>)}</optgroup>}</select></label><button disabled={busy}>Link lesson</button>{offset > 0 && <button type="button" onClick={() => setOffset(offset - 50)}>Previous lessons</button>}{available.data?.nextOffset != null && <button type="button" onClick={() => setOffset(available.data!.nextOffset!)}>More lessons</button>}</form>}
 	</section>;
 }
 

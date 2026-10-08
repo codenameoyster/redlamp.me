@@ -67,6 +67,8 @@ A set page shows the lesson in an isolated frame, the reading links, and the pro
 
 As the parent, use **Add to homework** on a problem row. The dialog shows the active homework. Use the search box to find homework by title. Use **Assign** to add the problem to that homework. Use **Create and assign** to create new homework with the problem in one step. The notebook adds the problem to the library when the library does not have it. A problem with an active task has no **Add to homework** button.
 
+The parent can also link a set to a problem or to homework. Choose the set in the **Sets** group of **Related lesson**. The link opens the set page.
+
 To add a set:
 
 1. Create the folder `src/leetcode/sets/<slug>/`. Use lowercase letters, digits, and dashes in the slug.
