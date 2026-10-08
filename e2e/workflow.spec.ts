@@ -26,7 +26,7 @@ test('completes learning with two accounts, two approaches, and a linked lesson'
 		await parent.getByLabel('Instructions', { exact: true }).fill('Compare two approaches. Explain when the window can shrink.');
 		await parent.getByRole('button', { name: 'Create homework', exact: true }).click();
 		await expect(parent.getByRole('heading', { name: 'Week 41: sliding window', level: 1 })).toBeVisible();
-		await parent.getByRole('combobox', { name: 'Problem', exact: true }).selectOption(problemId);
+		await parent.getByRole('group', { name: 'Problem', exact: true }).getByRole('radio', { name: /^Minimum Window Substring/ }).check();
 		await parent.getByRole('button', { name: 'Add task', exact: true }).click();
 		await expect(parent.getByText('Assigned', { exact: true })).toBeVisible();
 		await parent.getByRole('combobox', { name: 'Related lesson', exact: true }).selectOption(`lessons/${lessonId}`);
@@ -66,7 +66,7 @@ test('completes learning with two accounts, two approaches, and a linked lesson'
 		await parent.getByRole('button', { name: 'Request another attempt' }).click();
 		await expect(parent.getByText('Another attempt requested', { exact: true }).first()).toBeVisible();
 		await parent.getByRole('link', { name: 'Week 41: sliding window', exact: true }).click();
-		const title = (await parent.getByRole('link', { name: 'Minimum Window Substring', exact: true }).boundingBox())!, difficulty = (await parent.getByText('hard', { exact: true }).boundingBox())!;
+		const tasks = parent.getByRole('region', { name: 'Tasks' }), title = (await tasks.getByRole('link', { name: 'Minimum Window Substring', exact: true }).boundingBox())!, difficulty = (await tasks.getByText('hard', { exact: true }).boundingBox())!;
 		expect(title.x + title.width <= difficulty.x || title.y + title.height <= difficulty.y).toBe(true);
 		await parent.goto(taskURL);
 		await student.reload();

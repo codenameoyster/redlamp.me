@@ -12,7 +12,7 @@ test('assigns, submits, requests changes, and completes homework', async ({ page
 	await page.getByLabel('Due date', { exact: true }).fill('2026-10-20');
 	await page.getByRole('button', { name: 'Save homework', exact: true }).click();
 	await expect(page.getByText('Due 2026-10-20', { exact: true })).toBeVisible();
-	await page.getByRole('combobox', { name: 'Problem', exact: true }).selectOption(notebook.problem.id);
+	await page.getByRole('group', { name: 'Problem', exact: true }).getByRole('radio', { name: new RegExp(`^${notebook.problem.title}`) }).check();
 	await page.getByRole('button', { name: 'Add task', exact: true }).click();
 	await expect(page.getByText('Assigned', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: notebook.problem.title, exact: true }).click();
@@ -93,23 +93,35 @@ test('assigns the selected problem after the problem search refreshes', async ({
 	await signIn(page, 'parent');
 	const homework = await (await page.request.post('/leetcode/api/homework', { headers, data: { title: 'Week 41', instructions: '', dueDate: null } })).json() as Homework;
 	await page.goto(`/leetcode/homework/${homework.id}`);
-	const problem = page.getByRole('combobox', { name: 'Problem', exact: true });
-	await problem.selectOption(notebook.problem.id);
+	const problem = page.getByRole('group', { name: 'Problem', exact: true }), chosen = problem.getByRole('radio', { name: new RegExp(`^${notebook.problem.title}`) });
+	await chosen.check();
 	let release!: () => void;
 	const held = new Promise<void>(resolve => { release = resolve; });
 	await page.route(url => url.pathname === '/leetcode/api/problems' && url.searchParams.get('q') === 'Sum', async route => { await held; await route.continue(); });
 	const search = page.waitForRequest(request => new URL(request.url()).searchParams.get('q') === 'Sum');
 	await page.getByRole('searchbox', { name: 'Find a problem', exact: true }).fill('Sum');
 	await search;
-	await expect(problem).toHaveValue(notebook.problem.id);
+	await expect(chosen).toBeChecked();
 	release();
-	await expect(problem.locator('option')).toHaveText(['Select a problem', '3Sum', notebook.problem.title]);
-	await expect(problem).toHaveValue(notebook.problem.id);
+	await expect(problem.locator('label')).toHaveText([/^3Sum/, new RegExp(`^${notebook.problem.title}`)]);
+	await expect(chosen).toBeChecked();
 	await page.getByRole('searchbox', { name: 'Find a problem', exact: true }).fill('3Sum');
-	await expect(problem.locator('option')).toHaveText(['Select a problem', notebook.problem.title, '3Sum']);
-	await expect(problem).toHaveValue(notebook.problem.id);
+	await expect(problem.locator('label')).toHaveText([new RegExp(`^${notebook.problem.title}`), /^3Sum/]);
+	await expect(chosen).toBeChecked();
 	await page.getByRole('button', { name: 'Add task', exact: true }).click();
 	await expect(page.getByRole('region', { name: 'Tasks' }).getByRole('link', { name: notebook.problem.title, exact: true })).toBeVisible();
+});
+
+test('shows the topics and the colored level at the right side of each problem in Add a task', async ({ page, notebook, baseURL }) => {
+	await signIn(page, 'parent');
+	const homework = await (await page.request.post('/leetcode/api/homework', { headers: { Origin: new URL(baseURL!).origin }, data: { title: 'Week 41', instructions: '', dueDate: null } })).json() as Homework;
+	await page.goto(`/leetcode/homework/${homework.id}`);
+	const row = page.getByRole('group', { name: 'Problem', exact: true }).locator('label').filter({ hasText: notebook.problem.title });
+	await expect(row.getByText('Arrays', { exact: true })).toBeVisible();
+	const level = row.getByText('easy', { exact: true });
+	await expect(level).toHaveClass('tag easy');
+	const [rowBox, levelBox] = [await row.boundingBox(), await level.boundingBox()];
+	expect(rowBox!.x + rowBox!.width - levelBox!.x - levelBox!.width).toBeLessThan(32);
 });
 
 test('shows a new message until the parent opens the discussion', async ({ page, notebook, server }) => {
