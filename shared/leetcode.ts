@@ -53,10 +53,10 @@ export type AttemptSummary = Omit<Attempt, 'document'>;
 export const MAX_DOCUMENT_BYTES = 256_000;
 export type TaskState = 'assigned' | 'in_progress' | 'submitted' | 'changes_requested' | 'completed' | 'cancelled';
 export interface Homework { id: string; title: string; instructions: string; dueDate: string | null; version: number; createdAt: string; updatedAt: string }
-export interface HomeworkSummary extends Homework { taskCount: number; completedCount: number; submittedCount: number; requestedCount: number }
+export interface HomeworkSummary extends Homework { taskCount: number; completedCount: number; submittedCount: number; requestedCount: number; unread: boolean }
 export interface HomeworkTask {
 	id: string; homeworkId: string; homeworkTitle: string; instructions: string; dueDate: string | null; problemId: string; problemTitle: string; difficulty: Difficulty;
-	state: TaskState; submissionId: string | null; version: number; createdAt: string; updatedAt: string;
+	state: TaskState; submissionId: string | null; version: number; createdAt: string; updatedAt: string; unread: boolean;
 }
 export interface Submission { id: string; taskId: string; attemptId: string; taskVersion: number; createdAt: string }
 export interface Feedback { id: string; problemId: string; taskId: string | null; submissionId: string | null; author: Role; kind: 'reply' | 'changes_requested' | 'completed'; body: string; createdAt: string }

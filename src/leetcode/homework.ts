@@ -1,24 +1,27 @@
 import type { Env } from '../index';
-import type { Feedback, Homework, HomeworkSummary, HomeworkTask, SessionUser, Submission } from '../../shared/leetcode';
+import type { Feedback, Homework, HomeworkSummary, HomeworkTask, Role, SessionUser, Submission } from '../../shared/leetcode';
 import { requireRole } from './auth';
 import { getAttempt, saveProgress } from './attempts';
 import { getProblem } from './problems';
 import { calendarDate, changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
 
 const homeworkColumns = 'h.id,h.title,h.instructions,h.due_date AS dueDate,h.version,h.created_at AS createdAt,h.updated_at AS updatedAt';
-export const taskColumns = 't.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,h.instructions,h.due_date AS dueDate,t.problem_id AS problemId,p.title AS problemTitle,p.difficulty,t.state,t.current_submission_id AS submissionId,t.version,t.created_at AS createdAt,t.updated_at AS updatedAt';
+// ?1 is the viewer role. A later ? takes the next number. https://www.sqlite.org/lang_expr.html#varparam
+const unreadSQL = "EXISTS(SELECT 1 FROM feedback f WHERE f.problem_id=t.problem_id AND f.author<>?1 AND f.created_at>coalesce((SELECT read_at FROM discussion_reads r WHERE r.role=?1 AND r.problem_id=t.problem_id),''))";
+export const taskColumns = `t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,h.instructions,h.due_date AS dueDate,t.problem_id AS problemId,p.title AS problemTitle,p.difficulty,t.state,t.current_submission_id AS submissionId,t.version,t.created_at AS createdAt,t.updated_at AS updatedAt,${unreadSQL} AS unread`;
 export const taskTables = 'homework_tasks t JOIN homework h ON h.id=t.homework_id JOIN problems p ON p.id=t.problem_id';
 const feedbackColumns = 'id,problem_id AS problemId,task_id AS taskId,submission_id AS submissionId,author,kind,body,created_at AS createdAt';
 const editableTask = "('assigned','in_progress','changes_requested')";
+export function unreadValue<T extends { unread: boolean }>(row: T): T { return { ...row, unread: Boolean(row.unread) }; }
 export async function getHomework(env: Env, id: string): Promise<Homework> {
 	const row = await env.DB.prepare(`SELECT ${homeworkColumns} FROM homework h WHERE h.id=?`).bind(uuid(id)).first<Homework>();
 	if (!row) throw new HttpError(404, 'not_found', 'This homework does not exist.');
 	return row;
 }
-async function getTask(env: Env, id: string): Promise<HomeworkTask> {
-	const row = await env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.id=?`).bind(uuid(id)).first<HomeworkTask>();
+async function getTask(env: Env, id: string, role: Role): Promise<HomeworkTask> {
+	const row = await env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.id=?`).bind(role, uuid(id)).first<HomeworkTask>();
 	if (!row) throw new HttpError(404, 'not_found', 'This task does not exist.');
-	return row;
+	return unreadValue(row);
 }
 
 export async function handleHomework(request: Request, env: Env, user: SessionUser): Promise<Response | null> {
@@ -29,12 +32,14 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		const problemId = uuid(discussion[1]); await getProblem(env, problemId);
 		if (request.method === 'GET') {
 			const { limit, offset } = pagination(url);
-			const rows = await env.DB.prepare(`SELECT ${feedbackColumns} FROM feedback WHERE problem_id=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(problemId, limit + 1, offset).all<Feedback>();
+			const statements = [env.DB.prepare(`SELECT ${feedbackColumns} FROM feedback WHERE problem_id=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(problemId, limit + 1, offset)];
+			if (!offset) statements.push(env.DB.prepare('INSERT INTO discussion_reads (role,problem_id,read_at) SELECT ?,problem_id,max(created_at) FROM feedback WHERE problem_id=? GROUP BY problem_id ON CONFLICT(role,problem_id) DO UPDATE SET read_at=excluded.read_at').bind(user.role, problemId));
+			const [rows] = await env.DB.batch<Feedback>(statements);
 			return Response.json(page(rows.results, limit, offset));
 		}
 		const data = object(await readJson(request), ['body', 'taskId', 'submissionId']);
 		const body = text(data.body, 8000, true).trim(), taskId = data.taskId == null ? null : uuid(data.taskId), submissionId = data.submissionId == null ? null : uuid(data.submissionId);
-		if (taskId && (await getTask(env, taskId)).problemId !== problemId) throw new HttpError(400, 'invalid_reference', 'Choose a task for this problem.');
+		if (taskId && (await getTask(env, taskId, user.role)).problemId !== problemId) throw new HttpError(400, 'invalid_reference', 'Choose a task for this problem.');
 		if (submissionId && !await env.DB.prepare('SELECT s.id FROM submissions s JOIN homework_tasks t ON t.id=s.task_id WHERE s.id=? AND t.problem_id=? AND (? IS NULL OR t.id=?)').bind(submissionId, problemId, taskId, taskId).first()) throw new HttpError(400, 'invalid_reference', 'Choose a submission for this discussion.');
 		const id = crypto.randomUUID();
 		await env.DB.prepare("INSERT INTO feedback VALUES (?,?,?,?,?,'reply',?,?)").bind(id, problemId, taskId, submissionId, user.role, body, now).run();
@@ -47,15 +52,15 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		if (request.method === 'GET') {
 			if (id) {
 				const homework = await getHomework(env, id);
-				const tasks = await env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.homework_id=? ORDER BY t.created_at,t.id`).bind(id).all<HomeworkTask>();
-				return Response.json({ homework, tasks: tasks.results });
+				const tasks = await env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.homework_id=? ORDER BY t.created_at,t.id`).bind(user.role, id).all<HomeworkTask>();
+				return Response.json({ homework, tasks: tasks.results.map(unreadValue) });
 			}
 			const { limit, offset } = pagination(url), q = text(url.searchParams.get('q') ?? '', 200);
 			// lower() folds ASCII letters only. https://www.sqlite.org/lang_corefunc.html#lower
-			const rows = await env.DB.prepare(`SELECT ${homeworkColumns},coalesce(sum(t.state<>'cancelled'),0) AS taskCount,coalesce(sum(t.state='completed'),0) AS completedCount,coalesce(sum(t.state='submitted'),0) AS submittedCount,coalesce(sum(t.state='changes_requested'),0) AS requestedCount
+			const rows = await env.DB.prepare(`SELECT ${homeworkColumns},coalesce(sum(t.state<>'cancelled'),0) AS taskCount,coalesce(sum(t.state='completed'),0) AS completedCount,coalesce(sum(t.state='submitted'),0) AS submittedCount,coalesce(sum(t.state='changes_requested'),0) AS requestedCount,max(${unreadSQL}) AS unread
 				FROM homework h LEFT JOIN homework_tasks t ON t.homework_id=h.id WHERE instr(lower(h.title),lower(?))>0 GROUP BY h.id ${url.searchParams.get('active') === '1' ? "HAVING count(t.id)=0 OR sum(t.state NOT IN ('completed','cancelled'))>0" : ''}
-				ORDER BY submittedCount>0 DESC,h.created_at DESC,h.id LIMIT ? OFFSET ?`).bind(q, limit + 1, offset).all<HomeworkSummary>();
-			return Response.json(page(rows.results, limit, offset));
+				ORDER BY submittedCount>0 DESC,h.created_at DESC,h.id LIMIT ? OFFSET ?`).bind(user.role, q, limit + 1, offset).all<HomeworkSummary>();
+			return Response.json(page(rows.results.map(unreadValue), limit, offset));
 		}
 		requireRole(user, 'parent');
 		const data = object(await readJson(request), ['title', 'instructions', 'dueDate', ...(id ? ['version'] : [])]);
@@ -75,15 +80,15 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 	methods(request, action ? ['POST'] : id ? ['GET'] : ['GET', 'POST']);
 	if (request.method === 'GET') {
 		if (id) {
-			const task = await getTask(env, id);
+			const task = await getTask(env, id, user.role);
 			const submissions = await env.DB.prepare('SELECT id,task_id AS taskId,attempt_id AS attemptId,task_version AS taskVersion,created_at AS createdAt FROM submissions WHERE task_id=? ORDER BY created_at DESC,id DESC LIMIT 50').bind(id).all<Submission>();
 			return Response.json({ homework: await getHomework(env, task.homeworkId), task, submissions: submissions.results });
 		}
 		const { limit, offset } = pagination(url), where = ['1=1'], args: string[] = [];
 		if (url.searchParams.has('problemId')) { where.push('t.problem_id=?'); args.push(uuid(url.searchParams.get('problemId'))); }
 		if (url.searchParams.get('active') === '1') where.push("t.state NOT IN ('completed','cancelled')");
-		const rows = await env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE ${where.join(' AND ')} ORDER BY (t.state='submitted') DESC,t.created_at DESC,t.id LIMIT ? OFFSET ?`).bind(...args, limit + 1, offset).all<HomeworkTask>();
-		return Response.json(page(rows.results, limit, offset));
+		const rows = await env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE ${where.join(' AND ')} ORDER BY (t.state='submitted') DESC,t.created_at DESC,t.id LIMIT ? OFFSET ?`).bind(user.role, ...args, limit + 1, offset).all<HomeworkTask>();
+		return Response.json(page(rows.results.map(unreadValue), limit, offset));
 	}
 	requireRole(user, action === 'submit' || action === 'start' ? 'student' : 'parent');
 	if (!id) {
@@ -92,9 +97,9 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		await getHomework(env, homeworkId);
 		const result = await env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) SELECT ?,?,id,'assigned',?,? FROM problems WHERE id=? AND archived_at IS NULL ON CONFLICT DO NOTHING").bind(newId, homeworkId, now, now, problemId).run();
 		if (!result.meta.changes) throw (await getProblem(env, problemId)).archivedAt ? new HttpError(409, 'archived', 'Restore this problem before you assign homework.') : new HttpError(409, 'active_homework', 'This problem already has an active task. Complete or cancel that task first.');
-		return Response.json(await getTask(env, newId), { status: 201 });
+		return Response.json(await getTask(env, newId, user.role), { status: 201 });
 	}
-	const task = await getTask(env, id);
+	const task = await getTask(env, id, user.role);
 	if (action === 'submit') {
 		const data = object(await readJson(request), ['version', 'attemptId', 'attemptVersion', 'nextReviewDate']);
 		const attempt = await getAttempt(env, task.problemId, uuid(data.attemptId));
@@ -119,5 +124,5 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		const version = integer(object(await readJson(request), ['version']).version);
 		changed(await env.DB.prepare(`UPDATE homework_tasks SET state=?,version=version+1,updated_at=? WHERE id=? AND version=? AND ${action === 'start' ? "state='assigned'" : "state NOT IN ('completed','cancelled')"}`).bind(action === 'start' ? 'in_progress' : 'cancelled', now, id, version).run());
 	}
-	return Response.json(await getTask(env, id));
+	return Response.json(await getTask(env, id, user.role));
 }

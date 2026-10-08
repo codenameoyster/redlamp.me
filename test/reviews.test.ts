@@ -59,7 +59,7 @@ it.each([
 ])('$name', async ({ state, rows }) => {
 	await env.DB.prepare('UPDATE homework_tasks SET state=?').bind(state).run();
 	const { homework } = await (await request('/dashboard?today=2026-10-07', 'GET', undefined, cookie)).json() as Dashboard;
-	expect(homework).toEqual([{ id: taskId, homeworkId, homeworkTitle: 'Week 41', instructions: 'Explain', dueDate: '2026-10-07', problemId: first, problemTitle: 'accepted independently', difficulty: 'medium', state, submissionId: null, version: 1, createdAt: 'now', updatedAt: 'now' }].slice(0, rows));
+	expect(homework).toEqual([{ id: taskId, homeworkId, homeworkTitle: 'Week 41', instructions: 'Explain', dueDate: '2026-10-07', problemId: first, problemTitle: 'accepted independently', difficulty: 'medium', state, submissionId: null, version: 1, createdAt: 'now', updatedAt: 'now', unread: false }].slice(0, rows));
 });
 
 it.each([

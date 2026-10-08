@@ -88,6 +88,7 @@ main { padding:40px 40px 56px 56px; max-width:1440px; margin:0 auto; }
 .list-row h2 a:hover,.list-row h3 a:hover { color:var(--pen); }
 .grow { flex:1; min-width:0; }
 .list-row > .grow { flex-basis:180px; }
+.unread { display:inline-block; width:8px; height:8px; margin-right:8px; border-radius:50%; background:var(--margin); vertical-align:middle; forced-color-adjust:none; }
 .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px; margin-bottom:32px; }
 .stat { border-left:2px solid var(--line); padding:2px 16px; }
 .stat:first-child { border-color:var(--margin); }

@@ -1,12 +1,14 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
-import type { HomeworkSummary, Role } from '../shared/leetcode';
+import type { Dashboard, HomeworkDetails, HomeworkSummary, HomeworkTask, Page, Role, TaskDetails } from '../shared/leetcode';
 
 let student: string, parent: string, problemId: string, attemptId: string, homeworkId: string, taskId: string, submissionId: string;
 const insertProblem = env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,?,?,'medium','[]','','','now','now')");
 const insertBundle = env.DB.prepare("INSERT INTO homework (id,title,instructions,due_date,created_at,updated_at) VALUES (?,?,'Explain the invariant',?,?,?)");
 const insertTask = env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) VALUES (?,?,?,?,?,'now')");
+const insertFeedback = env.DB.prepare("INSERT INTO feedback (id,problem_id,author,kind,body,created_at) VALUES (?,?,?,?,'Note',?)");
+const insertRead = env.DB.prepare('INSERT INTO discussion_reads (role,problem_id,read_at) VALUES (?,?,?)');
 beforeEach(async () => {
 	student = await login(); parent = await login('parent');
 	const problem = await (await request('/problems', 'POST', { url: 'https://leetcode.com/problems/two-sum/', number: 1, title: 'Two Sum', difficulty: 'easy', topics: [], summary: '' }, student)).json() as { id: string };
@@ -209,4 +211,46 @@ it.each([
 	expect(response.status).toBe(expected);
 	expect(await response.json()).toMatchObject(error ? { error } : { author: role as Role, taskId, kind: 'reply' });
 	expect(await env.DB.prepare('SELECT count(*) AS count FROM feedback').first()).toEqual({ count: error ? 0 : 1 });
+});
+
+it.each([
+	{ name: 'message from the other role without a read marker', viewer: 'parent', author: 'student', kind: 'reply', readRole: null, readAt: null, unread: true },
+	{ name: 'own message', viewer: 'student', author: 'student', kind: 'reply', readRole: null, readAt: null, unread: false },
+	{ name: 'read after the message', viewer: 'parent', author: 'student', kind: 'reply', readRole: 'parent', readAt: '2026-10-05T10:00:00.000Z', unread: false },
+	{ name: 'message after the read', viewer: 'parent', author: 'student', kind: 'reply', readRole: 'parent', readAt: '2026-10-05T09:00:00.000Z', unread: true },
+	{ name: 'read by the other role only', viewer: 'parent', author: 'student', kind: 'reply', readRole: 'student', readAt: '2026-10-05T10:00:00.000Z', unread: true },
+	{ name: 'requested changes for the student', viewer: 'student', author: 'parent', kind: 'changes_requested', readRole: null, readAt: null, unread: true },
+	{ name: 'completed review for the student', viewer: 'student', author: 'parent', kind: 'completed', readRole: null, readAt: null, unread: true },
+])('$name', async ({ viewer, author, kind, readRole, readAt, unread }) => {
+	await insertFeedback.bind(crypto.randomUUID(), problemId, author, kind, '2026-10-05T10:00:00.000Z').run();
+	if (readRole) await insertRead.bind(readRole, problemId, readAt).run();
+	const get = async <T>(path: string) => await (await request(path, 'GET', undefined, viewer === 'parent' ? parent : student)).json() as T;
+	const [tasks, task, bundle, summary, dashboard] = [await get<Page<HomeworkTask>>('/tasks'), await get<TaskDetails>(`/tasks/${taskId}`), await get<HomeworkDetails>(`/homework/${homeworkId}`), await get<Page<HomeworkSummary>>('/homework'), await get<Dashboard>('/dashboard?today=2026-10-07')];
+	expect({ tasks: tasks.items[0].unread, task: task.task.unread, bundle: bundle.tasks[0].unread, summary: summary.items[0].unread, dashboard: dashboard.homework[0].unread }).toEqual({ tasks: unread, task: unread, bundle: unread, summary: unread, dashboard: unread });
+});
+
+it.each([
+	{ name: 'first page marks the newest message read', viewer: 'parent', offset: 0, messages: ['2026-10-05T10:00:00.000Z', '2026-10-05T09:00:00.000Z'], earlier: null, reads: [{ role: 'parent', read_at: '2026-10-05T10:00:00.000Z' }], unread: false },
+	{ name: 'first page moves an earlier read marker', viewer: 'parent', offset: 0, messages: ['2026-10-05T09:00:00.000Z', '2026-10-05T10:00:00.000Z'], earlier: '2026-10-05T09:00:00.000Z', reads: [{ role: 'parent', read_at: '2026-10-05T10:00:00.000Z' }], unread: false },
+	{ name: 'offset 50 does not mark read', viewer: 'parent', offset: 50, messages: ['2026-10-05T10:00:00.000Z'], earlier: null, reads: [], unread: true },
+	{ name: 'first page without messages records no read marker', viewer: 'parent', offset: 0, messages: [], earlier: null, reads: [], unread: false },
+	{ name: 'student read keeps the parent read marker', viewer: 'student', offset: 0, messages: ['2026-10-05T10:00:00.000Z'], earlier: '2026-10-05T09:00:00.000Z', reads: [{ role: 'parent', read_at: '2026-10-05T09:00:00.000Z' }, { role: 'student', read_at: '2026-10-05T10:00:00.000Z' }], unread: true },
+])('$name', async ({ viewer, offset, messages, earlier, reads, unread }) => {
+	for (const at of messages) await insertFeedback.bind(crypto.randomUUID(), problemId, 'student', 'reply', at).run();
+	if (earlier) await insertRead.bind('parent', problemId, earlier).run();
+	expect((await request(`/problems/${problemId}/feedback?offset=${offset}`, 'GET', undefined, viewer === 'parent' ? parent : student)).status).toBe(200);
+	expect((await env.DB.prepare('SELECT role,read_at FROM discussion_reads ORDER BY role').all()).results).toEqual(reads);
+	expect((await (await request(`/tasks/${taskId}`, 'GET', undefined, parent)).json() as TaskDetails).task.unread).toBe(unread);
+});
+
+it('marks a bundle unread when one of its tasks is unread', async () => {
+	await bundles();
+	await env.DB.prepare("INSERT INTO feedback (id,problem_id,author,kind,body,created_at) SELECT ?,id,'student','reply','Question','2026-10-05T10:00:00.000Z' FROM problems WHERE slug='subsets'").bind(crypto.randomUUID()).run();
+	const { items } = await (await request('/homework', 'GET', undefined, parent)).json() as Page<HomeworkSummary>;
+	expect(items.map(({ title, unread }) => ({ title, unread }))).toEqual([
+		{ title: 'Week 41: backtracking', unread: true },
+		{ title: 'Two Sum practice', unread: false },
+		{ title: 'Week 42: graphs', unread: false },
+		{ title: 'Week 40: arrays', unread: false },
+	]);
 });

@@ -48,6 +48,7 @@ Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and wa
 - On the homework page, use **Add a task** to add a problem from the library. Each task has its own review state. A problem can have only one active task in all homework.
 - The parent can link lessons to problems and homework. A task page shows the lessons of its homework.
 - As the student, open a task from **Today**, the homework page, or the problem page. Submit an exact attempt for review. The parent can request another attempt or complete the task.
+- A red dot before a homework or a task shows a message or a review decision from the other account that you did not read. Open the discussion of the task or the problem to remove the dot.
 - Use **Recall this problem** to practise before revealing saved work. Record the result. Choose the next review date.
 - **Archive problem** moves a problem to **Archived problems** in the library and blocks new homework tasks for it. **Restore problem** returns it.
 - If a save fails, keep the page open. Use **Retry save** or **Copy unsaved work**. Reload recovery is available in the same tab when browser session storage works. Conflicting edits require an explicit choice of the server copy.

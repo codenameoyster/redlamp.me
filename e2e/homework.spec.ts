@@ -111,3 +111,22 @@ test('assigns the selected problem after the problem search refreshes', async ({
 	await page.getByRole('button', { name: 'Add task', exact: true }).click();
 	await expect(page.getByRole('region', { name: 'Tasks' }).getByRole('link', { name: notebook.problem.title, exact: true })).toBeVisible();
 });
+
+test('shows a new message until the parent opens the discussion', async ({ page, notebook, server }) => {
+	const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id);
+	await page.goto(`/leetcode/tasks/${taskId}`);
+	await page.getByLabel('Reply', { exact: true }).fill('How do I prove the invariant?');
+	await page.getByRole('button', { name: 'Add reply', exact: true }).click();
+	await expect(page.getByText('How do I prove the invariant?', { exact: true })).toBeVisible();
+	await signIn(page, 'parent');
+	await page.getByRole('link', { name: 'Homework', exact: true }).click();
+	const dot = page.getByRole('img', { name: 'New message', exact: true });
+	await expect(page.getByRole('article').filter({ hasText: 'Week 41' }).getByRole('img', { name: 'New message', exact: true })).toBeVisible();
+	await page.getByRole('link', { name: 'Week 41', exact: true }).click();
+	await expect(page.getByRole('region', { name: 'Tasks' }).getByRole('img', { name: 'New message', exact: true })).toBeVisible();
+	await page.getByRole('link', { name: notebook.problem.title, exact: true }).click();
+	await expect(page.getByText('How do I prove the invariant?', { exact: true })).toBeVisible();
+	await page.getByRole('link', { name: 'Homework', exact: true }).click();
+	await expect(page.getByRole('link', { name: 'Week 41', exact: true })).toBeVisible();
+	await expect(dot).toHaveCount(0);
+});
