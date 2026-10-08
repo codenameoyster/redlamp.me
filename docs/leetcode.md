@@ -59,6 +59,22 @@ The parent can upload `.html` or `.htm` files. Each file must be valid UTF-8 and
 
 The viewer permits inline JavaScript in an isolated frame. Its HTTP content security policy also applies to full-page display. Both display and download require login. **Download original** returns the uploaded UTF-8 bytes. Archive hides lessons from new links while preserving existing links. Upload a new lesson to change its HTML content.
 
+## Learning sets
+
+A learning set is a lesson and a list of LeetCode problems about one subject. The sets are content in the repository. A deployment publishes them. The **Sets** page is read-only for both roles.
+
+A set page shows the lesson in an isolated frame, the reading links, and the problems in stages. A problem row shows **Accepted** when the library problem has an accepted saved attempt. A problem row with an active homework task shows the task state. The state links to the task.
+
+As the parent, use **Add to homework** on a problem row. The dialog shows the active homework. Use the search box to find homework by title. Use **Assign** to add the problem to that homework. Use **Create and assign** to create new homework with the problem in one step. The notebook adds the problem to the library when the library does not have it. A problem with an active task has no **Add to homework** button.
+
+To add a set:
+
+1. Create the folder `src/leetcode/sets/<slug>/`. Use lowercase letters, digits, and dashes in the slug.
+2. Write `set.ts`. Export the set data as the default export. Type it with `satisfies LearningSet`. For each task, use the problem slug from its LeetCode URL.
+3. Write `lesson.html`. Use one self-contained UTF-8 file of at most 1,000,000 bytes. The rules for uploaded lessons apply.
+4. In `src/leetcode/sets/index.ts`, import the set and its lesson. Add them to `sets`. The order of `sets` is the display order.
+5. Run `bun run test`. `test/sets.test.ts` checks each set: unique set and task slugs, the LeetCode slug format, a stage for each task, https links, and the lesson size.
+
 ## Cloudflare setup
 
 Use an account with Workers Free and D1 Free. Check the account's existing usage before deployment. The application uses no R2 storage or paid service.

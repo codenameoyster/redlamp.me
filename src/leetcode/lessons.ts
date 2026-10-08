@@ -17,7 +17,7 @@ function metadata(value: unknown, version = false) {
 	const data = object(value, ['title', 'description', 'topics', ...(version ? ['version'] : [])]);
 	return { title: text(data.title, 200, true).trim(), description: text(data.description ?? '', 8000).trim(), topics: topics(data.topics ?? []), version: version ? integer(data.version) : 1 };
 }
-const LESSON_CSP = "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data: blob:; media-src data: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+export const LESSON_CSP = "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data: blob:; media-src data: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 
 export async function handleLessons(request: Request, env: Env, user: SessionUser): Promise<Response | null> {
 	const url = new URL(request.url), now = new Date().toISOString();
