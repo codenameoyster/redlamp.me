@@ -4,7 +4,7 @@ import * as dates from '../shared/dates';
 import type { Dashboard, Problem } from '../shared/leetcode';
 import { login, request } from './client';
 
-let cookie: string, first: string;
+let cookie: string, first: string, taskId: string, homeworkId: string;
 beforeEach(async () => {
 	cookie = await login();
 	const cases = [
@@ -17,7 +17,11 @@ beforeEach(async () => {
 		await env.DB.prepare('INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,understanding,next_review_date,created_at,updated_at) VALUES (?,?,?,\'medium\',?,\'\',\'\',?,\'2026-10-07\',\'now\',\'now\')').bind(id, row.slug, row.name, JSON.stringify(row.topics), row.understanding).run();
 		await env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'saved','{}','',?,?,'now','now')").bind(crypto.randomUUID(), id, row.acceptance, row.understanding).run();
 	}
-	await env.DB.prepare("INSERT INTO homework (id,problem_id,instructions,due_date,state,created_at,updated_at) VALUES (?,?,'','2026-10-07','assigned','now','now')").bind(crypto.randomUUID(), first).run();
+	taskId = crypto.randomUUID(); homeworkId = crypto.randomUUID();
+	await env.DB.batch([
+		env.DB.prepare("INSERT INTO homework (id,title,instructions,due_date,created_at,updated_at) VALUES (?,'Week 41','Explain','2026-10-07','now','now')").bind(homeworkId),
+		env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) VALUES (?,?,?,'assigned','now','now')").bind(taskId, homeworkId, first),
+	]);
 });
 
 it.each([
@@ -48,6 +52,17 @@ it.each([
 });
 
 it.each([
+	{ name: 'active task with its homework', state: 'assigned', rows: 1 },
+	{ name: 'submitted task waits for review', state: 'submitted', rows: 1 },
+	{ name: 'completed task leaves the dashboard', state: 'completed', rows: 0 },
+	{ name: 'cancelled task leaves the dashboard', state: 'cancelled', rows: 0 },
+])('$name', async ({ state, rows }) => {
+	await env.DB.prepare('UPDATE homework_tasks SET state=?').bind(state).run();
+	const { homework } = await (await request('/dashboard?today=2026-10-07', 'GET', undefined, cookie)).json() as Dashboard;
+	expect(homework).toEqual([{ id: taskId, homeworkId, homeworkTitle: 'Week 41', instructions: 'Explain', dueDate: '2026-10-07', problemId: first, problemTitle: 'accepted independently', difficulty: 'medium', state, submissionId: null, version: 1, createdAt: 'now', updatedAt: 'now' }].slice(0, rows));
+});
+
+it.each([
 	{ name: 'impossible day', today: '2026-02-30' },
 	{ name: 'missing local date', today: '' },
 	{ name: 'timestamp in place of date', today: '2026-10-07T00:00:00Z' },
@@ -70,7 +85,7 @@ it.each([
 ])('$name', async ({ change, counts }) => {
 	if (change === 'attempt') await env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'saved','{}','','accepted','independent','now','now')").bind(crypto.randomUUID(), first).run();
 	if (change === 'archive') await env.DB.prepare("UPDATE problems SET archived_at='now' WHERE slug='three'").run();
-	if (change.startsWith('submit')) await env.DB.prepare("UPDATE homework SET state='submitted'").run();
+	if (change.startsWith('submit')) await env.DB.prepare("UPDATE homework_tasks SET state='submitted'").run();
 	if (change === 'submit archived') await env.DB.prepare("UPDATE problems SET archived_at='now' WHERE id=?").bind(first).run();
 	expect(await (await request('/dashboard?today=2026-10-07', 'GET', undefined, cookie)).json()).toMatchObject({ counts });
 });
@@ -83,10 +98,9 @@ it.each([
 ])('$name', async ({ earlier, later, expected, fields, reviews }) => {
 	const draftId = crypto.randomUUID(), parent = await login('parent');
 	await env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'draft',?,'','accepted','with_help','now','now')").bind(draftId, first, JSON.stringify({ notes: 'Explain the invariant.', approaches: [] })).run();
-	const homework = await env.DB.prepare('SELECT id FROM homework').first<{ id: string }>();
 	const problem = await (await request(`/problems/${first}`, 'GET', undefined, cookie)).json() as Problem;
 	const write = (kind: string) => kind === 'save' ? request(`/problems/${first}/attempts/${draftId}/save`, 'POST', { version: 1 }, cookie)
-		: kind === 'submit' ? request(`/homework/${homework!.id}/submit`, 'POST', { version: 1, attemptId: draftId, attemptVersion: 1 }, cookie)
+		: kind === 'submit' ? request(`/tasks/${taskId}/submit`, 'POST', { version: 1, attemptId: draftId, attemptVersion: 1 }, cookie)
 		: kind === 'edit' ? request(`/problems/${first}`, 'PATCH', { url: 'https://leetcode.com/problems/one/', number: null, title: 'Edited', difficulty: 'medium', topics: [], summary: '', version: problem.version }, parent)
 		: request(`/problems/${first}/reviews`, 'POST', { version: problem.progressVersion, result: 'with_help', note: '', reviewedOn: '2026-10-07', nextReviewDate: null }, cookie);
 	expect((await write(earlier)).ok).toBe(true);

@@ -14,6 +14,15 @@ export async function signIn(page: Page, role: Role = 'student') {
 	await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
 }
 
+export async function addTask(DB: D1Database, problemId: string, state = 'assigned', dueDate: string | null = null) {
+	const homeworkId = crypto.randomUUID(), taskId = crypto.randomUUID();
+	await DB.batch([
+		DB.prepare("INSERT INTO homework (id,title,instructions,due_date,created_at,updated_at) VALUES (?,'Week 41','Explain',?,'now','now')").bind(homeworkId, dueDate),
+		DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) VALUES (?,?,?,?,'now','now')").bind(taskId, homeworkId, problemId, state),
+	]);
+	return { homeworkId, taskId };
+}
+
 export const test = base.extend<{ reset: void; notebook: { problem: Problem; attempt: Attempt } }, { server: TestHarness }>({
 	server: [async ({ browserName }, use) => {
 		if (browserName !== 'chromium') throw new Error('Use Chromium for these checks.');

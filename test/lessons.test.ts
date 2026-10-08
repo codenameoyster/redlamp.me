@@ -66,14 +66,17 @@ it.each([
 });
 
 it.each([
-	{ name: 'homework lesson link', state: 'assigned', linked: false, method: 'PUT', version: 1, expected: 204, count: 1 },
-	{ name: 'stale homework lesson link', state: 'assigned', linked: false, method: 'PUT', version: 2, expected: 409, count: 0 },
-	{ name: 'lesson unlink from submitted homework', state: 'submitted', linked: true, method: 'DELETE', version: 1, expected: 409, count: 1 },
-])('$name', async ({ state, linked, method, version, expected, count }) => {
+	{ name: 'homework lesson link', state: 'assigned', linked: false, method: 'PUT', version: 1, expected: 204, count: 1, stored: 2 },
+	{ name: 'stale homework lesson link', state: 'assigned', linked: false, method: 'PUT', version: 2, expected: 409, count: 0, stored: 1 },
+	{ name: 'lesson unlink from homework with a submitted task', state: 'submitted', linked: true, method: 'DELETE', version: 1, expected: 204, count: 0, stored: 2 },
+	{ name: 'lesson link to homework with a completed task', state: 'completed', linked: false, method: 'PUT', version: 1, expected: 204, count: 1, stored: 2 },
+])('$name', async ({ state, linked, method, version, expected, count, stored }) => {
 	const lesson = await (await upload('<p>Lesson</p>')).json() as { id: string }, problem = await (await request('/problems', 'POST', problemInput, parent)).json() as { id: string };
-	const homework = await (await request('/homework', 'POST', { problemId: problem.id, instructions: '', dueDate: null }, parent)).json() as { id: string };
-	await env.DB.prepare('UPDATE homework SET state=?').bind(state).run();
+	const homework = await (await request('/homework', 'POST', { title: 'Week 41', instructions: '', dueDate: null }, parent)).json() as { id: string };
+	expect((await request('/tasks', 'POST', { homeworkId: homework.id, problemId: problem.id }, parent)).status).toBe(201);
+	await env.DB.prepare('UPDATE homework_tasks SET state=?').bind(state).run();
 	if (linked) await env.DB.prepare('INSERT INTO homework_lessons (homework_id,lesson_id) VALUES (?,?)').bind(homework.id, lesson.id).run();
 	expect((await request(`/homework/${homework.id}/lessons/${lesson.id}`, method, { version }, parent)).status).toBe(expected);
 	expect(await env.DB.prepare('SELECT count(*) AS count FROM homework_lessons').first()).toEqual({ count });
+	expect(await env.DB.prepare('SELECT version FROM homework').first()).toEqual({ version: stored });
 });

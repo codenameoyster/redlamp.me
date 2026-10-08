@@ -58,7 +58,7 @@ export async function handleProblems(request: Request, env: Env): Promise<Respon
 		if (url.searchParams.has('understanding')) { where.push('p.understanding=?'); args.push(choice(url.searchParams.get('understanding'), ['needs_practice', 'with_help', 'independent'])); }
 		if (url.searchParams.has('topic')) { where.push('EXISTS(SELECT 1 FROM json_each(p.topics) WHERE value=?)'); args.push(text(url.searchParams.get('topic'), 40, true)); }
 		if (url.searchParams.has('solved')) { where.push(`${solvedSQL}=?`); args.push(Number(choice(url.searchParams.get('solved'), ['0', '1']))); }
-		if (url.searchParams.has('homework')) { where.push("EXISTS(SELECT 1 FROM homework h WHERE h.problem_id=p.id AND h.state NOT IN ('completed','cancelled'))=?"); args.push(Number(choice(url.searchParams.get('homework'), ['0', '1']))); }
+		if (url.searchParams.has('homework')) { where.push("EXISTS(SELECT 1 FROM homework_tasks t WHERE t.problem_id=p.id AND t.state NOT IN ('completed','cancelled'))=?"); args.push(Number(choice(url.searchParams.get('homework'), ['0', '1']))); }
 		if (url.searchParams.has('due')) { where.push('p.next_review_date<=?'); args.push(calendarDate(url.searchParams.get('due'))); }
 		const rows = await env.DB.prepare(`SELECT ${problemColumns} FROM problems p WHERE ${where.join(' AND ')} ORDER BY p.updated_at DESC,p.id LIMIT ? OFFSET ?`).bind(...args, limit + 1, offset).all<ProblemRow>();
 		return Response.json(page(rows.results.map(problemValue), limit, offset));
@@ -71,8 +71,8 @@ export async function handleProblems(request: Request, env: Env): Promise<Respon
 		return Response.json(await getProblem(env, id!));
 	}
 	if (match[2]) {
-		const result = await env.DB.prepare("UPDATE problems SET archived_at=?,version=version+1,updated_at=? WHERE id=? AND version=? AND NOT EXISTS(SELECT 1 FROM homework WHERE problem_id=? AND state NOT IN ('completed','cancelled'))").bind(now, now, id, integer(data.version), id).run();
-		if (!result.meta.changes && await env.DB.prepare("SELECT 1 FROM homework WHERE problem_id=? AND state NOT IN ('completed','cancelled')").bind(id).first()) throw new HttpError(409, 'active_homework', 'Complete or cancel the active homework before you archive this problem.');
+		const result = await env.DB.prepare("UPDATE problems SET archived_at=?,version=version+1,updated_at=? WHERE id=? AND version=? AND NOT EXISTS(SELECT 1 FROM homework_tasks WHERE problem_id=? AND state NOT IN ('completed','cancelled'))").bind(now, now, id, integer(data.version), id).run();
+		if (!result.meta.changes && await env.DB.prepare("SELECT 1 FROM homework_tasks WHERE problem_id=? AND state NOT IN ('completed','cancelled')").bind(id).first()) throw new HttpError(409, 'active_homework', 'Complete or cancel the active task before you archive this problem.');
 		changed(result);
 		return Response.json(await getProblem(env, id!));
 	}

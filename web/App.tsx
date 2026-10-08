@@ -6,7 +6,7 @@ import { Login } from './Login';
 import { Problems } from './Problems';
 import { Problem } from './Problem';
 import type { LeaveGuard } from './useDraft';
-import { Homework } from './Homework';
+import { Homework, Task } from './Homework';
 import { Lessons } from './Lessons';
 import { Today } from './Today';
 import { Review } from './Review';
@@ -76,8 +76,9 @@ export function App() {
 	const path = location.pathname;
 	const match = /^\/leetcode\/problems\/([a-f0-9-]{36})$/.exec(path);
 	const homework = /^\/leetcode\/homework(?:\/([a-f0-9-]{36}))?$/.exec(path);
+	const task = /^\/leetcode\/tasks\/([a-f0-9-]{36})$/.exec(path);
 	const lessons = /^\/leetcode\/lessons(?:\/([a-f0-9-]{36}))?$/.exec(path);
 	const review = /^\/leetcode\/problems\/([a-f0-9-]{36})\/review$/.exec(path);
-	const screen = path === '/leetcode/problems' ? <Problems /> : match ? <Problem id={match[1]} user={user} registerGuard={registerGuard} /> : homework ? <Homework id={homework[1]} user={user} /> : lessons ? <Lessons id={lessons[1]} user={user} /> : review ? <Review id={review[1]} user={user} /> : <Today user={user} />;
+	const screen = path === '/leetcode/problems' ? <Problems /> : match ? <Problem id={match[1]} user={user} registerGuard={registerGuard} /> : homework ? <Homework id={homework[1]} user={user} /> : task ? <Task id={task[1]} user={user} /> : lessons ? <Lessons id={lessons[1]} user={user} /> : review ? <Review id={review[1]} user={user} /> : <Today user={user} />;
 	return <Layout user={user} logout={logout}>{error && <p className="error" role="alert">{error}</p>}{screen}</Layout>;
 }

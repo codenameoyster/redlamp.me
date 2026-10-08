@@ -6,7 +6,7 @@ import { useResource } from './useResource';
 export function LessonLinks({ problemId, homework, user, changed }: { problemId?: string; homework?: Homework; user: SessionUser; changed?: () => void }) {
 	const path = homework ? `/homework/${homework.id}/lessons` : `/problems/${problemId}/lessons`;
 	const links = useResource<Page<Lesson>>(path);
-	const editable = user.role === 'parent' && (!homework || ['assigned', 'in_progress', 'changes_requested'].includes(homework.state));
+	const editable = user.role === 'parent';
 	const [offset, setOffset] = useState(0);
 	const available = useResource<Page<Lesson>>(editable ? `/lessons?offset=${offset}` : null);
 	const [error, setError] = useState(''), [busy, setBusy] = useState(false);

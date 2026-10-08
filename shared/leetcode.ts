@@ -1,7 +1,7 @@
 export type Role = 'parent' | 'student';
 export interface SessionUser { role: Role; username: string }
 export interface Page<T> { items: T[]; nextOffset: number | null }
-export const NOTEBOOK_PAGE = /^\/leetcode(?:\/(?:problems|homework|lessons)(?:\/[a-f0-9-]{36}(?:\/review)?)?)?$/;
+export const NOTEBOOK_PAGE = /^\/leetcode(?:\/(?:problems|homework|lessons)(?:\/[a-f0-9-]{36}(?:\/review)?)?|\/tasks\/[a-f0-9-]{36})?$/;
 export type Acceptance = 'not_submitted' | 'not_accepted' | 'accepted';
 export type Understanding = 'needs_practice' | 'with_help' | 'independent';
 export type Difficulty = 'easy' | 'medium' | 'hard';
@@ -51,14 +51,17 @@ export interface Attempt extends DraftValue {
 }
 export type AttemptSummary = Omit<Attempt, 'document'>;
 export const MAX_DOCUMENT_BYTES = 256_000;
-export type HomeworkState = 'assigned' | 'in_progress' | 'submitted' | 'changes_requested' | 'completed' | 'cancelled';
-export interface Homework {
-	id: string; problemId: string; problemTitle: string; instructions: string; dueDate: string | null;
-	state: HomeworkState; submissionId: string | null; version: number; createdAt: string; updatedAt: string;
+export type TaskState = 'assigned' | 'in_progress' | 'submitted' | 'changes_requested' | 'completed' | 'cancelled';
+export interface Homework { id: string; title: string; instructions: string; dueDate: string | null; version: number; createdAt: string; updatedAt: string }
+export interface HomeworkSummary extends Homework { taskCount: number; completedCount: number; submittedCount: number; requestedCount: number }
+export interface HomeworkTask {
+	id: string; homeworkId: string; homeworkTitle: string; instructions: string; dueDate: string | null; problemId: string; problemTitle: string; difficulty: Difficulty;
+	state: TaskState; submissionId: string | null; version: number; createdAt: string; updatedAt: string;
 }
-export interface Submission { id: string; homeworkId: string; attemptId: string; homeworkVersion: number; createdAt: string }
-export interface Feedback { id: string; problemId: string; homeworkId: string | null; submissionId: string | null; author: Role; kind: 'reply' | 'changes_requested' | 'completed'; body: string; createdAt: string }
-export interface HomeworkDetails { homework: Homework; submissions: Submission[] }
+export interface Submission { id: string; taskId: string; attemptId: string; taskVersion: number; createdAt: string }
+export interface Feedback { id: string; problemId: string; taskId: string | null; submissionId: string | null; author: Role; kind: 'reply' | 'changes_requested' | 'completed'; body: string; createdAt: string }
+export interface HomeworkDetails { homework: Homework; tasks: HomeworkTask[] }
+export interface TaskDetails { homework: Homework; task: HomeworkTask; submissions: Submission[] }
 export interface Lesson { id: string; title: string; description: string; topics: string[]; filename: string; byteCount: number; archivedAt: string | null; version: number; createdAt: string; updatedAt: string }
 export const MAX_LESSON_BYTES = 1_000_000;
 export const MAX_UPLOAD_BYTES = 1_032_768;
@@ -66,7 +69,7 @@ export interface Revision { id: string; problemId: string; result: Understanding
 export interface Dashboard {
 	counts: { recorded: number; solved: number; independent: number; waitingReview: number; dueReviews: number };
 	topics: { topic: string; solved: number; independent: number }[];
-	homework: Homework[];
+	homework: HomeworkTask[];
 	drafts: (AttemptSummary & { problemTitle: string })[];
 	dueReviews: Problem[];
 }

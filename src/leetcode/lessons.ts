@@ -2,7 +2,7 @@ import type { Env } from '../index';
 import { MAX_LESSON_BYTES, MAX_UPLOAD_BYTES, type Lesson, type SessionUser } from '../../shared/leetcode';
 import { requireRole } from './auth';
 import { getProblem } from './problems';
-import { editableHomework, getHomework } from './homework';
+import { getHomework } from './homework';
 import { changed, HttpError, integer, methods, object, page, pagination, readBody, readJson, text, topics, uuid } from './http';
 
 const lessonColumns = 'l.id,l.title,l.description,l.topics,l.filename,l.byte_count AS byteCount,l.archived_at AS archivedAt,l.version,l.created_at AS createdAt,l.updated_at AS updatedAt';
@@ -38,7 +38,7 @@ export async function handleLessons(request: Request, env: Env, user: SessionUse
 		if (homework) {
 			const data = object(await readJson(request), ['version']);
 			const result = await env.DB.batch([
-				env.DB.prepare(`UPDATE homework SET version=version+1,updated_at=? WHERE id=? AND version=? AND state IN ${editableHomework} AND EXISTS(SELECT 1 FROM lessons WHERE id=? AND (?=0 OR archived_at IS NULL))`).bind(now, ownerId, integer(data.version), lessonId, adding ? 1 : 0),
+				env.DB.prepare('UPDATE homework SET version=version+1,updated_at=? WHERE id=? AND version=? AND EXISTS(SELECT 1 FROM lessons WHERE id=? AND (?=0 OR archived_at IS NULL))').bind(now, ownerId, integer(data.version), lessonId, adding ? 1 : 0),
 				adding ? env.DB.prepare('INSERT INTO homework_lessons SELECT ?,? WHERE changes()=1 ON CONFLICT DO NOTHING').bind(ownerId, lessonId) : env.DB.prepare('DELETE FROM homework_lessons WHERE homework_id=? AND lesson_id=? AND changes()=1').bind(ownerId, lessonId),
 			]);
 			changed(result[0]);

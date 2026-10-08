@@ -44,9 +44,12 @@ Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and wa
 - Add a LeetCode problem. Paste its URL in **Add a problem**. The notebook fills the number, title, difficulty, and topics from LeetCode. If LeetCode does not answer, enter them yourself.
 - As the student, start a draft. A draft can hold one or more approaches. The editor autosaves changed content. Use **Save attempt** to preserve an immutable copy.
 - Record LeetCode acceptance and understanding separately. An accepted solution can still need practice.
-- As the parent, assign homework. The parent can also link lessons to problems and homework. The student submits an exact attempt for review. The parent can request another attempt or complete the assignment.
+- As the parent, create homework on the **Homework** page. Give it a title, instructions, and an optional due date. Use **Edit homework** to change these details later.
+- On the homework page, use **Add a task** to add a problem from the library. Each task has its own review state. A problem can have only one active task in all homework.
+- The parent can link lessons to problems and homework. A task page shows the lessons of its homework.
+- As the student, open a task from **Today**, the homework page, or the problem page. Submit an exact attempt for review. The parent can request another attempt or complete the task.
 - Use **Recall this problem** to practise before revealing saved work. Record the result. Choose the next review date.
-- **Archive problem** moves a problem to **Archived problems** in the library and blocks new homework for it. **Restore problem** returns it.
+- **Archive problem** moves a problem to **Archived problems** in the library and blocks new homework tasks for it. **Restore problem** returns it.
 - If a save fails, keep the page open. Use **Retry save** or **Copy unsaved work**. Reload recovery is available in the same tab when browser session storage works. Conflicting edits require an explicit choice of the server copy.
 
 ## HTML lessons
