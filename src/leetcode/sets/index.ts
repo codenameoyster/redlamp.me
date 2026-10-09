@@ -12,6 +12,11 @@ export const sets: (LearningSet & { lesson: string })[] = [
 	{ ...permutationsAndCombinations, lesson: permutationsAndCombinationsLesson },
 ];
 
+export async function acceptedSetSlugs(env: Env): Promise<Set<string>> {
+	const rows = await env.DB.prepare(`SELECT p.slug FROM problems p WHERE p.slug IN (SELECT value FROM json_each(?)) AND ${solvedSQL}`).bind(JSON.stringify(sets.flatMap(set => set.tasks.map(task => task.slug)))).all<{ slug: string }>();
+	return new Set(rows.results.map(row => row.slug));
+}
+
 type TaskRow = { slug: string; problemId: string; accepted: number; id: string | null; homeworkId: string; homeworkTitle: string; state: TaskState };
 export async function handleSets(request: Request, env: Env, user: SessionUser): Promise<Response | null> {
 	const link = /^\/leetcode\/api\/(problems|homework)\/([^/]+)\/sets(?:\/([^/]+))?$/.exec(new URL(request.url).pathname);
@@ -38,8 +43,7 @@ export async function handleSets(request: Request, env: Env, user: SessionUser):
 	if (!match) return null;
 	methods(request, match[2] ? ['GET', 'HEAD'] : ['GET']);
 	if (!match[1]) {
-		const rows = await env.DB.prepare(`SELECT p.slug FROM problems p WHERE p.slug IN (SELECT value FROM json_each(?)) AND ${solvedSQL}`).bind(JSON.stringify(sets.flatMap(set => set.tasks.map(task => task.slug)))).all<{ slug: string }>();
-		const accepted = new Set(rows.results.map(row => row.slug));
+		const accepted = await acceptedSetSlugs(env);
 		return Response.json(sets.map(({ slug, title, summary, topics, tasks }): LearningSetSummary => ({ slug, title, summary, topics, taskCount: tasks.length, acceptedCount: tasks.filter(task => accepted.has(task.slug)).length })));
 	}
 	const set = sets.find(item => item.slug === match[1]);

@@ -78,6 +78,8 @@ export interface Dashboard {
 	dueReviews: Problem[];
 }
 export interface TutorAccount { connected: boolean; connectedAt: string | null; model: string | null; models: { slug: string; name: string }[]; pending: boolean }
+export type BadgeId = 'first-accept' | 'three-day-streak' | 'first-hard' | 'ten-accepted' | 'independent-five' | 'set-cleared';
+export interface Game { xp: number; level: number; levelXp: number; nextLevelXp: number; badges: { id: BadgeId; earned: boolean }[] }
 export function newApproach(): Approach {
 	return { id: crypto.randomUUID(), label: '', idea: '', correctness: '', timeComplexity: '', spaceComplexity: '', edgeCases: '', mistakes: '', language: '', code: '' };
 }

@@ -109,6 +109,36 @@ The connection stays valid while the tutor is in use. After 30 days with no tuto
 
 To rotate the key, select **Disconnect** before you upload a new key, so that ChatGPT revokes the old tokens. Then upload the new `TUTOR_TOKEN_KEY` and connect again. If you changed the key first, the page still shows Connected: select **Disconnect**, and then remove the app in the ChatGPT settings.
 
+## Levels and badges
+
+The notebook uses the Arcade theme. Dark is the default appearance. Use the appearance button in the top bar to change to light and back. The browser keeps the choice.
+
+The top bar shows the level and the progress to the next level. The bar is hidden on screens of 620 px or less. **Today** shows the level, the XP, and the badges.
+
+The notebook calculates XP from saved records. The XP does not decrease. Archived problems keep their XP.
+
+| Source | XP |
+|---|---|
+| A problem with an accepted saved attempt, one time for each problem | easy 10, medium 20, hard 40 |
+| An accepted problem with a saved attempt or a review with the understanding "independent", one time for each problem | 10 |
+| A completed homework task | 15 |
+| A review, one time for each problem and day | 5 |
+
+Level L starts at `50 * L * (L - 1)` XP: level 2 at 100 XP, level 3 at 300 XP, level 4 at 600 XP, and level 5 at 1000 XP.
+
+A badge stays earned. The student and the parent see the same badges.
+
+| Badge | Rule |
+|---|---|
+| First accept | One problem with an accepted saved attempt. |
+| 3-day streak | Saved attempts on three consecutive days. The notebook uses UTC dates. |
+| First hard | One hard problem with an accepted saved attempt. |
+| Ten accepted | Ten problems with an accepted saved attempt. |
+| Independent five | Five accepted problems with the understanding "independent". |
+| Set cleared | An accepted saved attempt for each problem of one learning set. |
+
+The student selects the acceptance and the understanding, so the XP shows what the student records. The **Today** counts do not include archived problems, so they can be different from the XP.
+
 ## Cloudflare setup
 
 Use an account with Workers Free and D1 Free. Check the account's existing usage before deployment. The application uses no R2 storage or paid service.

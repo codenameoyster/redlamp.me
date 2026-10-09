@@ -107,10 +107,11 @@ test('switches the appearance from the top bar and keeps it after a reload', asy
 	const bar = page.getByRole('banner');
 	await expect(bar.getByText('parent-test', { exact: true })).toBeVisible();
 	await expect(bar.getByRole('button', { name: 'Log out', exact: true })).toBeVisible();
-	await bar.getByRole('button', { name: 'Dark appearance', exact: true }).click();
-	await expect(bar.getByRole('button', { name: 'Light appearance', exact: true })).toBeVisible();
-	await page.reload();
 	await expect(page.locator('html')).toHaveAttribute('data-appearance', 'dark');
+	await bar.getByRole('button', { name: 'Light appearance', exact: true }).click();
+	await expect(bar.getByRole('button', { name: 'Dark appearance', exact: true })).toBeVisible();
+	await page.reload();
+	await expect(page.locator('html')).toHaveAttribute('data-appearance', 'light');
 });
 
 test('opens and closes the problem dialog with the keyboard', async ({ page }) => {

@@ -30,3 +30,22 @@ for (const row of nextSteps) {
 		await expect(page.getByRole('heading', { name: 'Your first problem starts here.' })).toHaveCount(0);
 	});
 }
+
+test('student sees the level and the earned badge after an accepted attempt', async ({ page, server, notebook }) => {
+	const { DB } = await server.getWorker<TestEnv>().getEnv();
+	await DB.prepare("UPDATE attempts SET state='saved',saved_at='now',acceptance='accepted',understanding='with_help' WHERE id=?").bind(notebook.attempt.id).run();
+	await page.goto('/leetcode');
+	await expect(page.getByRole('heading', { name: 'Level 1', exact: true })).toBeVisible();
+	const bar = page.getByRole('main').getByRole('progressbar', { name: 'Progress to level 2', exact: true });
+	await expect(bar).toHaveAttribute('value', '10');
+	await expect(bar).toHaveAttribute('max', '100');
+	const badges = page.getByRole('list', { name: 'Badges' });
+	await expect(badges.getByRole('listitem')).toHaveCount(6);
+	await expect(badges.getByRole('listitem').filter({ hasText: 'First accept' })).toBeVisible();
+	await expect(badges.getByRole('listitem').filter({ hasText: 'First accept' }).getByRole('img', { name: 'Locked' })).toHaveCount(0);
+	await expect(badges.getByRole('img', { name: 'Locked' })).toHaveCount(5);
+	const chip = page.getByRole('banner').getByRole('progressbar', { name: 'Progress to level 2', exact: true });
+	await expect(chip).toHaveAttribute('value', '10');
+	await page.setViewportSize({ width: 1024, height: 1000 });
+	expect((await chip.boundingBox())!.width).toBe(96);
+});
