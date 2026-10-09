@@ -306,3 +306,113 @@ test('shows the address error under the address field', async ({ page }) => {
 	await expect(alert).toHaveText('Paste the full address that starts with http://127.0.0.1:47319/auth/callback.');
 	expect((await alert.boundingBox())!.y).toBeGreaterThan((await field.boundingBox())!.y);
 });
+
+const stepper = 'Select a mode. Then push Step. The tree marks the current call. The code marks the current line. Each circle is one call of backtrack. The number in a circle is the value that the call added to path. Sections 4 to 7 use this stepper too.';
+const marked = 'The passage is marked in the lesson.', notFound = 'This passage is not in the lesson text.';
+const lesson = (page: Page) => page.frameLocator('iframe.lesson-frame');
+const highlight = (page: Page) => page.getByRole('status', { name: 'Lesson highlight' });
+const explains = [
+	{ name: 'explains a mouse selection with the frame button', select: async (page: Page) => {
+		const box = (await lesson(page).locator('p', { hasText: 'Each circle is one call of' }).boundingBox())!;
+		await page.mouse.move(box.x + 1, box.y + 4);
+		await page.mouse.down();
+		await page.mouse.move(box.x + box.width - 1, box.y + box.height - 4, { steps: 5 });
+		await page.mouse.up();
+		await lesson(page).getByRole('button', { name: 'Explain with AI', exact: true }).click();
+	} },
+	{ name: 'explains a selection with Ctrl+Enter', select: async (page: Page) => {
+		const paragraph = lesson(page).locator('p', { hasText: 'Each circle is one call of' });
+		await paragraph.click(); // The key goes to the focused frame.
+		await paragraph.selectText();
+		await expect(lesson(page).getByRole('button', { name: 'Explain with AI', exact: true })).toBeVisible(); // The bridge reads the selection in a later task.
+		await page.keyboard.press('Control+Enter');
+	} },
+	{ name: 'sends one request for a burst of lesson posts', select: (page: Page) => lesson(page).locator('body').evaluate((_, text) => { for (let i = 0; i < 3; i++) parent.postMessage({ type: 'explain', text }, '*'); }, stepper) },
+];
+for (const row of explains) {
+	test(row.name, async ({ page, server }) => {
+		const { DB } = await server.getWorker<TestEnv>().getEnv();
+		const bodies: { quote: string }[] = [];
+		await signIn(page);
+		await onSend(page, async route => {
+			const body = route.request().postDataJSON() as { quote: string };
+			bodies.push(body);
+			await addMessages(DB, 'set', 'permutations-and-combinations', [{ author: 'student', body: 'Explain this part.', quote: body.quote }, { author: 'assistant', body: 'Each call adds one value.' }]);
+			await route.fulfill({ contentType: 'text/event-stream', body: sse({ done: true }) });
+		});
+		await page.goto(setPath);
+		await lesson(page).locator('p', { hasText: 'Each circle is one call of' }).scrollIntoViewIfNeeded();
+		await row.select(page);
+		const panel = page.getByRole('dialog', { name: 'AI tutor' });
+		await expect(panel).toBeVisible();
+		await expect(panel.getByRole('status')).toHaveText('The tutor answered.');
+		await expect(messages(page).nth(0).locator('blockquote')).toHaveText(stepper);
+		expect(bodies).toEqual([{ kind: 'set', id: 'permutations-and-combinations', message: 'Explain this part.', quote: stepper }]);
+		await expect(lesson(page).getByRole('button', { name: 'Explain with AI' })).toHaveCount(0);
+	});
+}
+
+test('shows no lesson bridge to the parent', async ({ page, server }) => {
+	const { DB } = await server.getWorker<TestEnv>().getEnv();
+	await addMessages(DB, 'set', 'permutations-and-combinations', [{ author: 'student', body: 'What is a circle?' }, { author: 'assistant', body: '```lesson\nEach circle is one call of backtrack.\n```' }]);
+	await signIn(page, 'parent');
+	await page.goto(setPath);
+	await page.getByRole('button', { name: 'Read AI chat', exact: true }).click();
+	await expect(messages(page).nth(1).locator('blockquote')).toHaveText('Each circle is one call of backtrack.');
+	await expect(page.getByRole('button', { name: 'Show in the lesson' })).toHaveCount(0);
+	await lesson(page).locator('p', { hasText: 'Each circle is one call of' }).selectText();
+	await expect.poll(() => lesson(page).locator('html').evaluate(() => document.readyState)).toBe('complete');
+	await expect(lesson(page).locator('lesson-ai')).toHaveCount(0);
+});
+
+test('shows no lesson bridge in the full-page display', async ({ page }) => {
+	await signIn(page);
+	const response = await page.goto('/leetcode/api/sets/permutations-and-combinations/lesson');
+	expect(await response!.text()).toContain("document.createElement('lesson-ai')");
+	await page.locator('p', { hasText: 'Each circle is one call of' }).selectText();
+	await expect(page.locator('lesson-ai')).toHaveCount(0);
+});
+
+const highlights = [
+	{ name: 'marks a quote with other whitespace and case', from: 'notebook', quotes: ['each circle is   one\ncall of backtrack.'], marks: ['Each circle is one call of', 'backtrack', '.'], status: marked },
+	{ name: 'marks the longest quote prefix after a drift', from: 'notebook', quotes: ['The tree marks the current call and then …'], marks: ['The tree marks the current call'], status: marked },
+	{ name: 'does not mark hidden lesson text', from: 'notebook', quotes: ['After the first answer, all items stay marked as used.'], marks: [], status: notFound },
+	{ name: 'tells that a quote is not in the lesson', from: 'notebook', quotes: ['A heap keeps the smallest item at the root.'], marks: [], status: notFound },
+	{ name: 'removes the marks of the first quote', from: 'notebook', quotes: ['Each circle is one call of backtrack.', 'The number in a circle is the value'], marks: ['The number in a circle is the value'], status: marked },
+	{ name: 'ignores a highlight that the lesson posts', from: 'lesson', quotes: ['Each circle is one call of backtrack.'], marks: [], status: '' },
+] as const;
+for (const row of highlights) {
+	test(row.name, async ({ page }) => {
+		await signIn(page);
+		await page.goto(setPath);
+		await expect(lesson(page).locator('lesson-ai')).toHaveCount(1);
+		for (const quote of row.quotes) {
+			if (row.from === 'notebook') await page.evaluate(quote => document.querySelector<HTMLIFrameElement>('iframe.lesson-frame')!.contentWindow!.postMessage({ type: 'highlight', quote }, '*'), quote);
+			// The bridge listener runs before this one, so the bridge has handled the message when the promise resolves.
+			else await lesson(page).locator('body').evaluate((_, quote) => new Promise(resolve => { addEventListener('message', resolve, { once: true }); postMessage({ type: 'highlight', quote }, '*'); }), quote);
+		}
+		await expect(highlight(page)).toHaveText(row.status);
+		await expect(lesson(page).locator('mark')).toHaveText([...row.marks]);
+	});
+}
+
+const shows = [
+	{ name: 'marks the lesson passage from the docked panel', width: 1440, panelOpen: true },
+	{ name: 'closes the modal panel before it marks the lesson passage', width: 1024, panelOpen: false },
+];
+for (const row of shows) {
+	test(row.name, async ({ page, server }) => {
+		const { DB } = await server.getWorker<TestEnv>().getEnv();
+		await addMessages(DB, 'set', 'permutations-and-combinations', [{ author: 'student', body: 'What is a circle?' }, { author: 'assistant', body: 'Read this part:\n\n```lesson\nEach circle is one call of backtrack.\n```' }]);
+		await page.setViewportSize({ width: row.width, height: 900 });
+		await signIn(page);
+		await page.goto(setPath);
+		await page.getByRole('button', { name: 'Ask AI', exact: true }).click();
+		const panel = page.getByRole('dialog', { name: 'AI tutor' });
+		await panel.getByRole('button', { name: 'Show in the lesson', exact: true }).click();
+		await expect(highlight(page)).toHaveText(marked);
+		await expect(lesson(page).locator('mark')).toHaveText(['Each circle is one call of', 'backtrack', '.']);
+		await expect(lesson(page).locator('mark').first()).toBeInViewport();
+		await expect(panel).toBeVisible({ visible: row.panelOpen });
+	});
+}

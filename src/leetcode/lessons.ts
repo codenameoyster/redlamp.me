@@ -4,6 +4,7 @@ import { requireRole } from './auth';
 import { getProblem } from './problems';
 import { getHomework } from './homework';
 import { changed, HttpError, integer, methods, object, page, pagination, readBody, readJson, text, topics, uuid } from './http';
+import LESSON_BRIDGE from './lesson-bridge.html';
 
 const lessonColumns = 'l.id,l.title,l.description,l.topics,l.filename,l.byte_count AS byteCount,l.archived_at AS archivedAt,l.version,l.created_at AS createdAt,l.updated_at AS updatedAt';
 type LessonRow = Omit<Lesson, 'topics'> & { topics: string };
@@ -57,7 +58,7 @@ export async function handleLessons(request: Request, env: Env, user: SessionUse
 			if (!action) return Response.json(lesson);
 			const row = await env.DB.prepare('SELECT html FROM lesson_content WHERE lesson_id=?').bind(id).first<{ html: string }>();
 			const headers: Record<string, string> = action === 'content' ? { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': LESSON_CSP } : { 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="lesson-${id}.html"` };
-			return new Response(new TextEncoder().encode(row!.html), { headers });
+			return new Response(new TextEncoder().encode(action === 'content' && user.role === 'student' ? row!.html + LESSON_BRIDGE : row!.html), { headers });
 		}
 		const { limit, offset } = pagination(url);
 		const rows = await env.DB.prepare(`SELECT ${lessonColumns} FROM lessons l WHERE archived_at IS ${url.searchParams.get('archived') === '1' ? 'NOT ' : ''}NULL ORDER BY created_at DESC,id LIMIT ? OFFSET ?`).bind(limit + 1, offset).all<LessonRow>();

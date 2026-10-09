@@ -4,6 +4,7 @@ import { requireRole } from '../auth';
 import { getHomework } from '../homework';
 import { changed, HttpError, integer, methods, object, readJson, uuid } from '../http';
 import { LESSON_CSP } from '../lessons';
+import LESSON_BRIDGE from '../lesson-bridge.html';
 import { getProblem, solvedSQL } from '../problems';
 import permutationsAndCombinations from './permutations-and-combinations/set';
 import permutationsAndCombinationsLesson from './permutations-and-combinations/lesson.html';
@@ -48,7 +49,7 @@ export async function handleSets(request: Request, env: Env, user: SessionUser):
 	}
 	const set = sets.find(item => item.slug === match[1]);
 	if (!set) throw new HttpError(404, 'not_found', 'This set does not exist.');
-	if (match[2]) return new Response(set.lesson, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': LESSON_CSP } });
+	if (match[2]) return new Response(user.role === 'student' ? set.lesson + LESSON_BRIDGE : set.lesson, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': LESSON_CSP } });
 	const rows = await env.DB.prepare(`SELECT p.slug,p.id AS problemId,${solvedSQL} AS accepted,t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,t.state
 		FROM problems p LEFT JOIN homework_tasks t ON t.problem_id=p.id AND t.state NOT IN ('completed','cancelled') LEFT JOIN homework h ON h.id=t.homework_id WHERE p.slug IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(set.tasks.map(task => task.slug))).all<TaskRow>();
 	const library = new Map(rows.results.map(row => [row.slug, row]));

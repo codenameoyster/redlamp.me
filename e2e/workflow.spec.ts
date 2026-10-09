@@ -144,3 +144,24 @@ test('shows the tutor panel full screen on a phone', async ({ page, notebook, se
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 	expect(await panel.getByRole('list', { name: 'Messages' }).evaluate(list => list.scrollWidth <= list.clientWidth)).toBe(true);
 });
+
+test('explains a lesson selection with a touch tap', async ({ browser, baseURL }, testInfo) => {
+	test.skip(testInfo.project.name !== 'mobile', 'Only the mobile project has a phone viewport.');
+	const context = await browser.newContext({ baseURL, viewport: testInfo.project.use.viewport, hasTouch: true });
+	const page = await context.newPage();
+	try {
+		let body: unknown;
+		await signIn(page);
+		await page.route(url => url.pathname === '/leetcode/api/tutor/messages', route => {
+			if (route.request().method() !== 'POST') return route.fallback();
+			body = route.request().postDataJSON();
+			return route.fulfill({ contentType: 'text/event-stream', body: 'data: {"done":true}\n\n' });
+		});
+		await page.goto('/leetcode/sets/permutations-and-combinations');
+		const frame = page.frameLocator('iframe.lesson-frame');
+		await frame.locator('p', { hasText: 'Each circle is one call of' }).selectText();
+		await frame.getByRole('button', { name: 'Explain with AI', exact: true }).tap();
+		await expect(page.getByRole('dialog', { name: 'AI tutor' })).toBeVisible();
+		await expect.poll(() => body).toEqual({ kind: 'set', id: 'permutations-and-combinations', message: 'Explain this part.', quote: 'Select a mode. Then push Step. The tree marks the current call. The code marks the current line. Each circle is one call of backtrack. The number in a circle is the value that the call added to path. Sections 4 to 7 use this stepper too.' });
+	} finally { await context.close(); }
+});

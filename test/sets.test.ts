@@ -4,6 +4,7 @@ import { login, request } from './client';
 import { MAX_LESSON_BYTES, type LearningSetDetails, type LearningSetSummary } from '../shared/leetcode';
 import { sets } from '../src/leetcode/sets';
 import { LESSON_CSP } from '../src/leetcode/lessons';
+import LESSON_BRIDGE from '../src/leetcode/lesson-bridge.html';
 
 let student: string;
 const set = sets.find(item => item.slug === 'permutations-and-combinations')!;
@@ -56,12 +57,15 @@ it.each([
 	expect(details.tasks.filter(task => task.problemId || task.accepted || task.activeTask).map(task => task.slug)).toEqual(inLibrary ? ['subsets'] : []);
 });
 
-it('returns the set lesson with the lesson content policy', async () => {
-	const response = await request(`/sets/${set.slug}/lesson`, 'GET', undefined, student);
+it.each([
+	{ name: 'student set lesson ends with the bridge', role: 'student', body: set.lesson + LESSON_BRIDGE },
+	{ name: 'parent set lesson is unchanged', role: 'parent', body: set.lesson },
+])('$name', async ({ role, body }) => {
+	const response = await request(`/sets/${set.slug}/lesson`, 'GET', undefined, role === 'parent' ? await login('parent') : student);
 	expect(response.status).toBe(200);
 	expect(response.headers.get('content-type')).toBe('text/html; charset=utf-8');
 	expect(response.headers.get('content-security-policy')).toBe(LESSON_CSP);
-	expect(await response.text()).toBe(set.lesson);
+	expect(await response.text()).toBe(body);
 });
 
 it.each([
