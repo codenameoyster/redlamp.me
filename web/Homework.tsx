@@ -4,6 +4,7 @@ import { api, message } from './api';
 import { useResource } from './useResource';
 import { AttemptContent, attemptLabel } from './Problem';
 import { LessonLinks } from './Lessons';
+import { Tutor } from './Tutor';
 
 export const homeworkLabels = { assigned: 'Assigned', in_progress: 'In progress', submitted: 'Submitted for review', changes_requested: 'Another attempt requested', completed: 'Completed', cancelled: 'Cancelled' };
 export function Discussion({ problemId, taskId, submissionId, taskVersion }: { problemId: string; taskId?: string; submissionId?: string | null; taskVersion?: number }) {
@@ -94,7 +95,7 @@ export function Task({ id, user }: { id: string; user: SessionUser }) {
 		catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
 	if (!t) return <p role="status">{details.error || 'Opening task...'}</p>;
-	return <div className="stack"><div className="heading"><div><p className="small"><a href={`/leetcode/homework/${t.homeworkId}`}>{t.homeworkTitle}</a></p><h1>{t.problemTitle}</h1><p><span className="tag">{homeworkLabels[t.state]}</span> {t.dueDate ? `Due ${t.dueDate}` : 'No due date'}</p></div><a className="button" href={`/leetcode/problems/${t.problemId}`}>Open notebook</a></div><p className="prose">{t.instructions}</p>
+	return <div className="stack"><div className="heading"><div><p className="small"><a href={`/leetcode/homework/${t.homeworkId}`}>{t.homeworkTitle}</a></p><h1>{t.problemTitle}</h1><p><span className="tag">{homeworkLabels[t.state]}</span> {t.dueDate ? `Due ${t.dueDate}` : 'No due date'}</p></div><div className="row"><a className="button" href={`/leetcode/problems/${t.problemId}`}>Open notebook</a><Tutor context={{ kind: 'problem', id: t.problemId }} title={t.problemTitle} user={user} /></div></div><p className="prose">{t.instructions}</p>
 		{(error || details.error || work.error) && <p className="error" role="alert">{error || details.error || work.error}</p>}
 		{user.role === 'parent' && !['completed', 'cancelled'].includes(t.state) && <div className="row"><button disabled={busy} onClick={() => { if (confirm('Cancel this task?')) void action('cancel'); }}>Cancel task</button></div>}
 		{user.role === 'student' && editable && <div className="card card-pad stack">{t.state === 'assigned' && <button disabled={busy} onClick={() => void action('start')}>Start task</button>}<label>Attempt to submit<select value={selected || attempts.data?.items[0]?.id || ''} onChange={event => setSelected(event.target.value)}>{attempts.data?.items.map((a, i, items) => <option key={a.id} value={a.id}>{attemptLabel(items, i)}</option>)}</select></label><button className="primary" disabled={busy || !attempts.data?.items.length} onClick={() => { const a = attempts.data!.items.find(a => a.id === selected) ?? attempts.data!.items[0]; void action('submit', { attemptId: a.id, attemptVersion: a.version }); }}>Submit for review</button></div>}

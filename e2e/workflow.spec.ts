@@ -1,4 +1,4 @@
-import { test, expect, signIn } from './fixtures';
+import { test, expect, signIn, addMessages, type TestEnv } from './fixtures';
 import type { TaskDetails } from '../shared/leetcode';
 
 test('completes learning with two accounts, two approaches, and a linked lesson', async ({ page: parent, browser, baseURL }, testInfo) => {
@@ -131,4 +131,16 @@ test('rejects an oversized lesson file', async ({ page }) => {
 	await page.getByLabel('HTML file').setInputFiles({ name: 'large.html', mimeType: 'text/html', buffer: Buffer.alloc(1_000_001, 'x') });
 	await page.getByRole('button', { name: 'Upload and preview' }).click();
 	await expect(page.getByRole('alert')).toContainText('1,000,000 bytes');
+});
+
+test('shows the tutor panel full screen on a phone', async ({ page, notebook, server }, testInfo) => {
+	test.skip(testInfo.project.name !== 'mobile', 'Only the mobile project has a phone viewport.');
+	const { DB } = await server.getWorker<TestEnv>().getEnv(), cells = Array.from({ length: 24 }, (_, i) => `cell_${i}`);
+	await addMessages(DB, 'problem', notebook.problem.id, [{ author: 'student', body: 'Show the array.' }, { author: 'assistant', body: `\`\`\`diagram\n${JSON.stringify({ type: 'array', cells })}\n\`\`\`\n\n\`\`\`python\nreturn ${'long_code_line_'.repeat(20)}\n\`\`\`` }]);
+	await page.getByRole('button', { name: 'Ask AI', exact: true }).click();
+	const panel = page.getByRole('dialog', { name: 'AI tutor' });
+	await expect(panel.getByRole('img', { name: /^Array/ })).toBeVisible();
+	expect(await panel.boundingBox()).toEqual({ x: 0, y: 0, width: 390, height: 844 });
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+	expect(await panel.getByRole('list', { name: 'Messages' }).evaluate(list => list.scrollWidth <= list.clientWidth)).toBe(true);
 });

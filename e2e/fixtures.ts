@@ -2,7 +2,7 @@ import { test as base, expect, type Page } from '@playwright/test';
 import { createTestHarness, type TestHarness } from 'wrangler';
 import { testAccountSecret } from '../test/fixtures';
 import type { D1Database } from '@cloudflare/workers-types';
-import type { Attempt, Problem, Role } from '../shared/leetcode';
+import type { Attempt, Problem, Role, TutorKind } from '../shared/leetcode';
 
 export interface TestEnv { DB: D1Database }
 
@@ -21,6 +21,11 @@ export async function addTask(DB: D1Database, problemId: string, state = 'assign
 		DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) VALUES (?,?,?,?,'now','now')").bind(taskId, homeworkId, problemId, state),
 	]);
 	return { homeworkId, taskId };
+}
+
+// One minute between messages, so the order is fixed.
+export async function addMessages(DB: D1Database, kind: TutorKind, ref: string, messages: { author: 'student' | 'assistant'; body: string; quote?: string }[], start = '2026-10-09T10:00:00.000Z') {
+	await DB.batch(messages.map((m, i) => DB.prepare('INSERT INTO tutor_messages (id,context_kind,context_ref,author,body,quote,created_at) VALUES (?,?,?,?,?,?,?)').bind(crypto.randomUUID(), kind, ref, m.author, m.body, m.quote ?? null, new Date(Date.parse(start) + i * 60_000).toISOString())));
 }
 
 export const test = base.extend<{ reset: void; notebook: { problem: Problem; attempt: Attempt } }, { server: TestHarness }>({

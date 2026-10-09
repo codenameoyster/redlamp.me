@@ -85,9 +85,10 @@ it.each([
 });
 
 it.each([
-	{ name: 'tree label', diagram: subsets, expected: 'Tree with 7 nodes. Highlighted: [], [1], [1,2]. Answers: [1,2], [1,3], [2,3].' },
+	{ name: 'tree label', diagram: subsets, expected: 'Tree with 7 nodes. Highlighted: [], [1], [1,2]. Answers: [1,2], [1,3], [2,3]. Pruned: [3].' },
 	{ name: 'tree label without marks', diagram: { type: 'tree', root: { label: 'r' } } as Diagram, expected: 'Tree with 1 node.' },
 	{ name: 'array label', diagram: { type: 'array', cells: [1, 5, 3, 4], pointers: { i: 0, j: 3 } } as Diagram, expected: 'Array: 1, 5, 3, 4. Pointers: i at 0, j at 3.' },
+	{ name: 'array label with highlighted cells', diagram: { type: 'array', cells: [1, 2, 3], hl: [1] } as Diagram, expected: 'Array: 1, 2, 3. Highlighted: 2 at 1.' },
 	{ name: 'grid label', diagram: { type: 'grid', cells: [['S', '.', '.'], ['.', '#', '.'], ['.', '.', 'E']], hl: [[0, 0], [0, 1]] } as Diagram, expected: 'Grid with 3 rows and 3 columns. Highlighted: row 1 column 1, row 1 column 2.' },
 ])('$name', ({ diagram, expected }) => {
 	expect(diagramLabel(diagram)).toBe(expected);

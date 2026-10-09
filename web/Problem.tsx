@@ -6,6 +6,7 @@ import { useDraft, type LeaveGuard, type RegisterGuard } from './useDraft';
 import { ProblemForm } from './Problems';
 import { Discussion, homeworkLabels } from './Homework';
 import { LessonLinks } from './Lessons';
+import { Tutor } from './Tutor';
 import { addCalendarDays, localDate } from '../shared/dates';
 
 export const understandingLabels = { needs_practice: 'Needs practice', with_help: 'With help', independent: 'Independent' };
@@ -115,7 +116,7 @@ export function Problem({ id, user, registerGuard }: { id: string; user: Session
 	}
 	const record = problem.data;
 	if (!record) return <p role="status">{problem.error || 'Opening problem...'}</p>;
-	return <div className="stack"><div className="heading"><div><h1>{record.title}</h1><div className="tags"><span className={`tag ${record.difficulty}`}>{record.difficulty}</span>{record.topics.map(topic => <span className="tag" key={topic}>{topic}</span>)}{record.archivedAt && <span className="tag">Archived</span>}</div></div><div className="row"><a className="button" href={record.url} target="_blank" rel="noopener noreferrer">Open LeetCode</a><button onClick={() => setEditing(true)}>Edit problem</button></div></div>
+	return <div className="stack"><div className="heading"><div><h1>{record.title}</h1><div className="tags"><span className={`tag ${record.difficulty}`}>{record.difficulty}</span>{record.topics.map(topic => <span className="tag" key={topic}>{topic}</span>)}{record.archivedAt && <span className="tag">Archived</span>}</div></div><div className="row"><a className="button" href={record.url} target="_blank" rel="noopener noreferrer">Open LeetCode</a><Tutor context={{ kind: 'problem', id }} title={record.title} user={user} flush={() => guard.current?.flush()} /><button onClick={() => setEditing(true)}>Edit problem</button></div></div>
 		<p className="prose">{record.summary}</p><div className="row"><a href={`/leetcode/problems/${id}/review`}>Recall this problem</a>{record.archivedAt ? <button onClick={restore}>Restore problem</button> : <button onClick={archive}>Archive problem</button>}</div>
 		{(error || attempts.error || current.error) && <p className="error" role="alert">{error || attempts.error || current.error}</p>}
 		<div className="row spread"><label>Attempt history<select value={attemptId ?? ''} onChange={event => void choose(event.target.value)}><option value="" disabled>Select an attempt</option>{attempts.data?.items.map((attempt, index, items) => <option key={attempt.id} value={attempt.id}>{attemptLabel(items, index)}</option>)}</select></label>{user.role === 'student' && current.data?.state !== 'draft' && <div className="row"><button onClick={() => void start()}>Start another attempt</button>{current.data && <button onClick={() => void start(current.data!.id)}>Copy into new draft</button>}</div>}</div>

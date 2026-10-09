@@ -105,8 +105,8 @@ const plural = (count: number, word: string) => `${count} ${word}${count === 1 ?
 const part = (label: string, items: string[]) => items.length ? ` ${label}: ${items.join(', ')}.` : '';
 
 export function diagramLabel(d: Diagram): string {
-	if (d.type === 'array') return `Array: ${d.cells.join(', ')}.${part('Pointers', Object.entries(d.pointers ?? {}).map(([name, at]) => `${name} at ${at}`))}`;
+	if (d.type === 'array') return `Array: ${d.cells.join(', ')}.${part('Pointers', Object.entries(d.pointers ?? {}).map(([name, at]) => `${name} at ${at}`))}${part('Highlighted', (d.hl ?? []).map(i => `${d.cells[i]} at ${i}`))}`;
 	if (d.type === 'grid') return `Grid with ${plural(d.cells.length, 'row')} and ${plural(d.cells[0].length, 'column')}.${part('Highlighted', (d.hl ?? []).map(([row, col]) => `row ${row + 1} column ${col + 1}`))}`;
 	const nodes = layoutTree(d.root).nodes.map(placed => placed.node);
-	return `Tree with ${plural(nodes.length, 'node')}.${part('Highlighted', nodes.filter(node => node.hl).map(node => node.label))}${part('Answers', nodes.filter(node => node.kind === 'answer').map(node => node.label))}`;
+	return `Tree with ${plural(nodes.length, 'node')}.${part('Highlighted', nodes.filter(node => node.hl).map(node => node.label))}${part('Answers', nodes.filter(node => node.kind === 'answer').map(node => node.label))}${part('Pruned', nodes.filter(node => node.kind === 'pruned').map(node => node.label))}`;
 }

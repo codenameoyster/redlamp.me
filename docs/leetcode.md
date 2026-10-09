@@ -103,6 +103,8 @@ After the connection, select the model in **Model**. The list contains the model
 
 The tutor gives hints. It does not write the solution, also when the student asks for it. For a new question about how to solve a problem, it asks one guiding question. When the student asks for more help, it names the idea, then gives the key step on a small example, and then names the parts of the function. When the student asks it to check the code, it tells about one bug in each answer and gives a small input that shows the bug. It does not write the corrected code. The rules are in `src/leetcode/tutor-prompt.txt`.
 
+Each problem, set and lesson has one chat. A task page shows the chat of its problem. The student selects **Ask AI** on these pages. On a screen of 1400 px and wider, the chat panel stays open beside the page, also on the next page. On a smaller screen, the panel opens over the page. Ctrl+Enter or Cmd+Enter sends the message. The parent selects **Read AI chat** on the same pages, or opens a chat from **Chats** on the **AI tutor** page.
+
 Only the student can send questions. The parent can read every chat. The notebook keeps a turn only when the answer is complete. If an answer stops, the student sends the question again.
 
 Each question of the student goes to OpenAI under the ChatGPT account of the parent, with the earlier messages of the chat and the context of the open page. This context can contain the problem, the LeetCode statement, the homework instructions, the notes and code of the student, and the lesson text. The tutor uses the same plan limits as the parent's own ChatGPT and Codex use. On ChatGPT Plus, all apps share one five-hour limit. Use **Manage usage** to see the usage.
