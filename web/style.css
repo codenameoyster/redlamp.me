@@ -123,3 +123,22 @@ progress { width:100%; height:8px; accent-color:var(--green); }
 @media (max-width:850px) { .app { grid-template-columns:minmax(0,1fr); } .sidebar { position:static; height:auto; padding:14px 16px 0; gap:12px; } nav { display:flex; overflow:auto; } nav a { flex-shrink:0; border-radius:10px 10px 0 0; } nav a[aria-current]::before,nav a[aria-current]::after { display:none; } .workspace { background:linear-gradient(90deg,transparent 12px,color-mix(in srgb,var(--margin) 55%,transparent) 12px 14px,transparent 14px); } main { padding:28px 20px 40px 32px; } .topbar { padding:12px 20px 12px 32px; } .editor-grid { grid-template-columns:1fr; } }
 @media (max-width:620px) { main { padding:24px 16px 36px 28px; } .topbar { padding:12px 16px 12px 28px; } h1 { font-size:29px; } .stats { grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; } .stat strong { font-size:34px; } .card-pad { padding:18px; } .continue-card { padding-left:42px; } nav a { flex:1 1 0; flex-direction:column; gap:3px; padding:8px 4px; font-size:12px; } .search { flex:0 0 42px; justify-content:center; padding:0; } .search span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); } .user small { display:none; } }
 @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; } .spin { animation:none; } }
+.answer { display:grid; gap:10px; min-width:0; overflow-wrap:anywhere; }
+.answer p,.answer li { color:var(--ink); white-space:pre-line; }
+.answer ul,.answer ol { margin:0; padding-left:24px; }
+.answer :not(pre) > code { font:.9em var(--mono); background:var(--sunken); border-radius:4px; padding:1px 4px; }
+.answer pre { padding:12px 16px; }
+.answer blockquote { margin:0; padding:10px 16px; display:grid; gap:8px; justify-items:start; border-left:3px solid var(--pen); border-radius:0 10px 10px 0; background:var(--pen-bg); }
+.answer figure { margin:0; display:grid; gap:6px; }
+.answer figcaption { color:var(--muted); font-size:14px; }
+.diagram { overflow-x:auto; }
+.diagram text { text-anchor:middle; dominant-baseline:central; font:13px var(--mono); fill:var(--ink); }
+.diagram rect { fill:var(--surface); stroke:var(--line); }
+.diagram .edge { stroke:var(--muted); stroke-width:1.5; }
+.diagram .pruned rect { stroke:var(--muted); stroke-dasharray:4 3; }
+.diagram .hl rect { fill:var(--pen-bg); stroke:var(--pen); stroke-width:2; }
+.diagram .edge.hl { stroke:var(--pen); stroke-width:2.5; }
+.diagram .answer rect { stroke:var(--green); stroke-width:2; }
+.diagram .answer text { fill:var(--green); font-weight:700; }
+.diagram .pruned text,.diagram .index,.diagram .note { fill:var(--muted); }
+.diagram .pointer { fill:var(--pen); font-weight:700; }
