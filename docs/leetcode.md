@@ -2,7 +2,7 @@
 
 The private notebook at `https://redlamp.me/leetcode` supports one parent and one student. Use LeetCode for code runs and submissions. Use this notebook for explanations, saved attempts, homework, feedback, lessons, and review reminders.
 
-The application uses the existing Worker, one D1 database, React, and Bun. Workers Free and D1 Free require no billing subscription for this setup.
+The application uses the existing Worker, one D1 database, React, and Bun. Workers Free and D1 Free require no billing subscription for this setup. Long answers of the AI tutor can need Workers Paid. See [AI tutor](#ai-tutor).
 
 ## Local setup
 
@@ -101,7 +101,13 @@ To connect ChatGPT:
 
 After the connection, select the model in **Model**. The list contains the models of the plan. A new connection reads the list again. It keeps the selected model when the new list contains it.
 
-The questions of the student and the page context go to OpenAI under the ChatGPT account of the parent. The tutor uses the same plan limits as the parent's own ChatGPT and Codex use. On ChatGPT Plus, all apps share one five-hour limit. Use **Manage usage** to see the usage.
+The tutor gives hints. It does not write the solution, also when the student asks for it. For a new question about how to solve a problem, it asks one guiding question. When the student asks for more help, it names the idea, then gives the key step on a small example, and then names the parts of the function. When the student asks it to check the code, it tells about one bug in each answer and gives a small input that shows the bug. It does not write the corrected code. The rules are in `src/leetcode/tutor-prompt.txt`.
+
+Only the student can send questions. The parent can read every chat. The notebook keeps a turn only when the answer is complete. If an answer stops, the student sends the question again.
+
+Each question of the student goes to OpenAI under the ChatGPT account of the parent, with the earlier messages of the chat and the context of the open page. This context can contain the problem, the LeetCode statement, the homework instructions, the notes and code of the student, and the lesson text. The tutor uses the same plan limits as the parent's own ChatGPT and Codex use. On ChatGPT Plus, all apps share one five-hour limit. Use **Manage usage** to see the usage.
+
+The Worker reads each part of a streamed answer, so the CPU time of a turn increases with the length of the answer. On the deployed Worker, send a question on the page with the largest lesson and get a long answer with a diagram. Make sure that the answer arrives in parts. Then read the CPU time of the request in the Cloudflare dashboard. If long answers exceed the Workers Free limit of 10 ms CPU per request, use Workers Paid.
 
 The connection stays valid while the tutor is in use. After 30 days with no tutor use, the refresh token expires. Then connect again.
 

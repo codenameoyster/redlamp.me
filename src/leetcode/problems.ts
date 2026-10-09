@@ -28,16 +28,17 @@ function metadata(data: Record<string, unknown>): ProblemInput & { slug: string 
 	return { slug: value, url: `https://leetcode.com/problems/${value}/`, number: data.number === null ? null : integer(data.number), title: text(data.title, 200, true).trim(), difficulty: choice(data.difficulty, ['easy', 'medium', 'hard']), topics: topics(data.topics), summary: text(data.summary, 8000).trim() };
 }
 
-type Question = { questionFrontendId: string; title: string; difficulty: string; topicTags: { name: string }[] } | null;
+export async function question<T>(titleSlug: string, fields: string): Promise<T | null> {
+	const response = await fetch('https://leetcode.com/graphql', { method: 'POST', headers: { 'Content-Type': 'application/json', Referer: `https://leetcode.com/problems/${titleSlug}/` }, body: JSON.stringify({ query: `query question($titleSlug: String!) { question(titleSlug: $titleSlug) { ${fields} } }`, variables: { titleSlug } }) });
+	if (!response.ok) throw new Error(`LeetCode returned ${response.status}.`);
+	return (await response.json() as { data: { question: T | null } }).data.question;
+}
 async function details(titleSlug: string): Promise<ProblemDetails> {
-	let question: Question;
-	try {
-		const response = await fetch('https://leetcode.com/graphql', { method: 'POST', headers: { 'Content-Type': 'application/json', Referer: `https://leetcode.com/problems/${titleSlug}/` }, body: JSON.stringify({ query: 'query question($titleSlug: String!) { question(titleSlug: $titleSlug) { questionFrontendId title difficulty topicTags { name } } }', variables: { titleSlug } }) });
-		if (!response.ok) throw new Error(`LeetCode returned ${response.status}.`);
-		question = (await response.json() as { data: { question: Question } }).data.question;
-	} catch { throw new HttpError(502, 'lookup_failed', 'LeetCode details are unavailable. Enter them yourself.'); }
-	if (!question) throw new HttpError(404, 'not_found', 'LeetCode has no problem at this URL.');
-	return { number: /^\d+$/.test(question.questionFrontendId) ? Number(question.questionFrontendId) : null, title: question.title, difficulty: question.difficulty.toLowerCase() as Difficulty, topics: question.topicTags.slice(0, 12).map(tag => tag.name) };
+	let value: { questionFrontendId: string; title: string; difficulty: string; topicTags: { name: string }[] } | null;
+	try { value = await question(titleSlug, 'questionFrontendId title difficulty topicTags { name }'); }
+	catch { throw new HttpError(502, 'lookup_failed', 'LeetCode details are unavailable. Enter them yourself.'); }
+	if (!value) throw new HttpError(404, 'not_found', 'LeetCode has no problem at this URL.');
+	return { number: /^\d+$/.test(value.questionFrontendId) ? Number(value.questionFrontendId) : null, title: value.title, difficulty: value.difficulty.toLowerCase() as Difficulty, topics: value.topicTags.slice(0, 12).map(tag => tag.name) };
 }
 
 export async function handleProblems(request: Request, env: Env): Promise<Response | null> {

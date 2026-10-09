@@ -21,8 +21,8 @@ interface AccountRow {
 type TokenBody = Partial<{ access_token: string; refresh_token: string; token_type: string; expires_in: number; scope: string; earliest_refresh_at: string | number; error: string }>;
 export interface Token { access: string; version: number; model: string }
 
-const disconnected = () => new HttpError(409, 'ai_disconnected', 'The AI tutor is not connected. Ask your parent to connect ChatGPT.');
-const unavailable = () => new HttpError(503, 'ai_unavailable', 'ChatGPT is not available now. Try again in a few minutes.');
+export const disconnected = () => new HttpError(409, 'ai_disconnected', 'The AI tutor is not connected. Ask your parent to connect ChatGPT.');
+export const unavailable = () => new HttpError(503, 'ai_unavailable', 'ChatGPT is not available now. Try again in a few minutes.');
 const notEligible = () => new HttpError(403, 'ai_not_eligible', 'This ChatGPT account does not allow plan use for this app.');
 const signInFailed = () => new HttpError(400, 'sign_in_failed', 'ChatGPT sign-in failed. Start again.');
 const readAccount = (env: Env) => env.DB.prepare('SELECT * FROM tutor_account WHERE id=1').first<AccountRow>();
