@@ -1,6 +1,8 @@
 import { env, exports } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
+import { LESSON_CSP } from '../src/leetcode/lessons';
+import LESSON_BRIDGE from '../src/leetcode/lesson-bridge.html';
 
 let parent: string;
 const problemInput = { url: 'https://leetcode.com/problems/two-sum/', title: 'Two Sum', number: 1, difficulty: 'easy', topics: [], summary: '' };
@@ -32,17 +34,20 @@ it.each([
 	expect(await env.DB.prepare('SELECT count(*) AS count FROM lessons').first()).toEqual({ count: 0 });
 });
 
-const exported = new TextEncoder().encode('\uFEFF<!doctype html>\r\n<p>Инвариант</p>\r\n');
+const exported = new TextEncoder().encode('\uFEFF<!doctype html>\r\n<p>Инвариант</p>\r\n'), bridged = new Uint8Array([...exported, ...new TextEncoder().encode(LESSON_BRIDGE)]);
 it.each([
-	{ name: 'download keeps the exported UTF-8 bytes', method: 'GET', resource: 'download', signedIn: true, status: 200, headers: { 'content-disposition': expect.stringContaining('attachment;') }, body: exported },
-	{ name: 'anonymous download', method: 'GET', resource: 'download', signedIn: false, status: 401, headers: {}, body: null },
-	{ name: 'anonymous content', method: 'GET', resource: 'content', signedIn: false, status: 401, headers: {}, body: null },
-	{ name: 'content HEAD without a body', method: 'HEAD', resource: 'content', signedIn: true, status: 200, headers: { 'content-security-policy': expect.stringContaining('sandbox allow-scripts;'), 'cache-control': 'private, no-store' }, body: new Uint8Array() },
-])('$name', async ({ method, resource, signedIn, status, headers, body }) => {
+	{ name: 'download keeps the exported UTF-8 bytes', method: 'GET', resource: 'download', role: 'parent', status: 200, headers: { 'content-disposition': expect.stringContaining('attachment;') }, body: exported },
+	{ name: 'student download keeps the exported bytes', method: 'GET', resource: 'download', role: 'student', status: 200, headers: { 'content-disposition': expect.stringContaining('attachment;') }, body: exported },
+	{ name: 'student content keeps the BOM first and ends with the bridge', method: 'GET', resource: 'content', role: 'student', status: 200, headers: { 'content-security-policy': LESSON_CSP }, body: bridged },
+	{ name: 'parent content is unchanged', method: 'GET', resource: 'content', role: 'parent', status: 200, headers: { 'content-security-policy': LESSON_CSP }, body: exported },
+	{ name: 'anonymous download', method: 'GET', resource: 'download', role: null, status: 401, headers: {}, body: null },
+	{ name: 'anonymous content', method: 'GET', resource: 'content', role: null, status: 401, headers: {}, body: null },
+	{ name: 'content HEAD without a body', method: 'HEAD', resource: 'content', role: 'parent', status: 200, headers: { 'content-security-policy': expect.stringContaining('sandbox allow-scripts;'), 'cache-control': 'private, no-store' }, body: new Uint8Array() },
+])('$name', async ({ method, resource, role, status, headers, body }) => {
 	const uploaded = await upload(exported);
 	expect(uploaded.status).toBe(201);
 	const { id } = await uploaded.json() as { id: string };
-	const response = await request(`/lessons/${id}/${resource}`, method, undefined, signedIn ? parent : '');
+	const response = await request(`/lessons/${id}/${resource}`, method, undefined, role === 'parent' ? parent : role ? await login() : '');
 	expect(response.status).toBe(status);
 	expect(Object.fromEntries(response.headers)).toMatchObject(headers);
 	if (body) expect(new Uint8Array(await response.arrayBuffer())).toEqual(body);
