@@ -6,6 +6,7 @@ export interface Env {
 	LOGIN_LIMITER: RateLimit;
 	LEETCODE_ACCOUNTS: string;
 	LEETCODE_LOCAL_HTTP?: string;
+	TUTOR_TOKEN_KEY?: string;
 }
 
 export default {

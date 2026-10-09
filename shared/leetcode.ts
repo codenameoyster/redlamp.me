@@ -1,7 +1,7 @@
 export type Role = 'parent' | 'student';
 export interface SessionUser { role: Role; username: string }
 export interface Page<T> { items: T[]; nextOffset: number | null }
-export const NOTEBOOK_PAGE = /^\/leetcode(?:\/(?:problems|homework|lessons)(?:\/[a-f0-9-]{36}(?:\/review)?)?|\/tasks\/[a-f0-9-]{36}|\/sets(?:\/[a-z0-9-]+)?)?$/;
+export const NOTEBOOK_PAGE = /^\/leetcode(?:\/(?:problems|homework|lessons)(?:\/[a-f0-9-]{36}(?:\/review)?)?|\/tasks\/[a-f0-9-]{36}|\/sets(?:\/[a-z0-9-]+)?|\/tutor)?$/;
 export type Acceptance = 'not_submitted' | 'not_accepted' | 'accepted';
 export type Understanding = 'needs_practice' | 'with_help' | 'independent';
 export type Difficulty = 'easy' | 'medium' | 'hard';
@@ -77,6 +77,7 @@ export interface Dashboard {
 	drafts: (AttemptSummary & { problemTitle: string })[];
 	dueReviews: Problem[];
 }
+export interface TutorAccount { connected: boolean; connectedAt: string | null; model: string | null; models: { slug: string; name: string }[]; pending: boolean }
 export function newApproach(): Approach {
 	return { id: crypto.randomUUID(), label: '', idea: '', correctness: '', timeComplexity: '', spaceComplexity: '', edgeCases: '', mistakes: '', language: '', code: '' };
 }

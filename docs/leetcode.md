@@ -77,6 +77,38 @@ To add a set:
 4. In `src/leetcode/sets/index.ts`, import the set and its lesson. Add them to `sets`. The order of `sets` is the display order.
 5. Run `bun run test`. `test/sets.test.ts` checks each set: unique set and task slugs, the LeetCode slug format, a stage for each task, https links, and the lesson size.
 
+## AI tutor
+
+The AI tutor uses the parent's ChatGPT plan through Sign in with ChatGPT. The plan must be ChatGPT Plus or Pro. The Worker keeps the ChatGPT tokens in D1. It encrypts them with AES-GCM and the key in the `TUTOR_TOKEN_KEY` secret. The tokens never go to the browser.
+
+OpenAI permits plan usage for open-source and locally hosted apps. For a remotely hosted app, OpenAI asks for the [interest form](https://openai.com/form/sign-in-with-chatgpt-interest/). A Worker is a remotely hosted app. The student also uses the plan of the parent. The parent decides if these conditions are acceptable.
+
+Create the key and upload it:
+
+```sh
+openssl rand -base64 32 | bunx wrangler secret put TUTOR_TOKEN_KEY
+```
+
+For local development, add `TUTOR_TOKEN_KEY=<value>` to `.dev.vars`. Use a value from `openssl rand -base64 32`. A missing key or a key that is not 32 bytes stops the tutor with "The AI tutor needs configuration."
+
+Apply the remote migrations and upload the secret before you upload a preview version. A preview version uses the production database. It gets only the secrets that exist when you upload it.
+
+To connect ChatGPT:
+
+1. As the parent, open **AI tutor** and select **Continue with ChatGPT**.
+2. Open the ChatGPT sign-in page and approve access. The browser then shows an error page for `127.0.0.1`. This is expected.
+3. Copy the full address from that page. Paste it in **Address from the error page** and select **Connect**. Do this at once: the sign-in expires after 10 minutes, and the code in the address is valid for a short time.
+
+After the connection, select the model in **Model**. The list contains the models of the plan. A new connection reads the list again. It keeps the selected model when the new list contains it.
+
+The questions of the student and the page context go to OpenAI under the ChatGPT account of the parent. The tutor uses the same plan limits as the parent's own ChatGPT and Codex use. On ChatGPT Plus, all apps share one five-hour limit. Use **Manage usage** to see the usage.
+
+The connection stays valid while the tutor is in use. After 30 days with no tutor use, the refresh token expires. Then connect again.
+
+**Disconnect** revokes the ChatGPT tokens and removes them from D1. If ChatGPT does not confirm the revocation, remove the app in the ChatGPT settings. OpenAI does not tell the notebook about a removal in the ChatGPT settings.
+
+To rotate the key, select **Disconnect** before you upload a new key, so that ChatGPT revokes the old tokens. Then upload the new `TUTOR_TOKEN_KEY` and connect again. If you changed the key first, the page still shows Connected: select **Disconnect**, and then remove the app in the ChatGPT settings.
+
 ## Cloudflare setup
 
 Use an account with Workers Free and D1 Free. Check the account's existing usage before deployment. The application uses no R2 storage or paid service.
