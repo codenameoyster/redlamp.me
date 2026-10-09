@@ -8,7 +8,7 @@ import { changed, HttpError, integer, methods, object, page, pagination, readBod
 const lessonColumns = 'l.id,l.title,l.description,l.topics,l.filename,l.byte_count AS byteCount,l.archived_at AS archivedAt,l.version,l.created_at AS createdAt,l.updated_at AS updatedAt';
 type LessonRow = Omit<Lesson, 'topics'> & { topics: string };
 function lessonValue(row: LessonRow): Lesson { return { ...row, topics: JSON.parse(row.topics) }; }
-async function getLesson(env: Env, id: string): Promise<Lesson> {
+export async function getLesson(env: Env, id: string): Promise<Lesson> {
 	const row = await env.DB.prepare(`SELECT ${lessonColumns} FROM lessons l WHERE id=?`).bind(uuid(id)).first<LessonRow>();
 	if (!row) throw new HttpError(404, 'not_found', 'This lesson does not exist.');
 	return lessonValue(row);

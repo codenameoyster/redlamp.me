@@ -3,6 +3,7 @@ import type { Homework, HomeworkSummary, LearningSetDetails, LearningSetSummary,
 import { api, message } from './api';
 import { useResource } from './useResource';
 import { homeworkLabels } from './Homework';
+import { Tutor } from './Tutor';
 
 type SetTask = LearningSetDetails['tasks'][number];
 function taskCount(count: number) { return `${count} ${count === 1 ? 'task' : 'tasks'}`; }
@@ -22,7 +23,7 @@ function SetView({ slug, user }: { slug: string; user: SessionUser }) {
 	const set = details.data;
 	if (!set) return <p role="status">{details.error || 'Opening set...'}</p>;
 	const lesson = `/leetcode/api/sets/${slug}/lesson`;
-	return <div className="stack"><div className="heading"><div><h1>{set.title}</h1><p>{set.summary}</p></div><a className="button" href={lesson} target="_blank" rel="noopener noreferrer">Full-page display</a></div>
+	return <div className="stack"><div className="heading"><div><h1>{set.title}</h1><p>{set.summary}</p></div><div className="row"><a className="button" href={lesson} target="_blank" rel="noopener noreferrer">Full-page display</a><Tutor context={{ kind: 'set', id: slug }} title={set.title} user={user} /></div></div>
 		{details.error && <p className="error" role="alert">{details.error}</p>}
 		<iframe title={set.title} src={lesson} sandbox="allow-scripts" className="lesson-frame" />
 		<section className="card card-pad stack"><h2>Reading</h2><ul>{set.links.map(link => <li key={link.url}><a href={link.url} target="_blank" rel="noopener noreferrer">{link.title}</a> <small>{link.source}</small></li>)}</ul></section>

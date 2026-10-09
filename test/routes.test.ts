@@ -16,6 +16,8 @@ const cases = [
 	{ name: 'signed-in task page without an ID', path: '/leetcode/tasks', signedIn: true, status: 404, type: 'application/json' },
 	{ name: 'signed-in sets page', path: '/leetcode/sets', signedIn: true, status: 200, type: 'text/html' },
 	{ name: 'signed-in set page', path: '/leetcode/sets/permutations-and-combinations', signedIn: true, status: 200, type: 'text/html' },
+	{ name: 'signed-in tutor page', path: '/leetcode/tutor', signedIn: true, status: 200, type: 'text/html' },
+	{ name: 'anonymous tutor page', path: '/leetcode/tutor', status: 302, location: '/leetcode/login?return=%2Fleetcode%2Ftutor' },
 	{ name: 'signed-in shell', path: '/leetcode/problems', signedIn: true, status: 200, type: 'text/html', session: '{"role":"student","username":"student-test"}' },
 	{ name: 'anonymous API', path: '/leetcode/api/problems', status: 401, type: 'application/json' },
 	{ name: 'signed-in unknown API', path: '/leetcode/api/missing', signedIn: true, status: 404, type: 'application/json' },

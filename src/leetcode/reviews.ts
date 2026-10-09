@@ -1,9 +1,10 @@
 import type { Env } from '../index';
-import type { Dashboard, HomeworkTask, Revision, SessionUser } from '../../shared/leetcode';
+import type { BadgeId, Dashboard, Game, HomeworkTask, Revision, SessionUser } from '../../shared/leetcode';
 import { requireRole } from './auth';
 import { attemptColumns } from './attempts';
 import { taskColumns, taskTables, unreadValue } from './homework';
 import { getProblem, problemColumns, problemValue, solvedSQL } from './problems';
+import { acceptedSetSlugs, sets } from './sets';
 import { calendarDate, changed, choice, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
 
 const reviewColumns = 'id,problem_id AS problemId,result,note,reviewed_on AS reviewedOn,next_review_date AS nextReviewDate,created_at AS createdAt';
@@ -22,6 +23,21 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 			env.DB.prepare(`SELECT ${problemColumns} FROM problems p WHERE p.archived_at IS NULL AND p.next_review_date<=? ORDER BY p.next_review_date,p.id LIMIT 10`).bind(today),
 		]);
 		return Response.json({ counts: { ...progress.results[0], ...assignments.results[0] }, topics: topics.results, homework: (homework.results as unknown as HomeworkTask[]).map(unreadValue), drafts: drafts.results, dueReviews: dueReviews.results.map(row => problemValue(row as unknown as Parameters<typeof problemValue>[0])) } as Dashboard);
+	}
+	if (url.pathname === '/leetcode/api/game') {
+		methods(request, ['GET']);
+		const [[totals, streak], accepted] = await Promise.all([env.DB.batch<Record<string, number>>([
+			env.DB.prepare(`SELECT count(*) AS accepted,coalesce(sum(p.difficulty='hard'),0) AS hard,coalesce(sum(CASE p.difficulty WHEN 'easy' THEN 10 WHEN 'medium' THEN 20 ELSE 40 END),0) AS acceptedXp,
+				coalesce(sum(EXISTS(SELECT 1 FROM attempts a WHERE a.problem_id=p.id AND a.state='saved' AND a.understanding='independent') OR EXISTS(SELECT 1 FROM reviews r WHERE r.problem_id=p.id AND r.result='independent')),0) AS independent,
+				(SELECT count(*) FROM homework_tasks WHERE state='completed') AS completed,(SELECT count(*) FROM (SELECT DISTINCT problem_id,reviewed_on FROM reviews)) AS recalls FROM problems p WHERE ${solvedSQL}`),
+			env.DB.prepare("WITH days AS (SELECT DISTINCT date(saved_at) AS day FROM attempts WHERE state='saved') SELECT EXISTS(SELECT 1 FROM days WHERE date(day,'+1 day') IN (SELECT day FROM days) AND date(day,'+2 day') IN (SELECT day FROM days)) AS streak"),
+		]), acceptedSetSlugs(env)]);
+		const { accepted: count, hard, acceptedXp, independent, completed, recalls } = totals.results[0];
+		const xp = acceptedXp + 10 * independent + 15 * completed + 5 * recalls;
+		let level = 1;
+		while (xp >= 50 * level * (level + 1)) level++;
+		const earned: Record<BadgeId, boolean> = { 'first-accept': count >= 1, 'three-day-streak': streak.results[0].streak === 1, 'first-hard': hard >= 1, 'ten-accepted': count >= 10, 'independent-five': independent >= 5, 'set-cleared': sets.some(set => set.tasks.every(task => accepted.has(task.slug))) };
+		return Response.json({ xp, level, levelXp: 50 * level * (level - 1), nextLevelXp: 50 * level * (level + 1), badges: Object.entries(earned).map(([id, value]) => ({ id, earned: value })) } as Game);
 	}
 	const match = /^\/leetcode\/api\/problems\/([^/]+)\/reviews$/.exec(url.pathname);
 	if (!match) return null;

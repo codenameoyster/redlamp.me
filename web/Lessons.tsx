@@ -2,6 +2,7 @@ import { useState, type SubmitEvent } from 'react';
 import { MAX_LESSON_BYTES, NOTEBOOK_PAGE, type Homework, type LearningSet, type LearningSetSummary, type Lesson, type Page, type SessionUser } from '../shared/leetcode';
 import { api, message } from './api';
 import { useResource } from './useResource';
+import { Tutor } from './Tutor';
 
 export function LessonLinks({ problemId, homework, user, changed }: { problemId?: string; homework?: Homework; user: SessionUser; changed?: () => void }) {
 	const path = homework ? `/homework/${homework.id}` : `/problems/${problemId}`;
@@ -60,7 +61,7 @@ function LessonView({ id, user }: { id: string; user: SessionUser }) {
 	}
 	if (!record) return <p role="status">{lesson.error || 'Opening lesson...'}</p>;
 	const back = new URLSearchParams(location.search).get('back') ?? '/leetcode/lessons';
-	return <div className="stack"><div className="heading"><div><h1>{record.title}</h1><p>{record.byteCount.toLocaleString()} bytes {record.archivedAt && '- Archived'}</p></div><a className="button" href={NOTEBOOK_PAGE.test(back) ? back : '/leetcode/lessons'}>Back</a></div><p className="prose">{record.description}</p><div className="row"><a className="button" href={`/leetcode/api/lessons/${id}/content`} target="_blank" rel="noopener noreferrer">Full-page display</a><a className="button" href={`/leetcode/api/lessons/${id}/download`} download>Download original</a>{user.role === 'parent' && <><button onClick={() => setEditing(!editing)}>Edit lesson details</button>{!record.archivedAt && <button disabled={busy} onClick={() => void update()}>Archive lesson</button>}</>}</div>
+	return <div className="stack"><div className="heading"><div><h1>{record.title}</h1><p>{record.byteCount.toLocaleString()} bytes {record.archivedAt && '- Archived'}</p></div><a className="button" href={NOTEBOOK_PAGE.test(back) ? back : '/leetcode/lessons'}>Back</a></div><p className="prose">{record.description}</p><div className="row"><a className="button" href={`/leetcode/api/lessons/${id}/content`} target="_blank" rel="noopener noreferrer">Full-page display</a><a className="button" href={`/leetcode/api/lessons/${id}/download`} download>Download original</a><Tutor context={{ kind: 'lesson', id }} title={record.title} user={user} />{user.role === 'parent' && <><button onClick={() => setEditing(!editing)}>Edit lesson details</button>{!record.archivedAt && <button disabled={busy} onClick={() => void update()}>Archive lesson</button>}</>}</div>
 		{(error || lesson.error) && <p className="error" role="alert">{error || lesson.error}</p>}
 		{editing && <form onSubmit={update} className="card card-pad stack"><label>Title<input name="title" defaultValue={record.title} required maxLength={200} /></label><label>Description<textarea aria-label="Description" name="description" defaultValue={record.description} maxLength={8000} /></label><label>Topics<input name="topics" defaultValue={record.topics.join(', ')} /></label><button disabled={busy}>Save lesson details</button></form>}
 		<iframe title={record.title} src={`/leetcode/api/lessons/${id}/content`} sandbox="allow-scripts" className="lesson-frame" />

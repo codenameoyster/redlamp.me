@@ -2,7 +2,7 @@
 
 The private notebook at `https://redlamp.me/leetcode` supports one parent and one student. Use LeetCode for code runs and submissions. Use this notebook for explanations, saved attempts, homework, feedback, lessons, and review reminders.
 
-The application uses the existing Worker, one D1 database, React, and Bun. Workers Free and D1 Free require no billing subscription for this setup.
+The application uses the existing Worker, one D1 database, React, and Bun. Workers Free and D1 Free require no billing subscription for this setup. Long answers of the AI tutor can need Workers Paid. See [AI tutor](#ai-tutor).
 
 ## Local setup
 
@@ -76,6 +76,76 @@ To add a set:
 3. Write `lesson.html`. Use one self-contained UTF-8 file of at most 1,000,000 bytes. The rules for uploaded lessons apply.
 4. In `src/leetcode/sets/index.ts`, import the set and its lesson. Add them to `sets`. The order of `sets` is the display order.
 5. Run `bun run test`. `test/sets.test.ts` checks each set: unique set and task slugs, the LeetCode slug format, a stage for each task, https links, and the lesson size.
+
+## AI tutor
+
+The AI tutor uses the parent's ChatGPT plan through Sign in with ChatGPT. The plan must be ChatGPT Plus or Pro. The Worker keeps the ChatGPT tokens in D1. It encrypts them with AES-GCM and the key in the `TUTOR_TOKEN_KEY` secret. The tokens never go to the browser.
+
+OpenAI permits plan usage for open-source and locally hosted apps. For a remotely hosted app, OpenAI asks for the [interest form](https://openai.com/form/sign-in-with-chatgpt-interest/). A Worker is a remotely hosted app. The student also uses the plan of the parent. The parent decides if these conditions are acceptable.
+
+Create the key and upload it:
+
+```sh
+openssl rand -base64 32 | bunx wrangler secret put TUTOR_TOKEN_KEY
+```
+
+For local development, add `TUTOR_TOKEN_KEY=<value>` to `.dev.vars`. Use a value from `openssl rand -base64 32`. A missing key or a key that is not 32 bytes stops the tutor with "The AI tutor needs configuration."
+
+Apply the remote migrations and upload the secret before you upload a preview version. A preview version uses the production database. It gets only the secrets that exist when you upload it.
+
+To connect ChatGPT:
+
+1. As the parent, open **AI tutor** and select **Continue with ChatGPT**.
+2. Open the ChatGPT sign-in page and approve access. The browser then shows an error page for `127.0.0.1`. This is expected.
+3. Copy the full address from that page. Paste it in **Address from the error page** and select **Connect**. Do this at once: the sign-in expires after 10 minutes, and the code in the address is valid for a short time.
+
+After the connection, select the model in **Model**. The list contains the models of the plan. A new connection reads the list again. It keeps the selected model when the new list contains it.
+
+The tutor gives hints. It does not write the solution, also when the student asks for it. For a new question about how to solve a problem, it asks one guiding question. When the student asks for more help, it names the idea, then gives the key step on a small example, and then names the parts of the function. When the student asks it to check the code, it tells about one bug in each answer and gives a small input that shows the bug. It does not write the corrected code. The rules are in `src/leetcode/tutor-prompt.txt`.
+
+Each problem, set and lesson has one chat. A task page shows the chat of its problem. The student selects **Ask AI** on these pages. On a screen of 1400 px and wider, the chat panel stays open beside the page, also on the next page. On a smaller screen, the panel opens over the page. Ctrl+Enter or Cmd+Enter sends the message. The parent selects **Read AI chat** on the same pages, or opens a chat from **Chats** on the **AI tutor** page.
+
+Only the student can send questions. The parent can read every chat. The notebook keeps a turn only when the answer is complete. If an answer stops, the student sends the question again.
+
+Each question of the student goes to OpenAI under the ChatGPT account of the parent, with the earlier messages of the chat and the context of the open page. This context can contain the problem, the LeetCode statement, the homework instructions, the notes and code of the student, and the lesson text. The tutor uses the same plan limits as the parent's own ChatGPT and Codex use. On ChatGPT Plus, all apps share one five-hour limit. Use **Manage usage** to see the usage.
+
+The Worker reads each part of a streamed answer, so the CPU time of a turn increases with the length of the answer. On the deployed Worker, send a question on the page with the largest lesson and get a long answer with a diagram. Make sure that the answer arrives in parts. Then read the CPU time of the request in the Cloudflare dashboard. If long answers exceed the Workers Free limit of 10 ms CPU per request, use Workers Paid.
+
+The connection stays valid while the tutor is in use. After 30 days with no tutor use, the refresh token expires. Then connect again.
+
+**Disconnect** revokes the ChatGPT tokens and removes them from D1. If ChatGPT does not confirm the revocation, remove the app in the ChatGPT settings. OpenAI does not tell the notebook about a removal in the ChatGPT settings.
+
+To rotate the key, select **Disconnect** before you upload a new key, so that ChatGPT revokes the old tokens. Then upload the new `TUTOR_TOKEN_KEY` and connect again. If you changed the key first, the page still shows Connected: select **Disconnect**, and then remove the app in the ChatGPT settings.
+
+## Levels and badges
+
+The notebook uses the Arcade theme. Dark is the default appearance. Use the appearance button in the top bar to change to light and back. The browser keeps the choice.
+
+The top bar shows the level and the progress to the next level. The bar is hidden on screens of 620 px or less. **Today** shows the level, the XP, and the badges.
+
+The notebook calculates XP from saved records. The XP does not decrease. Archived problems keep their XP.
+
+| Source | XP |
+|---|---|
+| A problem with an accepted saved attempt, one time for each problem | easy 10, medium 20, hard 40 |
+| An accepted problem with a saved attempt or a review with the understanding "independent", one time for each problem | 10 |
+| A completed homework task | 15 |
+| A review, one time for each problem and day | 5 |
+
+Level L starts at `50 * L * (L - 1)` XP: level 2 at 100 XP, level 3 at 300 XP, level 4 at 600 XP, and level 5 at 1000 XP.
+
+A badge stays earned. The student and the parent see the same badges.
+
+| Badge | Rule |
+|---|---|
+| First accept | One problem with an accepted saved attempt. |
+| 3-day streak | Saved attempts on three consecutive days. The notebook uses UTC dates. |
+| First hard | One hard problem with an accepted saved attempt. |
+| Ten accepted | Ten problems with an accepted saved attempt. |
+| Independent five | Five accepted problems with the understanding "independent". |
+| Set cleared | An accepted saved attempt for each problem of one learning set. |
+
+The student selects the acceptance and the understanding, so the XP shows what the student records. The **Today** counts do not include archived problems, so they can be different from the XP.
 
 ## Cloudflare setup
 

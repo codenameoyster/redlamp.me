@@ -1,7 +1,7 @@
 export type Role = 'parent' | 'student';
 export interface SessionUser { role: Role; username: string }
 export interface Page<T> { items: T[]; nextOffset: number | null }
-export const NOTEBOOK_PAGE = /^\/leetcode(?:\/(?:problems|homework|lessons)(?:\/[a-f0-9-]{36}(?:\/review)?)?|\/tasks\/[a-f0-9-]{36}|\/sets(?:\/[a-z0-9-]+)?)?$/;
+export const NOTEBOOK_PAGE = /^\/leetcode(?:\/(?:problems|homework|lessons)(?:\/[a-f0-9-]{36}(?:\/review)?)?|\/tasks\/[a-f0-9-]{36}|\/sets(?:\/[a-z0-9-]+)?|\/tutor)?$/;
 export type Acceptance = 'not_submitted' | 'not_accepted' | 'accepted';
 export type Understanding = 'needs_practice' | 'with_help' | 'independent';
 export type Difficulty = 'easy' | 'medium' | 'hard';
@@ -77,6 +77,13 @@ export interface Dashboard {
 	drafts: (AttemptSummary & { problemTitle: string })[];
 	dueReviews: Problem[];
 }
+export type TutorKind = 'problem' | 'set' | 'lesson';
+export interface TutorMessage { id: string; author: 'student' | 'assistant'; body: string; quote: string | null; createdAt: string }
+export interface TutorThread { kind: TutorKind; id: string; title: string; count: number; lastAt: string }
+export type TutorEvent = { delta: string } | { done: true } | { error: { code: string; message: string } };
+export interface TutorAccount { connected: boolean; connectedAt: string | null; model: string | null; models: { slug: string; name: string }[]; pending: boolean }
+export type BadgeId = 'first-accept' | 'three-day-streak' | 'first-hard' | 'ten-accepted' | 'independent-five' | 'set-cleared';
+export interface Game { xp: number; level: number; levelXp: number; nextLevelXp: number; badges: { id: BadgeId; earned: boolean }[] }
 export function newApproach(): Approach {
 	return { id: crypto.randomUUID(), label: '', idea: '', correctness: '', timeComplexity: '', spaceComplexity: '', edgeCases: '', mistakes: '', language: '', code: '' };
 }

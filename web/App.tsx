@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { BookOpen, CalendarCheck, ClipboardCheck, CodeXml, Layers, LogOut, Moon, Search, Sun } from 'lucide-react';
-import type { SessionUser } from '../shared/leetcode';
+import { BookOpen, Bot, CalendarCheck, ClipboardCheck, CodeXml, Layers, LogOut, Moon, Search, Sun } from 'lucide-react';
+import type { Game, SessionUser } from '../shared/leetcode';
 import { api, ApiError, message } from './api';
 import { Login } from './Login';
 import { Problems } from './Problems';
@@ -11,17 +11,20 @@ import { Lessons } from './Lessons';
 import { Sets } from './Sets';
 import { Today } from './Today';
 import { Review } from './Review';
+import { TutorPage } from './TutorPage';
+import { useResource } from './useResource';
 
 export function Layout({ user, children, logout }: { user: SessionUser; children: ReactNode; logout: () => void }) {
 	const [dark, setDark] = useState(() => {
-		try { return localStorage.getItem('leetcode:appearance') === 'dark'; } catch { return false; }
+		try { return localStorage.getItem('leetcode:appearance') !== 'light'; } catch { return true; }
 	});
+	const { data: game } = useResource<Game>('/game');
 	document.documentElement.dataset.appearance = dark ? 'dark' : 'light';
 	function appearance() {
 		setDark(!dark);
 		try { localStorage.setItem('leetcode:appearance', dark ? 'light' : 'dark'); } catch { /* Appearance remains available in this page. */ }
 	}
-	const navigation = [{ path: '', label: 'Today', Icon: CalendarCheck }, { path: '/problems', label: 'Problems', Icon: CodeXml }, { path: '/homework', label: 'Homework', Icon: ClipboardCheck }, { path: '/lessons', label: 'Lessons', Icon: BookOpen }, { path: '/sets', label: 'Sets', Icon: Layers }];
+	const navigation = [{ path: '', label: 'Today', Icon: CalendarCheck }, { path: '/problems', label: 'Problems', Icon: CodeXml }, { path: '/homework', label: 'Homework', Icon: ClipboardCheck }, { path: '/lessons', label: 'Lessons', Icon: BookOpen }, { path: '/sets', label: 'Sets', Icon: Layers }, ...(user.role === 'parent' ? [{ path: '/tutor', label: 'AI tutor', Icon: Bot }] : [])];
 	return <div className="app">
 		<a className="skip-link" href="#main">Skip to content</a>
 		<aside className="sidebar">
@@ -29,7 +32,7 @@ export function Layout({ user, children, logout }: { user: SessionUser; children
 			<nav aria-label="Notebook">{navigation.map(({ path, label, Icon }) => <a key={path} href={`/leetcode${path}`} aria-current={location.pathname === `/leetcode${path}` ? 'page' : undefined}><Icon size={18} />{label}</a>)}</nav>
 		</aside>
 		<div className="workspace"><header className="topbar"><a className="search" href="/leetcode/problems"><Search size={16} /><span>Search problems and notes</span></a>
-			<div className="account"><button className="icon-button" onClick={appearance} aria-label={dark ? 'Light appearance' : 'Dark appearance'} title={dark ? 'Light appearance' : 'Dark appearance'}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button><div className="user"><span className="avatar" aria-hidden="true">{user.username[0].toUpperCase()}</span><span><strong>{user.username}</strong><small>{user.role === 'parent' ? 'Parent' : 'Student'}</small></span></div><button className="icon-button" onClick={logout} aria-label="Log out" title="Log out"><LogOut size={18} /></button></div></header><main id="main">{children}</main></div>
+			<div className="account">{game && <div className="xp-chip"><strong>Level {game.level}</strong><progress className="xp" aria-label={`Progress to level ${game.level + 1}`} value={game.xp - game.levelXp} max={game.nextLevelXp - game.levelXp} /></div>}<button className="icon-button" onClick={appearance} aria-label={dark ? 'Light appearance' : 'Dark appearance'} title={dark ? 'Light appearance' : 'Dark appearance'}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button><div className="user"><span className="avatar" aria-hidden="true">{user.username[0].toUpperCase()}</span><span><strong>{user.username}</strong><small>{user.role === 'parent' ? 'Parent' : 'Student'}</small></span></div><button className="icon-button" onClick={logout} aria-label="Log out" title="Log out"><LogOut size={18} /></button></div></header><main id="main">{children}</main></div>
 	</div>;
 }
 
@@ -81,6 +84,6 @@ export function App() {
 	const lessons = /^\/leetcode\/lessons(?:\/([a-f0-9-]{36}))?$/.exec(path);
 	const sets = /^\/leetcode\/sets(?:\/([a-z0-9-]+))?$/.exec(path);
 	const review = /^\/leetcode\/problems\/([a-f0-9-]{36})\/review$/.exec(path);
-	const screen = path === '/leetcode/problems' ? <Problems /> : match ? <Problem id={match[1]} user={user} registerGuard={registerGuard} /> : homework ? <Homework id={homework[1]} user={user} /> : task ? <Task id={task[1]} user={user} /> : lessons ? <Lessons id={lessons[1]} user={user} /> : sets ? <Sets slug={sets[1]} user={user} /> : review ? <Review id={review[1]} user={user} /> : <Today user={user} />;
+	const screen = path === '/leetcode/problems' ? <Problems /> : match ? <Problem id={match[1]} user={user} registerGuard={registerGuard} /> : homework ? <Homework id={homework[1]} user={user} /> : task ? <Task id={task[1]} user={user} /> : lessons ? <Lessons id={lessons[1]} user={user} /> : sets ? <Sets slug={sets[1]} user={user} /> : review ? <Review id={review[1]} user={user} /> : path === '/leetcode/tutor' ? <TutorPage user={user} /> : <Today user={user} />;
 	return <Layout user={user} logout={logout}>{error && <p className="error" role="alert">{error}</p>}{screen}</Layout>;
 }
