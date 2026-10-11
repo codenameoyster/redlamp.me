@@ -108,6 +108,9 @@ legend { margin-bottom:6px; font-size:14px; font-weight:600; color:var(--muted);
 .code { min-height:350px; white-space:pre; padding:14px 16px; border-color:var(--code); }
 pre { margin:0; padding:20px; }
 .prose { white-space:pre-wrap; overflow-wrap:anywhere; color:var(--ink); }
+.quiz-card > .prose:first-child { font-size:20px; }
+.quiz-card .stack > button { text-align:left; }
+.quiz-card mark { background:var(--amber-bg); color:var(--amber); border-radius:4px; }
 .empty { padding:32px; text-align:center; color:var(--muted); }
 .lookup { display:flex; align-items:center; gap:8px; margin-top:-10px; }
 .spin { animation:spin .9s linear infinite; }

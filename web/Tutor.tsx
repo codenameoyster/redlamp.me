@@ -16,7 +16,7 @@ const lessonFrame = () => document.querySelector<HTMLIFrameElement>('iframe.less
 const highlightLesson = (quote: string) => lessonFrame()?.contentWindow?.postMessage({ type: 'highlight', quote }, '*');
 const said = (body: string, quote: string | null) => <>{quote && <blockquote>{quote}</blockquote>}<p className="prose">{body}</p></>;
 
-export function Tutor({ context, title, user, flush }: { context: { kind: TutorKind; id: string }; title: string; user: SessionUser; flush?: () => Promise<unknown> | undefined }) {
+export function Tutor({ context, title, user, flush, quote }: { context: { kind: TutorKind; id: string }; title: string; user: SessionUser; flush?: () => Promise<unknown> | undefined; quote?: string }) {
 	const student = user.role === 'student', bridge = student && context.kind !== 'problem', path = `/tutor/messages?kind=${context.kind}&id=${encodeURIComponent(context.id)}`;
 	const dialog = useRef<HTMLDialogElement>(null), trigger = useRef<HTMLButtonElement>(null), heading = useRef<HTMLHeadingElement>(null), input = useRef<HTMLTextAreaElement>(null), log = useRef<HTMLDivElement>(null);
 	const [open, setOpen] = useState(false), [text, setText] = useState(''), [error, setError] = useState(''), [status, setStatus] = useState(''), [marked, setMarked] = useState('');
@@ -103,7 +103,7 @@ export function Tutor({ context, title, user, flush }: { context: { kind: TutorK
 				{messages.data && !items.length && !pending && <p className="empty">{student ? 'Ask about this page. The tutor gives hints, not full solutions.' : 'No messages yet.'}</p>}
 				{(error || messages.error) && <p className="error" role="alert">{error || messages.error}</p>}
 			</div>
-			{student && <form className="tutor-compose" onSubmit={event => { event.preventDefault(); input.current!.focus(); void ask(text, null); }}>
+			{student && <form className="tutor-compose" onSubmit={event => { event.preventDefault(); input.current!.focus(); void ask(text, quote ?? null); }}>
 				<label>Message<textarea ref={input} value={text} onChange={event => setText(event.target.value)} maxLength={4000} required onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form!.requestSubmit(); } }} /></label>
 				<div className="row spread"><small>Using ChatGPT plan. Your parent can read this chat.</small><button className="primary" disabled={Boolean(pending)}>Send</button></div>
 			</form>}

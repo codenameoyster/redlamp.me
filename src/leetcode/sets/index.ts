@@ -1,5 +1,5 @@
 import type { Env } from '../../index';
-import type { LearningSet, LearningSetDetails, LearningSetSummary, SessionUser, TaskState } from '../../../shared/leetcode';
+import type { Card, LearningSet, LearningSetDetails, LearningSetSummary, SessionUser, TaskState } from '../../../shared/leetcode';
 import { requireRole } from '../auth';
 import { getHomework } from '../homework';
 import { changed, HttpError, integer, methods, object, readJson, uuid } from '../http';
@@ -8,9 +8,10 @@ import LESSON_BRIDGE from '../lesson-bridge.html';
 import { getProblem, solvedSQL } from '../problems';
 import permutationsAndCombinations from './permutations-and-combinations/set';
 import permutationsAndCombinationsLesson from './permutations-and-combinations/lesson.html';
+import permutationsAndCombinationsCards from './permutations-and-combinations/cards';
 
-export const sets: (LearningSet & { lesson: string })[] = [
-	{ ...permutationsAndCombinations, lesson: permutationsAndCombinationsLesson },
+export const sets: (LearningSet & { lesson: string; cards: Card[] })[] = [
+	{ ...permutationsAndCombinations, lesson: permutationsAndCombinationsLesson, cards: permutationsAndCombinationsCards },
 ];
 
 export async function acceptedSetSlugs(env: Env): Promise<Set<string>> {
