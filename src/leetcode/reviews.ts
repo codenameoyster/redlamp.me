@@ -4,7 +4,7 @@ import { requireRole } from './auth';
 import { attemptColumns } from './attempts';
 import { taskColumns, taskTables, unreadValue } from './homework';
 import { getProblem, problemColumns, problemValue, solvedSQL } from './problems';
-import { acceptedSetSlugs, sets } from './sets';
+import { acceptedSetSlugs, sets, taskSlug, tasksOf } from './sets';
 import { cardIds, dueCardsSQL } from './quiz';
 import { calendarDate, changed, choice, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
 
@@ -38,7 +38,7 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 		const xp = acceptedXp + 10 * independent + 15 * completed + 5 * recalls + 2 * cards;
 		let level = 1;
 		while (xp >= 50 * level * (level + 1)) level++;
-		const earned: Record<BadgeId, boolean> = { 'first-accept': count >= 1, 'three-day-streak': streak.results[0].streak === 1, 'first-hard': hard >= 1, 'ten-accepted': count >= 10, 'independent-five': independent >= 5, 'set-cleared': sets.some(set => set.tasks.every(task => accepted.has(task.slug))) };
+		const earned: Record<BadgeId, boolean> = { 'first-accept': count >= 1, 'three-day-streak': streak.results[0].streak === 1, 'first-hard': hard >= 1, 'ten-accepted': count >= 10, 'independent-five': independent >= 5, 'set-cleared': sets.some(set => tasksOf(set).every(task => accepted.has(taskSlug(task)))) };
 		return Response.json({ xp, level, levelXp: 50 * level * (level - 1), nextLevelXp: 50 * level * (level + 1), badges: Object.entries(earned).map(([id, value]) => ({ id, earned: value })) } as Game);
 	}
 	const match = /^\/leetcode\/api\/problems\/([^/]+)\/reviews$/.exec(url.pathname);

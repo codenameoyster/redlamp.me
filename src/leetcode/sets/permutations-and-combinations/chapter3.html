@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Повторы и отсечения</title>
+<style>
+:root{color-scheme:light dark;--paper:#f7f9fc;--surface:#fff;--sunken:#eef2f8;--ink:#1d2433;--muted:#5b6578;--line:#dbe2ec;--pen:#2f5bea;--pen-bg:#eaf0ff;--on-pen:#fff;--margin:#c93426;--margin-bg:#fdecea;--green:#1d7f54;--green-bg:#e4f4ec;--amber:#9a5a00;--amber-bg:#fff1d6;--grey:#7d8799;--sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+@media (prefers-color-scheme:dark){:root{--paper:#0f141d;--surface:#161d29;--sunken:#1d2635;--ink:#e7ecf4;--muted:#9ba7bb;--line:#2c384b;--pen:#8fa9ff;--pen-bg:#1d2a4a;--on-pen:#0f141d;--margin:#ff7b6b;--margin-bg:#3a1f1e;--green:#62d39c;--green-bg:#16301f;--amber:#f0c064;--amber-bg:#36290f;--grey:#7f8aa0}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 17px/1.6 var(--sans);overflow-wrap:break-word}
+main{max-width:46rem;margin:0 auto;padding:28px 16px 72px}
+h1{font-size:2rem;line-height:1.15;margin:0 0 12px;letter-spacing:-.01em}
+h2{font-size:1.4rem;line-height:1.3;margin:60px 0 10px;display:flex;gap:10px;align-items:baseline}
+h2 .n{font:600 .8rem/1 var(--mono);color:var(--margin);border:1px solid currentColor;border-radius:6px;padding:4px 6px;flex-shrink:0}
+h3{font-size:1.1rem;line-height:1.3;margin:28px 0 8px}
+h4{font-size:.9rem;margin:14px 0 6px;color:var(--muted)}
+p,ul,ol{margin:0 0 14px}
+ul,ol{padding-left:1.4rem}
+li{margin:4px 0}
+a{color:var(--pen);text-underline-offset:3px}
+sup{line-height:0}
+.lead{font-size:1.1rem;color:var(--muted)}
+.muted{color:var(--muted)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 18px;padding:0;list-style:none}
+.tags li{margin:0;font-size:13px;line-height:1.4;padding:3px 10px;border-radius:999px;background:var(--pen-bg);color:var(--pen)}
+h2+.tags{margin-top:-2px}
+nav ol{columns:2 15rem;column-gap:24px;padding-left:1.6rem}
+nav li{break-inside:avoid}
+code{font-family:var(--mono);font-size:.86em;background:var(--sunken);padding:1px 5px;border-radius:5px}
+pre{font:14px/1.55 var(--mono);background:var(--sunken);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;margin:0 0 14px;tab-size:4}
+pre code{background:none;padding:0;font-size:inherit;border-radius:0}
+pre.out{background:var(--surface);border-left:4px solid var(--green);white-space:pre-wrap}
+pre.out::before{content:"Output";display:block;font:600 12px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--green);margin-bottom:8px}
+.box{border-left:4px solid var(--pen);background:var(--pen-bg);padding:12px 16px;border-radius:0 10px 10px 0;margin:0 0 16px}
+.box p:last-child,.box ul:last-child,.box ol:last-child{margin-bottom:0}
+.example{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 16px;margin:0 0 16px}
+.example>:last-child{margin-bottom:0}
+.label{font:600 12px/1.2 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.tw{overflow-x:auto;margin:0 0 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+th{font-weight:600;background:var(--sunken)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.grid3 td{text-align:center;font:600 15px var(--mono);width:3rem}
+.grid3{width:auto}
+button{font:inherit;font-size:15px;font-weight:600;line-height:1.2;min-height:40px;padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer}
+button:hover{background:var(--sunken)}
+button.primary{background:var(--pen);border-color:var(--pen);color:var(--on-pen)}
+button[aria-pressed=true]{border-color:var(--pen);background:var(--pen-bg);color:var(--pen)}
+:focus-visible{outline:3px solid var(--pen);outline-offset:2px}
+input[type=text],input[type=number]{font:inherit;font-size:16px;min-height:40px;padding:6px 10px;border:1px solid var(--grey);border-radius:8px;background:var(--paper);color:var(--ink);width:6.5rem;min-width:0}
+input[type=checkbox],input[type=radio]{width:18px;height:18px;margin:0;accent-color:var(--pen);flex-shrink:0}
+fieldset{border:0;padding:0;margin:0;min-width:0}
+legend{font-size:14px;font-weight:600;color:var(--muted);padding:0;margin-bottom:6px}
+.widget{border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:16px;margin:24px 0}
+.widget h3{margin-top:0}
+.controls{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:flex-end;margin:0 0 12px}
+.controls>label{display:grid;gap:4px;font-size:14px;font-weight:600;color:var(--muted)}
+.controls>label.chk,.seg label{display:inline-flex;align-items:center;gap:8px;min-height:40px;color:var(--ink);font-size:15px;font-weight:500}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg label{border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;background:var(--paper)}
+.seg label:has(input:checked){border-color:var(--pen);background:var(--pen-bg)}
+.vals{width:9rem!important}
+.err{color:var(--margin);font-weight:600}
+dl.calc{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 14px;margin:0 0 12px;padding:12px 14px;background:var(--sunken);border-radius:10px}
+dl.calc dt{color:var(--muted);font-size:15px}
+dl.calc dd{margin:0;font-family:var(--mono);font-size:15px}
+dl.calc dd.big{font-size:1.25rem;font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0 0 12px}
+.chips li{margin:0;font:600 14px/1 var(--mono);padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper)}
+.groups{list-style:none;padding:0;margin:0 0 12px}
+.groups li{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.groups .key{font:600 14px var(--mono);color:var(--green);min-width:6.5rem}
+.groups .chips{margin:0}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.stepno{font-size:14px;color:var(--muted);margin-left:auto}
+.status{min-height:3.3em;margin:10px 0;padding:8px 12px;background:var(--sunken);border-radius:8px;font-size:15px}
+.tree{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:4px 0;margin:0 0 6px}
+.tree svg{display:block;margin:0 auto}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);margin:0 0 10px;padding:0;list-style:none}
+.legend li{margin:0;display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:50%;border:2px solid var(--muted);background:var(--surface)}
+.sw.cur{background:var(--pen);border-color:var(--pen)}
+.sw.on{background:var(--pen-bg);border-color:var(--pen)}
+.sw.saved{background:var(--green-bg);border-color:var(--green)}
+.sw.off{border:2px dashed var(--grey);background:var(--paper)}
+.sw.dead{background:var(--margin-bg);border-color:var(--margin)}
+.panes{display:grid;grid-template-columns:minmax(0,1fr);gap:4px 16px}
+.panes pre{margin-bottom:8px;font-size:13px}
+.res{white-space:pre-wrap;max-height:13rem;overflow:auto}
+.counters{font-size:14px;margin:0 0 8px}
+.code span{display:block;padding:0 8px;margin:0 -8px;border-radius:4px;white-space:pre}
+.code span.hot{background:var(--amber-bg);box-shadow:inset 3px 0 var(--amber)}
+.ed{stroke:var(--muted);stroke-width:1.5}
+.ed.fut{stroke:var(--line);stroke-dasharray:2 4}
+.ed.off{stroke:var(--grey);stroke-dasharray:4 3}
+.ed.on{stroke:var(--pen);stroke-width:3}
+.nd circle{fill:var(--surface);stroke:var(--muted);stroke-width:1.5}
+.nd text{fill:var(--ink);font:600 12px var(--mono);text-anchor:middle;dominant-baseline:central}
+.nd text.sub{font:500 10px var(--mono);fill:var(--muted);paint-order:stroke;stroke:var(--paper);stroke-width:3px}
+.nd.fut{opacity:.28}
+.nd.saved circle{fill:var(--green-bg);stroke:var(--green);stroke-width:2}
+.nd.on circle{fill:var(--pen-bg);stroke:var(--pen);stroke-width:2}
+.nd.off circle{fill:var(--paper);stroke:var(--grey);stroke-dasharray:3 3}
+.nd.off text{fill:var(--muted)}
+.nd.dead circle{fill:var(--margin-bg);stroke:var(--margin)}
+.nd.cur circle{fill:var(--pen);stroke:var(--pen);stroke-width:3}
+.nd.cur text.v{fill:var(--on-pen)}
+.nd.mark circle{stroke:var(--amber);stroke-width:3;stroke-dasharray:none}
+.check{border:1px solid var(--line);border-left:4px solid var(--amber);background:var(--surface);border-radius:0 12px 12px 0;padding:14px 16px;margin:20px 0}
+.check>p{margin-bottom:10px}
+.try{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin:0 0 8px}
+.try label{display:grid;gap:4px;font-size:14px;font-weight:600;color:var(--muted)}
+.verdict{margin:0 0 8px!important;font-weight:600}
+.verdict.ok{color:var(--green)}
+.verdict.no{color:var(--margin)}
+.ans{margin-top:10px;padding:10px 14px;background:var(--green-bg);border-radius:8px}
+.ans>:last-child{margin-bottom:0}
+.check pre{font-size:13px}
+.bug{background:var(--margin-bg);box-shadow:inset 3px 0 var(--margin);display:inline-block;min-width:100%}
+.stages{list-style:none;padding:0}
+.stages li{border-left:3px solid var(--line);padding:2px 0 2px 14px;margin:0 0 12px}
+.stages b{display:block}
+@media (max-width:30rem){table{font-size:14px}th,td{padding:6px 5px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>Повторы и отсечения</h1>
+<p class="lead">В главе 2 вы научились перебирать варианты. В этой главе два приёма: как не получить одинаковые ответы и как остановить ветку, которая не даст ответа.</p>
+</header>
+<nav aria-labelledby="toc">
+<h2 id="toc">Содержание</h2>
+<ol>
+<li><a href="#s1">Одинаковые ответы</a></li>
+<li><a href="#s2">Сортировка и пропуск на одном уровне</a></li>
+<li><a href="#s3">Перестановки с повторами</a></li>
+<li><a href="#s4">Отсечение: остановите ветку заранее</a></li>
+<li><a href="#s5">Скобки</a></li>
+<li><a href="#s6">Перебор знаков</a></li>
+<li><a href="#s7">Что нужно запомнить</a></li>
+<li><a href="#s8">Как решать задачи этой главы</a></li>
+</ol>
+</nav>
+
+<section aria-labelledby="s1">
+<h2 id="s1"><span class="n">1</span> Одинаковые ответы</h2>
+<p>Возьмите список [1, 2, 2]. Постройте все подмножества шаблоном из главы 2. Получится 8 списков:</p>
+<p><code>[], [1], [1, 2], [1, 2, 2], [1, 2], [2], [2, 2], [2]</code></p>
+<p>Списки [1, 2] и [2] встречаются по два раза. Для программы две двойки это разные предметы. Для ответа они одинаковые. Разных подмножеств только 6. Задача просит именно 6, без повторов.</p>
+</section>
+
+<section aria-labelledby="s2">
+<h2 id="s2"><span class="n">2</span> Сортировка и пропуск на одном уровне</h2>
+<p>Сначала отсортируйте список. Тогда одинаковые числа стоят рядом. Потом на одном уровне дерева берите каждое число только один раз. Уровень это один проход цикла <code>for</code>.</p>
+<pre><code class="py">nums.sort()    # один раз, до первого вызова
+for i in range(start, len(nums)):
+    if i &gt; start and nums[i] == nums[i - 1]:
+        continue    # на этом уровне такое число уже брали
+    path.append(nums[i])
+    dfs(i + 1, path)
+    path.pop()</code></pre>
+<p>Почему <code>i &gt; start</code>, а не <code>i &gt; 0</code>? Пример: список [1, 2, 2], путь [2]. Следующий уровень начинается со <code>start = 2</code>. Там <code>nums[2] == nums[1]</code>, но <code>i == start</code>. Это первая двойка на своём уровне. Её нужно взять, иначе не получится [2, 2]. Пропускаем только вторую и следующие копии на том же уровне.</p>
+<div class="box"><p>Проверка: [1, 2, 2] с пропуском даёт 6 подмножеств: [], [1], [1, 2], [1, 2, 2], [2], [2, 2].</p></div>
+</section>
+
+<section aria-labelledby="s3">
+<h2 id="s3"><span class="n">3</span> Перестановки с повторами</h2>
+<p>Список [1, 1, 2]. Без пропуска получится 6 перестановок, но разных только 3: [1, 1, 2], [1, 2, 1], [2, 1, 1].</p>
+<p>В перестановках нет <code>start</code>. Цикл всегда идёт с нуля, а занятые числа отмечает список <code>used</code>. Поэтому правило другое: одинаковые числа берём по порядку. Вторую единицу можно взять, только если первая уже взята.</p>
+<pre><code class="py">nums.sort()    # один раз, до первого вызова
+for i in range(len(nums)):
+    if used[i]:
+        continue
+    if i &gt; 0 and nums[i] == nums[i - 1] and not used[i - 1]:
+        continue    # такое же число слева ещё свободно
+    used[i] = True
+    path.append(nums[i])
+    dfs(path)
+    path.pop()
+    used[i] = False</code></pre>
+<p>Проверка: [1, 2, 2, 3] даёт 12 перестановок. Без правила было бы 24.</p>
+</section>
+
+<section aria-labelledby="s4">
+<h2 id="s4"><span class="n">4</span> Отсечение: остановите ветку заранее</h2>
+<p>Задача Combination Sum: даны числа [2, 3, 6, 7] и цель 7. Нужны все наборы с суммой 7. Одно число можно брать много раз. Ответ: [2, 2, 3] и [7].</p>
+<p>Два отличия от сочетаний из главы 2. Первое: число можно взять снова, поэтому глубже передаём <code>start = i</code>, а не <code>i + 1</code>. Меньшие числа при этом не берём, и набор [3, 2, 2] не появится второй раз. Второе: если число больше остатка, ветка бесполезна. Остановить такую ветку до вызова это и есть отсечение.</p>
+<p>Отсортируйте числа. Тогда, если число больше остатка, все следующие числа тоже больше. Можно сделать <code>break</code>, а не <code>continue</code>.</p>
+<pre><code class="py">candidates.sort()    # один раз, до первого вызова
+
+def dfs(start, remain, path):
+    if remain == 0:
+        result.append(path[:])
+        return
+    for i in range(start, len(candidates)):
+        if candidates[i] &gt; remain:
+            break    # все следующие числа тоже больше
+        path.append(candidates[i])
+        dfs(i, remain - candidates[i], path)
+        path.pop()</code></pre>
+<p>Для [2, 3, 6, 7] и цели 7 функция вызывается 10 раз. Без проверки <code>candidates[i] &gt; remain</code> было бы 28 вызовов.</p>
+</section>
+
+<section aria-labelledby="s5">
+<h2 id="s5"><span class="n">5</span> Скобки</h2>
+<p>Задача Generate Parentheses: дано n пар скобок, нужны все правильные строки. При n = 2 это <code>(())</code> и <code>()()</code>. При n = 3 строк 5:</p>
+<p><code>((())), (()()), (())(), ()(()), ()()()</code></p>
+<p>Строку строим по одному символу. Два правила отсекают все плохие ветки. Открыть скобку можно, пока <code>opened &lt; n</code>. Закрыть можно, пока <code>closed &lt; opened</code>: каждой закрывающей нужна открытая перед ней.</p>
+<pre><code class="py">def dfs(s, opened, closed):
+    if len(s) == 2 * n:
+        result.append(s)
+        return
+    if opened &lt; n:
+        dfs(s + '(', opened + 1, closed)
+    if closed &lt; opened:
+        dfs(s + ')', opened, closed + 1)</code></pre>
+<p>Без правил при n = 3 было бы 2 · 2 · 2 · 2 · 2 · 2 = 64 строки из 6 скобок. Правила оставляют 5.</p>
+</section>
+
+<section aria-labelledby="s6">
+<h2 id="s6"><span class="n">6</span> Перебор знаков</h2>
+<p>Codeforces 1097B. Стрелка кодового замка стоит на нуле. Даны n поворотов в градусах, например 10, 20, 30. Каждый поворот делаем по часовой стрелке или против. Нужно узнать, может ли стрелка вернуться на ноль.</p>
+<p>Каждому повороту ставим знак плюс или минус. Это как подмножества: взять с плюсом или с минусом. Вариантов 2 · 2 · 2 = 8 при n = 3. В задаче n не больше 15, это 32768 вариантов. Компьютер переберёт их мгновенно.</p>
+<p>Полный оборот это 360 градусов. Стрелка на нуле, когда сумма делится на 360. Для 10, 20, 30: 10 + 20 − 30 = 0, ответ YES. Для 10, 10, 10 ни одна из 8 сумм не делится на 360, ответ NO.</p>
+<pre><code class="py">def dfs(i, total):
+    if i == n:
+        return total % 360 == 0
+    return dfs(i + 1, total + a[i]) or dfs(i + 1, total - a[i])</code></pre>
+</section>
+
+<section aria-labelledby="s7">
+<h2 id="s7"><span class="n">7</span> Что нужно запомнить</h2>
+<ul>
+<li>Одинаковые ответы появляются, когда во входе есть одинаковые числа. Сначала <code>sort()</code>.</li>
+<li>Подмножества и сочетания: пропуск при <code>i &gt; start and nums[i] == nums[i - 1]</code>.</li>
+<li>Перестановки: пропуск, если такое же число слева ещё не использовано.</li>
+<li>Отсечение: ветка не может дать ответ, остановите её до вызова. После сортировки это <code>break</code>.</li>
+<li>Скобки: открыть, пока <code>opened &lt; n</code>; закрыть, пока <code>closed &lt; opened</code>.</li>
+</ul>
+</section>
+
+<section aria-labelledby="s8">
+<h2 id="s8"><span class="n">8</span> Как решать задачи этой главы</h2>
+<ol>
+<li>Прочитайте условие. Выпишите маленький пример и его ответ на бумаге.</li>
+<li>Решите, что перебираете: подмножества, перестановки или наборы с суммой. Возьмите шаблон из главы 2.</li>
+<li>Добавьте правило пропуска или отсечение. Проверьте код на своём примере, потом отправляйте.</li>
+</ol>
+</section>
+
+</main>
+</body>
+</html>

@@ -6,7 +6,7 @@ export const solvedSQL = "EXISTS(SELECT 1 FROM attempts a WHERE a.problem_id=p.i
 export const problemColumns = `p.id,p.slug,p.number,p.title,p.difficulty,p.topics,p.summary,p.version,p.progress_version AS progressVersion,p.understanding,
 p.next_review_date AS nextReviewDate,p.archived_at AS archivedAt,p.created_at AS createdAt,p.updated_at AS updatedAt,${solvedSQL} AS solved`;
 type ProblemRow = Omit<Problem, 'topics' | 'url' | 'solved'> & { topics: string; solved: number };
-export function problemValue(row: ProblemRow): Problem { return { ...row, topics: JSON.parse(row.topics), solved: Boolean(row.solved), url: `https://leetcode.com/problems/${row.slug}/` }; }
+export function problemValue(row: ProblemRow): Problem { return { ...row, topics: JSON.parse(row.topics), solved: Boolean(row.solved), url: problemUrl(row.slug) }; }
 export function searchText(value: string): string { return value.normalize('NFC').toLowerCase(); }
 
 export async function getProblem(env: Env, id: string): Promise<Problem> {
@@ -15,17 +15,24 @@ export async function getProblem(env: Env, id: string): Promise<Problem> {
 	return problemValue(row);
 }
 
-function slug(value: unknown): string {
+const INVALID_URL = 'Укажите ссылку на задачу LeetCode или Codeforces.';
+// A Codeforces problem is stored as cf-<contest>-<index>; the index is lower case.
+export function slug(value: unknown): string {
 	let url: URL;
-	try { url = new URL(text(value, 2000, true)); } catch { throw new HttpError(400, 'invalid_url', 'Укажите ссылку на задачу LeetCode.'); }
-	const match = /^\/problems\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\/|$)/.exec(url.pathname);
-	if (url.protocol !== 'https:' || url.hostname !== 'leetcode.com' || url.port || url.username || url.password || !match) throw new HttpError(400, 'invalid_url', 'Укажите ссылку на задачу LeetCode.');
-	return match[1];
+	try { url = new URL(text(value, 2000, true)); } catch { throw new HttpError(400, 'invalid_url', INVALID_URL); }
+	const leetcode = /^\/problems\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\/|$)/.exec(url.pathname), codeforces = /^\/(?:problemset\/problem\/(\d{1,6})|contest\/(\d{1,6})\/problem)\/([A-Za-z]\d?)(?:\/|$)/.exec(url.pathname);
+	const result = url.hostname === 'leetcode.com' && leetcode ? leetcode[1] : url.hostname === 'codeforces.com' && codeforces ? `cf-${codeforces[1] ?? codeforces[2]}-${codeforces[3].toLowerCase()}` : null;
+	if (url.protocol !== 'https:' || url.port || url.username || url.password || !result) throw new HttpError(400, 'invalid_url', INVALID_URL);
+	return result;
+}
+export function problemUrl(slug: string): string {
+	const codeforces = /^cf-(\d+)-([a-z]\d?)$/.exec(slug);
+	return codeforces ? `https://codeforces.com/problemset/problem/${codeforces[1]}/${codeforces[2].toUpperCase()}` : `https://leetcode.com/problems/${slug}/`;
 }
 
 function metadata(data: Record<string, unknown>): ProblemInput & { slug: string } {
 	const value = slug(data.url);
-	return { slug: value, url: `https://leetcode.com/problems/${value}/`, number: data.number === null ? null : integer(data.number), title: text(data.title, 200, true).trim(), difficulty: choice(data.difficulty, ['easy', 'medium', 'hard']), topics: topics(data.topics), summary: text(data.summary, 8000).trim() };
+	return { slug: value, url: problemUrl(value), number: data.number === null ? null : integer(data.number), title: text(data.title, 200, true).trim(), difficulty: choice(data.difficulty, ['easy', 'medium', 'hard']), topics: topics(data.topics), summary: text(data.summary, 8000).trim() };
 }
 
 export async function question<T>(titleSlug: string, fields: string): Promise<T | null> {
@@ -43,7 +50,12 @@ async function details(titleSlug: string): Promise<ProblemDetails> {
 
 export async function handleProblems(request: Request, env: Env): Promise<Response | null> {
 	const url = new URL(request.url);
-	if (url.pathname === '/leetcode/api/problem-details') { methods(request, ['GET']); return Response.json(await details(slug(url.searchParams.get('url')))); }
+	if (url.pathname === '/leetcode/api/problem-details') {
+		methods(request, ['GET']);
+		const value = slug(url.searchParams.get('url'));
+		if (value.startsWith('cf-')) throw new HttpError(400, 'lookup_unavailable', 'Автозаполнение есть только для задач LeetCode.');
+		return Response.json(await details(value));
+	}
 	const match = /^\/leetcode\/api\/problems(?:\/([^/]+)(?:\/(archive|restore))?)?$/.exec(url.pathname);
 	if (!match) return null;
 	const id = match[1] ? uuid(match[1]) : null;

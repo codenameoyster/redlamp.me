@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Считаем варианты</title>
+<style>
+:root{color-scheme:light dark;--paper:#f7f9fc;--surface:#fff;--sunken:#eef2f8;--ink:#1d2433;--muted:#5b6578;--line:#dbe2ec;--pen:#2f5bea;--pen-bg:#eaf0ff;--on-pen:#fff;--margin:#c93426;--margin-bg:#fdecea;--green:#1d7f54;--green-bg:#e4f4ec;--amber:#9a5a00;--amber-bg:#fff1d6;--grey:#7d8799;--sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+@media (prefers-color-scheme:dark){:root{--paper:#0f141d;--surface:#161d29;--sunken:#1d2635;--ink:#e7ecf4;--muted:#9ba7bb;--line:#2c384b;--pen:#8fa9ff;--pen-bg:#1d2a4a;--on-pen:#0f141d;--margin:#ff7b6b;--margin-bg:#3a1f1e;--green:#62d39c;--green-bg:#16301f;--amber:#f0c064;--amber-bg:#36290f;--grey:#7f8aa0}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 17px/1.6 var(--sans);overflow-wrap:break-word}
+main{max-width:46rem;margin:0 auto;padding:28px 16px 72px}
+h1{font-size:2rem;line-height:1.15;margin:0 0 12px;letter-spacing:-.01em}
+h2{font-size:1.4rem;line-height:1.3;margin:60px 0 10px;display:flex;gap:10px;align-items:baseline}
+h2 .n{font:600 .8rem/1 var(--mono);color:var(--margin);border:1px solid currentColor;border-radius:6px;padding:4px 6px;flex-shrink:0}
+h3{font-size:1.1rem;line-height:1.3;margin:28px 0 8px}
+h4{font-size:.9rem;margin:14px 0 6px;color:var(--muted)}
+p,ul,ol{margin:0 0 14px}
+ul,ol{padding-left:1.4rem}
+li{margin:4px 0}
+a{color:var(--pen);text-underline-offset:3px}
+sup{line-height:0}
+.lead{font-size:1.1rem;color:var(--muted)}
+.muted{color:var(--muted)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 18px;padding:0;list-style:none}
+.tags li{margin:0;font-size:13px;line-height:1.4;padding:3px 10px;border-radius:999px;background:var(--pen-bg);color:var(--pen)}
+h2+.tags{margin-top:-2px}
+nav ol{columns:2 15rem;column-gap:24px;padding-left:1.6rem}
+nav li{break-inside:avoid}
+code{font-family:var(--mono);font-size:.86em;background:var(--sunken);padding:1px 5px;border-radius:5px}
+pre{font:14px/1.55 var(--mono);background:var(--sunken);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;margin:0 0 14px;tab-size:4}
+pre code{background:none;padding:0;font-size:inherit;border-radius:0}
+pre.out{background:var(--surface);border-left:4px solid var(--green);white-space:pre-wrap}
+pre.out::before{content:"Output";display:block;font:600 12px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--green);margin-bottom:8px}
+.box{border-left:4px solid var(--pen);background:var(--pen-bg);padding:12px 16px;border-radius:0 10px 10px 0;margin:0 0 16px}
+.box p:last-child,.box ul:last-child,.box ol:last-child{margin-bottom:0}
+.example{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 16px;margin:0 0 16px}
+.example>:last-child{margin-bottom:0}
+.label{font:600 12px/1.2 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.tw{overflow-x:auto;margin:0 0 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+th{font-weight:600;background:var(--sunken)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.grid3 td{text-align:center;font:600 15px var(--mono);width:3rem}
+.grid3{width:auto}
+button{font:inherit;font-size:15px;font-weight:600;line-height:1.2;min-height:40px;padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer}
+button:hover{background:var(--sunken)}
+button.primary{background:var(--pen);border-color:var(--pen);color:var(--on-pen)}
+button[aria-pressed=true]{border-color:var(--pen);background:var(--pen-bg);color:var(--pen)}
+:focus-visible{outline:3px solid var(--pen);outline-offset:2px}
+input[type=text],input[type=number]{font:inherit;font-size:16px;min-height:40px;padding:6px 10px;border:1px solid var(--grey);border-radius:8px;background:var(--paper);color:var(--ink);width:6.5rem;min-width:0}
+input[type=checkbox],input[type=radio]{width:18px;height:18px;margin:0;accent-color:var(--pen);flex-shrink:0}
+fieldset{border:0;padding:0;margin:0;min-width:0}
+legend{font-size:14px;font-weight:600;color:var(--muted);padding:0;margin-bottom:6px}
+.widget{border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:16px;margin:24px 0}
+.widget h3{margin-top:0}
+.controls{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:flex-end;margin:0 0 12px}
+.controls>label{display:grid;gap:4px;font-size:14px;font-weight:600;color:var(--muted)}
+.controls>label.chk,.seg label{display:inline-flex;align-items:center;gap:8px;min-height:40px;color:var(--ink);font-size:15px;font-weight:500}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg label{border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;background:var(--paper)}
+.seg label:has(input:checked){border-color:var(--pen);background:var(--pen-bg)}
+.vals{width:9rem!important}
+.err{color:var(--margin);font-weight:600}
+dl.calc{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 14px;margin:0 0 12px;padding:12px 14px;background:var(--sunken);border-radius:10px}
+dl.calc dt{color:var(--muted);font-size:15px}
+dl.calc dd{margin:0;font-family:var(--mono);font-size:15px}
+dl.calc dd.big{font-size:1.25rem;font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0 0 12px}
+.chips li{margin:0;font:600 14px/1 var(--mono);padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper)}
+.groups{list-style:none;padding:0;margin:0 0 12px}
+.groups li{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.groups .key{font:600 14px var(--mono);color:var(--green);min-width:6.5rem}
+.groups .chips{margin:0}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.stepno{font-size:14px;color:var(--muted);margin-left:auto}
+.status{min-height:3.3em;margin:10px 0;padding:8px 12px;background:var(--sunken);border-radius:8px;font-size:15px}
+.tree{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:4px 0;margin:0 0 6px}
+.tree svg{display:block;margin:0 auto}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);margin:0 0 10px;padding:0;list-style:none}
+.legend li{margin:0;display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:50%;border:2px solid var(--muted);background:var(--surface)}
+.sw.cur{background:var(--pen);border-color:var(--pen)}
+.sw.on{background:var(--pen-bg);border-color:var(--pen)}
+.sw.saved{background:var(--green-bg);border-color:var(--green)}
+.sw.off{border:2px dashed var(--grey);background:var(--paper)}
+.sw.dead{background:var(--margin-bg);border-color:var(--margin)}
+.panes{display:grid;grid-template-columns:minmax(0,1fr);gap:4px 16px}
+.panes pre{margin-bottom:8px;font-size:13px}
+.res{white-space:pre-wrap;max-height:13rem;overflow:auto}
+.counters{font-size:14px;margin:0 0 8px}
+.code span{display:block;padding:0 8px;margin:0 -8px;border-radius:4px;white-space:pre}
+.code span.hot{background:var(--amber-bg);box-shadow:inset 3px 0 var(--amber)}
+.ed{stroke:var(--muted);stroke-width:1.5}
+.ed.fut{stroke:var(--line);stroke-dasharray:2 4}
+.ed.off{stroke:var(--grey);stroke-dasharray:4 3}
+.ed.on{stroke:var(--pen);stroke-width:3}
+.nd circle{fill:var(--surface);stroke:var(--muted);stroke-width:1.5}
+.nd text{fill:var(--ink);font:600 12px var(--mono);text-anchor:middle;dominant-baseline:central}
+.nd text.sub{font:500 10px var(--mono);fill:var(--muted);paint-order:stroke;stroke:var(--paper);stroke-width:3px}
+.nd.fut{opacity:.28}
+.nd.saved circle{fill:var(--green-bg);stroke:var(--green);stroke-width:2}
+.nd.on circle{fill:var(--pen-bg);stroke:var(--pen);stroke-width:2}
+.nd.off circle{fill:var(--paper);stroke:var(--grey);stroke-dasharray:3 3}
+.nd.off text{fill:var(--muted)}
+.nd.dead circle{fill:var(--margin-bg);stroke:var(--margin)}
+.nd.cur circle{fill:var(--pen);stroke:var(--pen);stroke-width:3}
+.nd.cur text.v{fill:var(--on-pen)}
+.nd.mark circle{stroke:var(--amber);stroke-width:3;stroke-dasharray:none}
+.check{border:1px solid var(--line);border-left:4px solid var(--amber);background:var(--surface);border-radius:0 12px 12px 0;padding:14px 16px;margin:20px 0}
+.check>p{margin-bottom:10px}
+.try{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin:0 0 8px}
+.try label{display:grid;gap:4px;font-size:14px;font-weight:600;color:var(--muted)}
+.verdict{margin:0 0 8px!important;font-weight:600}
+.verdict.ok{color:var(--green)}
+.verdict.no{color:var(--margin)}
+.ans{margin-top:10px;padding:10px 14px;background:var(--green-bg);border-radius:8px}
+.ans>:last-child{margin-bottom:0}
+.check pre{font-size:13px}
+.bug{background:var(--margin-bg);box-shadow:inset 3px 0 var(--margin);display:inline-block;min-width:100%}
+.stages{list-style:none;padding:0}
+.stages li{border-left:3px solid var(--line);padding:2px 0 2px 14px;margin:0 0 12px}
+.stages b{display:block}
+@media (max-width:30rem){table{font-size:14px}th,td{padding:6px 5px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>Считаем варианты</h1>
+<p class="lead">Прежде чем писать перебор, посчитайте, сколько вариантов он найдёт. В этой главе два правила счёта, факториал и первые формулы для выбора.</p>
+</header>
+
+<nav aria-labelledby="toc">
+<h2 id="toc">Содержание</h2>
+<ol>
+<li><a href="#s1">Зачем считать до кода</a></li>
+<li><a href="#s2">Правило произведения</a></li>
+<li><a href="#s3">Правило суммы</a></li>
+<li><a href="#s4">Перестановки и n!</a></li>
+<li><a href="#s5">Выбор k из n по порядку</a></li>
+<li><a href="#s6">Когда порядок не важен</a></li>
+<li><a href="#s7">Подмножества</a></li>
+<li><a href="#s8">Что нужно запомнить</a></li>
+<li><a href="#s9">Как решать задачи этой главы</a></li>
+</ol>
+</nav>
+
+<section aria-labelledby="s1">
+<h2 id="s1"><span class="n">1</span> Зачем считать до кода</h2>
+<p>Пароль состоит из 4 цифр. Сколько есть разных паролей? На первом месте любая из 10 цифр. На втором тоже 10. На третьем и четвёртом тоже по 10. Всего 10 · 10 · 10 · 10 = 10 000 паролей.</p>
+<p>Программа, которая перебирает все пароли, делает 10 000 шагов. Это быстро. Если пароль из 10 цифр, шагов уже 10 миллиардов. Это долго. Поэтому сначала считаем, потом пишем код.</p>
+</section>
+
+<section aria-labelledby="s2">
+<h2 id="s2"><span class="n">2</span> Правило произведения</h2>
+<p>У вас 3 футболки и 4 пары штанов. Сколько есть разных нарядов? К каждой футболке подходят 4 пары штанов. Футболок 3, значит нарядов 3 · 4 = 12.</p>
+<p>Ещё пример. Из дома до школы ведут 2 дороги, от школы до бассейна 3 дороги. Маршрутов от дома до бассейна 2 · 3 = 6.</p>
+<div class="box">
+<p><b>Правило произведения.</b> Если первый выбор делают a способами, а второй выбор b способами, и выборы не зависят друг от друга, то пар получается a · b.</p>
+</div>
+<pre><code>shirts = 3
+trousers = 4
+print(shirts * trousers)  # 12</code></pre>
+</section>
+
+<section aria-labelledby="s3">
+<h2 id="s3"><span class="n">3</span> Правило суммы</h2>
+<p>До школы идут 3 автобуса и 2 трамвая. Вы едете или на автобусе, или на трамвае. Сколько есть способов доехать? Вы выбираете один транспорт, а не пару. Способов 3 + 2 = 5.</p>
+<div class="box">
+<p><b>Правило суммы.</b> Если выбирают или один вариант из a, или один из b, и варианты не повторяются, то всего a + b вариантов.</p>
+</div>
+<p>Как отличить правила. Слово «и» значит умножить: футболка и штаны. Слово «или» значит сложить: автобус или трамвай.</p>
+</section>
+
+<section aria-labelledby="s4">
+<h2 id="s4"><span class="n">4</span> Перестановки и n!</h2>
+<p>На полке 4 разные книги. Сколько есть способов расставить их в ряд? На первое место можно поставить любую из 4 книг. На второе любую из 3 оставшихся. На третье любую из 2. На четвёртое последнюю. По правилу произведения 4 · 3 · 2 · 1 = 24.</p>
+<p>Такой ряд называют перестановкой. Число 4 · 3 · 2 · 1 записывают как 4! и читают «четыре факториал».</p>
+<div class="box">
+<p><b>Факториал.</b> n! это произведение всех чисел от 1 до n. Число перестановок n разных предметов равно n!.</p>
+</div>
+<div class="tw"><table>
+<caption class="label" style="text-align:left;padding:10px 12px 0">Факториалы до 10!</caption>
+<thead><tr><th scope="col">n</th><th scope="col" class="num">n!</th><th scope="col">n</th><th scope="col" class="num">n!</th></tr></thead>
+<tbody>
+<tr><td>1</td><td class="num">1</td><td>6</td><td class="num">720</td></tr>
+<tr><td>2</td><td class="num">2</td><td>7</td><td class="num">5 040</td></tr>
+<tr><td>3</td><td class="num">6</td><td>8</td><td class="num">40 320</td></tr>
+<tr><td>4</td><td class="num">24</td><td>9</td><td class="num">362 880</td></tr>
+<tr><td>5</td><td class="num">120</td><td>10</td><td class="num">3 628 800</td></tr>
+</tbody></table></div>
+<p>Факториал растёт очень быстро. Перебрать все 10! порядков ещё можно, а 15! уже нет.</p>
+<pre><code>def factorial(n):
+    result = 1
+    for i in range(1, n + 1):
+        result = result * i
+    return result
+
+print(factorial(5))  # 120</code></pre>
+</section>
+
+<section aria-labelledby="s5">
+<h2 id="s5"><span class="n">5</span> Выбор k из n по порядку</h2>
+<p>В забеге 8 бегунов. Золото, серебро и бронзу получат трое. Сколько есть способов раздать медали? Золото может получить любой из 8. Серебро любой из 7 оставшихся. Бронзу любой из 6. Всего 8 · 7 · 6 = 336.</p>
+<p>Здесь порядок важен: золото у Пети и серебро у Маши не то же самое, что золото у Маши и серебро у Пети.</p>
+<div class="box">
+<p><b>Правило.</b> Чтобы выбрать k предметов из n по порядку, перемножьте k чисел: n, потом n − 1, потом n − 2, и так k раз.</p>
+</div>
+<p>Проверьте: пин-код из 3 разных цифр. 10 · 9 · 8 = 720 кодов.</p>
+</section>
+
+<section aria-labelledby="s6">
+<h2 id="s6"><span class="n">6</span> Когда порядок не важен</h2>
+<p>Из 5 друзей надо выбрать команду из 2 человек. Считаем по порядку: первого выбираем из 5, второго из 4. Получаем 5 · 4 = 20. Но пара «Петя и Маша» и пара «Маша и Петя» это одна команда. Каждую команду мы посчитали 2 раза. Значит команд 20 / 2 = 10.</p>
+<p>Команда из 3 из тех же 5 друзей. По порядку 5 · 4 · 3 = 60. Трёх человек можно записать в ряд 3! = 6 способами. Каждую команду посчитали 6 раз. Команд 60 / 6 = 10.</p>
+<div class="box">
+<p><b>Сочетания.</b> Число команд из k человек из n записывают как C(n, k). Считайте выбор по порядку, потом делите на k!.</p>
+</div>
+<div class="tw"><table>
+<caption class="label" style="text-align:left;padding:10px 12px 0">Маленькая таблица C(n, k)</caption>
+<thead><tr><th scope="col">n</th><th scope="col" class="num">k = 0</th><th scope="col" class="num">k = 1</th><th scope="col" class="num">k = 2</th><th scope="col" class="num">k = 3</th><th scope="col" class="num">k = 4</th><th scope="col" class="num">k = 5</th></tr></thead>
+<tbody>
+<tr><td>3</td><td class="num">1</td><td class="num">3</td><td class="num">3</td><td class="num">1</td><td></td><td></td></tr>
+<tr><td>4</td><td class="num">1</td><td class="num">4</td><td class="num">6</td><td class="num">4</td><td class="num">1</td><td></td></tr>
+<tr><td>5</td><td class="num">1</td><td class="num">5</td><td class="num">10</td><td class="num">10</td><td class="num">5</td><td class="num">1</td></tr>
+</tbody></table></div>
+<p>Посмотрите на строку n = 5: C(5, 2) = 10 и C(5, 3) = 10. Выбрать 2 человек в команду это то же самое, что выбрать 3 человек, которые останутся. Поэтому C(n, k) = C(n, n − k).</p>
+<pre><code>from math import comb
+
+print(comb(5, 2))  # 10
+print(comb(10, 3), comb(10, 7))  # 120 120</code></pre>
+</section>
+
+<section aria-labelledby="s7">
+<h2 id="s7"><span class="n">7</span> Подмножества</h2>
+<p>В рюкзак можно положить яблоко, грушу и сливу. Сколько есть разных наборов? Про яблоко решаем: берём или нет, 2 варианта. Про грушу тоже 2. Про сливу тоже 2. Всего 2 · 2 · 2 = 8 наборов. Один из них пустой, один содержит все три фрукта.</p>
+<p>Вот все 8: пусто; яблоко; груша; слива; яблоко и груша; яблоко и слива; груша и слива; яблоко, груша и слива. Каждый такой набор называют подмножеством.</p>
+<div class="box">
+<p><b>Правило.</b> У n предметов 2<sup>n</sup> подмножеств. Для 4 предметов 16, для 10 предметов 1024, для 20 предметов 1 048 576.</p>
+</div>
+</section>
+
+<section aria-labelledby="s8">
+<h2 id="s8"><span class="n">8</span> Что нужно запомнить</h2>
+<ul>
+<li>«И» значит умножить, «или» значит сложить.</li>
+<li>n разных предметов стоят в ряд n! способами. 5! = 120.</li>
+<li>Выбор k из n по порядку: k множителей от n вниз. 8 · 7 · 6 = 336.</li>
+<li>Порядок не важен: посчитайте по порядку и разделите на k!. C(5, 2) = 20 / 2 = 10.</li>
+<li>У n предметов 2<sup>n</sup> подмножеств. 2<sup>4</sup> = 16.</li>
+</ul>
+</section>
+
+<section aria-labelledby="s9">
+<h2 id="s9"><span class="n">9</span> Как решать задачи этой главы</h2>
+<ol>
+<li>Прочитайте условие и решите на бумаге маленький пример из него.</li>
+<li>Найдите, где выбор «и», а где «или». Запишите формулу и проверьте её на примере из условия.</li>
+<li>Только потом пишите код. В Python есть <code>math.comb</code> и <code>math.factorial</code>.</li>
+</ol>
+</section>
+</main>
+</body>
+</html>

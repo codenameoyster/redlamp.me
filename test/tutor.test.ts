@@ -166,23 +166,26 @@ it.each([
 	{ name: 'draft before a newer saved attempt', kind: 'problem', work: [['draft', 'draft code', null], ['saved', 'saved code', '2026-10-02T10:00:00.000Z']], statement: '<p>Text</p>', includes: ['draft code'], excludes: ['saved code'] },
 	{ name: 'statement fetch fails', kind: 'problem', statement: 500, includes: ['Problem: 1. Two Sum (easy)'], excludes: ['LeetCode statement'] },
 	{ name: 'paid-only statement', kind: 'problem', statement: null, includes: ['Problem: 1. Two Sum (easy)'], excludes: ['LeetCode statement'] },
+	{ name: 'Codeforces problem has no LeetCode statement', kind: 'problem', slug: 'cf-1-a', includes: ['Problem: 1. Two Sum (easy)'], excludes: ['LeetCode statement'] },
 	{ name: 'field over its cap', kind: 'problem', work: [['draft', 'x'.repeat(13_000), null]], statement: null, includes: [/Current draft:\n[\s\S]{12000} \[cut\]\n<\/context>$/], excludes: [] },
-	{ name: 'quote selects a section', kind: 'set', quote: 'A backtracking search builds an answer one decision at a time. Draw these decisions as a tree before you write code.', includes: ['Learning set: Permutations and combinations', /Lesson text \(sections 5-\d+ of 16\)\. The rest is cut\.\n## 3 The decision tree\n/], excludes: ['You make k independent choices.'] },
-	{ name: 'set without a quote', kind: 'set', includes: ['Lesson text (sections 1-16 of 16).\n', 'Warm-up: 1863. Sum of All Subset XOR Totals (easy). Visit all 2^n subsets'], excludes: ['The rest is cut'] },
+	{ name: 'quote selects a section', kind: 'set', quote: 'Рекурсия это функция, которая вызывает сама себя. Для дерева это удобно.', includes: ['Learning set: Перестановки и сочетания', /Lesson text \(sections 15-39 of 39\)\. The rest is cut\.\n## 3 Рекурсия простыми словами\n/], excludes: ['К каждой футболке подходят 4 пары штанов.'] },
+	{ name: 'set without a quote', kind: 'set', includes: ['Lesson text (sections 1-39 of 39).\n', 'Chapters:\n1. Считаем варианты: Прежде чем писать перебор, посчитайте варианты. Правило произведения, правило суммы, факториал, выбор по порядку и без порядка, подмножества.\nMatching (Codeforces 1821A, easy). Codeforces, рейтинг 800. Каждый знак ? даёт 10 вариантов', '\n2. Перебор: подмножества, перестановки, сочетания: Один шаблон на Python выписывает все варианты: выбрать, пойти глубже, отменить. Индекс start даёт наборы без порядка, список used даёт перестановки.\nLetter Case Permutation (LeetCode 784, medium).'], excludes: ['The rest is cut'] },
 	{ name: 'lesson', kind: 'lesson', includes: ['Lesson: Recursion', 'Lesson outline:\n# Recursion\n## Base case\n## Depth', 'Lesson text (sections 1-3 of 3).\n# Recursion\nA function calls itself.'], excludes: ['The rest is cut'] },
 	{ name: 'lesson quote from section 2', kind: 'lesson', quote: 'Each  circle is\none call', includes: ['Lesson text (sections 2-3 of 3). The rest is cut.\n## Base case'], excludes: ['A function calls itself.'] },
-] as { name: string; kind: string; task?: boolean; work?: [string, string, string | null][]; statement?: string | number | null; quote?: string; includes: (string | RegExp)[]; excludes: string[] }[])('$name', async ({ kind, task, work, statement, quote, includes, excludes }) => {
+] as { name: string; kind: string; task?: boolean; slug?: string; work?: [string, string, string | null][]; statement?: string | number | null; quote?: string; includes: (string | RegExp)[]; excludes: string[] }[])('$name', async ({ kind, task, slug, work, statement, quote, includes, excludes }) => {
+	if (slug) await env.DB.prepare('UPDATE problems SET slug=? WHERE id=?').bind(slug, PROBLEM).run();
 	if (task) await env.DB.batch([
 		env.DB.prepare("INSERT INTO homework (id,title,instructions,due_date,created_at,updated_at) VALUES (?,'Week 41','Use a hash map.','2026-10-12','now','now')").bind(HOMEWORK),
 		env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) VALUES (?,?,?,'in_progress','now','now')").bind(crypto.randomUUID(), HOMEWORK, PROBLEM),
 	]);
 	for (const [state, code, savedAt] of work ?? []) await env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at,saved_at) VALUES (?,?,?,?,'','not_submitted','needs_practice','now','now',?)")
 		.bind(crypto.randomUUID(), PROBLEM, state, JSON.stringify({ notes: 'My notes', approaches: [{ ...approach, code }] }), savedAt).run();
-	const spy = upstream({ [RESPONSES]: [answer], [GRAPHQL]: kind === 'problem' ? [() => typeof statement === 'number' ? new Response('Busy', { status: statement }) : Response.json({ data: { question: { content: statement } } })] : [] });
+	const spy = upstream({ [RESPONSES]: [answer], [GRAPHQL]: kind === 'problem' && !slug ? [() => typeof statement === 'number' ? new Response('Busy', { status: statement }) : Response.json({ data: { question: { content: statement } } })] : [] });
 	const response = await request('/tutor/messages', 'POST', send({ kind, id: { problem: PROBLEM, set: SET, lesson: LESSON }[kind], quote: quote ?? null }), student);
 	expect(response.status).toBe(200);
 	expect(await events(response)).toEqual([{ delta: 'Hi' }, { done: true }]);
-	if (kind === 'problem') expect(JSON.parse(String(spy.mock.calls[0][1]?.body))).toMatchObject({ variables: { titleSlug: 'two-sum' }, query: expect.stringContaining('content') });
+	if (kind === 'problem' && !slug) expect(JSON.parse(String(spy.mock.calls[0][1]?.body))).toMatchObject({ variables: { titleSlug: 'two-sum' }, query: expect.stringContaining('content') });
+	if (slug) expect(spy.mock.calls.filter(([target]) => String(target) === GRAPHQL)).toEqual([]);
 	const context = sent(spy)[0].input.at(-2)!.content;
 	for (const pattern of includes) expect(context).toMatch(pattern);
 	for (const text of excludes) expect(context).not.toContain(text);
@@ -197,8 +200,8 @@ it.each([
 ])('$name', ({ html, expected }) => { expect(htmlText(html)).toBe(expected); });
 
 it.each([
-	{ name: 'newest first', messages: [['problem', PROBLEM, minute(0)], ['set', SET, minute(60)]], expected: [{ kind: 'set', id: SET, title: 'Permutations and combinations', count: 1, lastAt: minute(60) }, { kind: 'problem', id: PROBLEM, title: 'Two Sum', count: 1, lastAt: minute(0) }] },
-	{ name: 'titles', messages: [['problem', PROBLEM, minute(2)], ['lesson', LESSON, minute(1)], ['set', SET, minute(0)]], expected: [{ kind: 'problem', id: PROBLEM, title: 'Two Sum', count: 1, lastAt: minute(2) }, { kind: 'lesson', id: LESSON, title: 'Recursion', count: 1, lastAt: minute(1) }, { kind: 'set', id: SET, title: 'Permutations and combinations', count: 1, lastAt: minute(0) }] },
+	{ name: 'newest first', messages: [['problem', PROBLEM, minute(0)], ['set', SET, minute(60)]], expected: [{ kind: 'set', id: SET, title: 'Перестановки и сочетания', count: 1, lastAt: minute(60) }, { kind: 'problem', id: PROBLEM, title: 'Two Sum', count: 1, lastAt: minute(0) }] },
+	{ name: 'titles', messages: [['problem', PROBLEM, minute(2)], ['lesson', LESSON, minute(1)], ['set', SET, minute(0)]], expected: [{ kind: 'problem', id: PROBLEM, title: 'Two Sum', count: 1, lastAt: minute(2) }, { kind: 'lesson', id: LESSON, title: 'Recursion', count: 1, lastAt: minute(1) }, { kind: 'set', id: SET, title: 'Перестановки и сочетания', count: 1, lastAt: minute(0) }] },
 	{ name: 'count', messages: [0, 1, 2, 3].map(i => ['lesson', LESSON, minute(i)]), expected: [{ kind: 'lesson', id: LESSON, title: 'Recursion', count: 4, lastAt: minute(3) }] },
 ])('$name', async ({ messages, expected }) => {
 	await env.DB.batch(messages.map(([kind, ref, at]) => message(kind, ref, 'student', 'Why?', null, at)));

@@ -16,6 +16,8 @@ const cases = [
 	{ name: 'signed-in task page without an ID', path: '/leetcode/tasks', signedIn: true, status: 404, type: 'application/json' },
 	{ name: 'signed-in sets page', path: '/leetcode/sets', signedIn: true, status: 200, type: 'text/html' },
 	{ name: 'signed-in set page', path: '/leetcode/sets/permutations-and-combinations', signedIn: true, status: 200, type: 'text/html' },
+	{ name: 'signed-in chapter page', path: '/leetcode/sets/permutations-and-combinations/2', signedIn: true, status: 200, type: 'text/html' },
+	{ name: 'signed-in chapter page with number zero', path: '/leetcode/sets/permutations-and-combinations/0', signedIn: true, status: 404, type: 'application/json' },
 	{ name: 'signed-in tutor page', path: '/leetcode/tutor', signedIn: true, status: 200, type: 'text/html' },
 	{ name: 'signed-in quiz page', path: '/leetcode/quiz', signedIn: true, status: 200, type: 'text/html' },
 	{ name: 'signed-in deck page', path: '/leetcode/quiz/permutations-and-combinations', signedIn: true, status: 200, type: 'text/html' },
