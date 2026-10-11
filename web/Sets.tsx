@@ -16,7 +16,7 @@ export function Sets({ user, slug, chapter }: { user: SessionUser; slug?: string
 }
 function SetList() {
 	const sets = useResource<LearningSetSummary[]>('/sets');
-	return <div className="stack"><div className="heading"><div><h1>Наборы</h1><p>Прочитайте главу. Затем решите её задачи по порядку.</p></div></div>
+	return <div className="stack"><div className="heading"><div><h1>Бомжарня</h1><p>Темы по порядку: теория, задачи, квиз.</p></div></div>
 		{sets.error && <p className="error" role="alert">{sets.error}</p>}
 		<div className="lesson-grid">{sets.data?.map(s => <article className="card card-pad stack" key={s.slug}><h2><a href={`/leetcode/sets/${s.slug}`}>{s.title}</a></h2><p>{s.summary}</p><div className="tags">{s.topics.map(t => <span className="tag" key={t}>{t}</span>)}</div><div className="row small"><span>{plural(s.chapterCount, ['глава', 'главы', 'глав'])}</span><span>{s.acceptedCount} из {s.taskCount} заданий принято</span></div></article>)}</div>
 	</div>;

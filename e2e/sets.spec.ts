@@ -7,7 +7,8 @@ function row(page: Page, title: string) { return page.getByRole('article').filte
 
 test('assigns set tasks to new and existing homework', async ({ page, context }) => {
 	await signIn(page, 'parent');
-	await page.getByRole('link', { name: 'Наборы', exact: true }).click();
+	await page.getByRole('link', { name: 'Бомжарня', exact: true }).click();
+	await expect(page.getByRole('heading', { name: 'Бомжарня', level: 1 })).toBeVisible();
 	await page.getByRole('link', { name: 'Перестановки и сочетания', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'Перестановки и сочетания', level: 1 })).toBeVisible();
 	await expect(page.getByRole('link', { name: 'Открыть главу', exact: true })).toHaveCount(4);
@@ -124,10 +125,10 @@ test('fits the set pages at the mobile width', async ({ page }, testInfo) => {
 	expect(await page.getByRole('dialog').evaluate(dialog => dialog.scrollWidth <= dialog.clientWidth)).toBe(true);
 });
 
-test('links a set as a related lesson of a problem', async ({ page, notebook }) => {
+test('links a set as material of a problem', async ({ page, notebook }) => {
 	await signIn(page, 'parent');
 	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
-	await page.getByRole('combobox', { name: 'Связанный урок', exact: true }).selectOption({ label: 'Перестановки и сочетания' });
+	await page.getByRole('combobox', { name: 'Набор', exact: true }).selectOption({ label: 'Перестановки и сочетания' });
 	await page.getByRole('button', { name: 'Привязать', exact: true }).click();
 	await expect(page.getByRole('button', { name: 'Отвязать Перестановки и сочетания', exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Перестановки и сочетания', exact: true }).click();

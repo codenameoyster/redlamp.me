@@ -6,7 +6,6 @@ import { HttpError, methods } from './http';
 import { handleProblems } from './problems';
 import { handleAttempts } from './attempts';
 import { handleHomework } from './homework';
-import { handleLessons } from './lessons';
 import { handleReviews } from './reviews';
 import { handleSets } from './sets';
 import { handleChatgpt } from './chatgpt';
@@ -32,7 +31,7 @@ async function route(request: Request, env: Env, path: string): Promise<Response
 	const user = await readSession(request, env);
 	if (path.startsWith('/leetcode/api/')) {
 		if (!user) throw new HttpError(401, 'unauthorized', 'Войдите, чтобы продолжить.');
-		const response = await handleProblems(request, env) ?? await handleAttempts(request, env, user) ?? await handleHomework(request, env, user) ?? await handleLessons(request, env, user) ?? await handleReviews(request, env, user) ?? await handleSets(request, env, user) ?? await handleChatgpt(request, env, user) ?? await handleTutor(request, env, user) ?? await handleQuiz(request, env, user);
+		const response = await handleProblems(request, env) ?? await handleAttempts(request, env, user) ?? await handleHomework(request, env, user) ?? await handleReviews(request, env, user) ?? await handleSets(request, env, user) ?? await handleChatgpt(request, env, user) ?? await handleTutor(request, env, user) ?? await handleQuiz(request, env, user);
 		if (response) return response;
 		throw new HttpError(404, 'not_found', 'Такого запроса к тетради нет.');
 	}

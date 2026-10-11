@@ -8,7 +8,7 @@ export function TutorPage({ user }: { user: SessionUser }) {
 	return <div className="stack"><div className="heading"><div><h1>ИИ-репетитор</h1><p>{user.role === 'parent' ? 'Подключите ChatGPT для репетитора, который даёт подсказки. Читайте чаты ученика.' : 'Эта страница для родителя.'}</p></div></div>{user.role === 'parent' && <><Connection /><Threads /></>}</div>;
 }
 
-const kinds = { problem: 'Задача', set: 'Набор', lesson: 'Урок' };
+const kinds = { problem: 'Задача', set: 'Набор' };
 function Threads() {
 	const [offset, setOffset] = useState(0);
 	const threads = useResource<Page<TutorThread>>(`/tutor/threads?offset=${offset}`);

@@ -10,7 +10,7 @@ function remember(open: boolean) {
 	try { if (open) localStorage.setItem('leetcode:tutor', 'open'); else localStorage.removeItem('leetcode:tutor'); } catch { /* The panel stays available on this page. */ }
 }
 function stored() { try { return localStorage.getItem('leetcode:tutor') === 'open'; } catch { return false; } }
-// ponytail: one lesson frame per page (LessonView or SetView). Match all frames if a page ever shows two.
+// ponytail: one lesson frame per page (ChapterPage). Match all frames if a page ever shows two.
 const lessonFrame = () => document.querySelector<HTMLIFrameElement>('iframe.lesson-frame');
 // The frame origin is opaque ("null"), so '*' is the only target that matches. The quote is lesson text, not a secret.
 const highlightLesson = (quote: string) => lessonFrame()?.contentWindow?.postMessage({ type: 'highlight', quote }, '*');

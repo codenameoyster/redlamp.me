@@ -1,6 +1,6 @@
 # LeetCode notebook
 
-The private notebook at `https://redlamp.me/leetcode` supports one parent and one student. Use LeetCode for code runs and submissions. Use this notebook for explanations, saved attempts, homework, feedback, lessons, and review reminders.
+The private notebook at `https://redlamp.me/leetcode` supports one parent and one student. Use LeetCode for code runs and submissions. Use this notebook for explanations, saved attempts, homework, feedback, learning sets, and review reminders.
 
 The application uses the existing Worker, one D1 database, React, and Bun. Workers Free and D1 Free require no billing subscription for this setup. Long answers of the AI tutor can need Workers Paid. See [AI tutor](#ai-tutor).
 
@@ -46,36 +46,30 @@ Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and wa
 - Record LeetCode acceptance and understanding separately. An accepted solution can still need practice.
 - As the parent, create homework on the **Homework** page. Give it a title, instructions, and an optional due date. Use **Edit homework** to change these details later.
 - On the homework page, use **Add a task** to add a problem from the library. Each task has its own review state. A problem can have only one active task in all homework.
-- The parent can link lessons to problems and homework. A task page shows the lessons of its homework.
+- The parent can link learning sets to problems and homework in **Materials**. A task page shows the materials of its homework.
 - As the student, open a task from **Today**, the homework page, or the problem page. Submit an exact attempt for review. The parent can request another attempt or complete the task.
 - A red dot before a homework or a task shows a message or a review decision from the other account that you did not read. Open the discussion of the task or the problem to remove the dot.
 - Use **Recall this problem** to practise before revealing saved work. Record the result. Choose the next review date.
 - **Archive problem** moves a problem to **Archived problems** in the library and blocks new homework tasks for it. **Restore problem** returns it.
 - If a save fails, keep the page open. Use **Retry save** or **Copy unsaved work**. Reload recovery is available in the same tab when browser session storage works. Conflicting edits require an explicit choice of the server copy.
 
-## HTML lessons
-
-The parent can upload `.html` or `.htm` files. Each file must be valid UTF-8 and at most 1,000,000 bytes. Embed CSS, JavaScript, images, fonts, and media in the file. External scripts, relative files, network APIs, and persistent browser storage are unavailable.
-
-The viewer permits inline JavaScript in an isolated frame. Its HTTP content security policy also applies to full-page display. Both display and download require login. **Download original** returns the uploaded UTF-8 bytes. Archive hides lessons from new links while preserving existing links. Upload a new lesson to change its HTML content.
-
-For the student, the Worker adds a short script at the end of each lesson. This applies to uploaded lessons and set lessons. In the frame, the script shows **Explain with AI** below the selected text. Ctrl+Enter or Cmd+Enter does the same. The AI tutor then explains the selected text. When an answer quotes the lesson, **Show in the lesson** marks the passage in the frame. In full-page display, the script does nothing. **Download original** and the display for the parent do not contain the script. A script in an uploaded lesson can also send an explain request. This request uses the ChatGPT plan of the parent, and the parent can read it in the chat.
-
 ## Learning sets
 
-A learning set is a sequence of chapters about one subject. Each chapter has a lesson, a list of problems and a deck of quiz cards. The sets are content in the repository. A deployment publishes them. The **Sets** page is read-only for both roles.
+A learning set is a sequence of chapters about one subject. Each chapter has a lesson, a list of problems and a deck of quiz cards. The sets are content in the repository. A deployment publishes them. The **Бомжарня** page lists the sets. It is read-only for both roles.
 
-A set page shows the reading links and the chapters. A chapter row shows the accepted problem count and the quiz card counts. A chapter page shows the chapter lesson in an isolated frame, the problems and a link to the chapter quiz. A problem row shows **Accepted** when the library problem has an accepted saved attempt. A problem row with an active homework task shows the task state. The state links to the task.
+A set page shows the reading links and the chapters. A chapter row shows the accepted problem count and the quiz card counts. A chapter page shows the chapter lesson in an isolated frame, the problems and a link to the chapter quiz. The frame permits inline JavaScript. Its HTTP content security policy also applies to full-page display. A problem row shows **Accepted** when the library problem has an accepted saved attempt. A problem row with an active homework task shows the task state. The state links to the task.
 
 As the parent, use **Add to homework** on a problem row. The dialog shows the active homework. Use the search box to find homework by title. Use **Assign** to add the problem to that homework. Use **Create and assign** to create new homework with the problem in one step. The notebook adds the problem to the library when the library does not have it. A problem with an active task has no **Add to homework** button.
 
-The parent can also link a set to a problem or to homework. Choose the set in the **Sets** group of **Related lesson**. The link opens the set page.
+For the student, the Worker adds a short script at the end of each chapter lesson. In the frame, the script shows **Explain with AI** below the selected text. Ctrl+Enter or Cmd+Enter does the same. The AI tutor then explains the selected text. When an answer quotes the lesson, **Show in the lesson** marks the passage in the frame. In full-page display, the script does nothing. The display for the parent does not contain the script.
+
+The parent can also link a set to a problem or to homework. Choose the set in **Materials**. The link opens the set page.
 
 To add a set:
 
 1. Create the folder `src/leetcode/sets/<slug>/`. Use lowercase letters, digits, and dashes in the slug.
 2. Write `chapter<N>.ts` for each chapter. Export the chapter data as the default export. Type it with `satisfies Chapter`. Give the chapter a title, a summary, its tasks and its cards. For each task, use the problem slug from its LeetCode URL.
-3. Write `chapter<N>.html` for each chapter. Use one self-contained UTF-8 file of at most 1,000,000 bytes. The rules for uploaded lessons apply.
+3. Write `chapter<N>.html` for each chapter. Use one self-contained UTF-8 file. Embed CSS, JavaScript, images, and fonts in the file. External scripts, relative files, network APIs, and persistent browser storage are unavailable.
 4. Write `set.ts`. Export the set data as the default export. Type it with `satisfies LearningSet`. Import the chapters into `chapters` in reading order.
 5. In `src/leetcode/sets/index.ts`, import the set and its chapter lessons. Add them to `sets` with `lessons: [...]` in chapter order. The order of `sets` is the display order.
 6. Run `bun run test`. `test/sets.test.ts` checks each set: unique set and task slugs, the slug format, a title, a summary and at least one task for each chapter, https links, one lesson for each chapter, the lesson size, and the card ids, options and answers.
@@ -106,7 +100,7 @@ After the connection, select the model in **Model**. The list contains the model
 
 The tutor gives hints. It does not write the solution, also when the student asks for it. For a new question about how to solve a problem, it asks one guiding question. When the student asks for more help, it names the idea, then gives the key step on a small example, and then names the parts of the function. When the student asks it to check the code, it tells about one bug in each answer and gives a small input that shows the bug. It does not write the corrected code. The rules are in `src/leetcode/tutor-prompt.txt`.
 
-Each problem, set and lesson has one chat. A task page shows the chat of its problem. The student selects **Ask AI** on these pages. On a screen of 1400 px and wider, the chat panel stays open beside the page, also on the next page. On a smaller screen, the panel opens over the page. Ctrl+Enter or Cmd+Enter sends the message. The parent selects **Read AI chat** on the same pages, or opens a chat from **Chats** on the **AI tutor** page. On a set or lesson page, the student can also select text in the lesson and choose **Explain with AI**. See [HTML lessons](#html-lessons).
+Each problem and set has one chat. A task page shows the chat of its problem. The student selects **Ask AI** on these pages. On a screen of 1400 px and wider, the chat panel stays open beside the page, also on the next page. On a smaller screen, the panel opens over the page. Ctrl+Enter or Cmd+Enter sends the message. The parent selects **Read AI chat** on the same pages, or opens a chat from **Chats** on the **AI tutor** page. On a chapter page, the student can also select text in the lesson and choose **Explain with AI**. See [Learning sets](#learning-sets).
 
 Only the student can send questions. The parent can read every chat. The notebook keeps a turn only when the answer is complete. If an answer stops, the student sends the question again.
 
@@ -183,7 +177,7 @@ bun run deploy
 
 The production origin is `redlamp.me`. Notebook reads on `www.redlamp.me` redirect to that origin. Sessions expire after seven days. Login permits approximately ten attempts per source IP per minute at each Cloudflare location.
 
-Check login, logout, a normal draft save, and a 1,000,000-byte lesson upload and display on the deployed Worker. Use the Cloudflare dashboard's Worker CPU and D1 usage measurements. Confirm that these requests fit the Free limit of 10 ms CPU per invocation. Local timing does not establish edge CPU usage.
+Check login, logout, and a normal draft save on the deployed Worker. Use the Cloudflare dashboard's Worker CPU and D1 usage measurements. Confirm that these requests fit the Free limit of 10 ms CPU per invocation. Local timing does not establish edge CPU usage.
 
 ## Credential rotation
 

@@ -3,7 +3,7 @@ import type { Attempt, AttemptSummary, Feedback, Homework as Bundle, HomeworkDet
 import { api, message } from './api';
 import { useResource } from './useResource';
 import { AttemptContent, attemptLabel } from './Problem';
-import { LessonLinks } from './Lessons';
+import { Materials } from './Materials';
 import { Tutor } from './Tutor';
 
 export const homeworkLabels = { assigned: 'Назначено', in_progress: 'В работе', submitted: 'Отправлено', changes_requested: 'Нужны правки', completed: 'Завершено', cancelled: 'Отменено' };
@@ -67,7 +67,7 @@ function BundleDetail({ id, user }: { id: string; user: SessionUser }) {
 		{editing && <form className="card card-pad stack" onSubmit={save}><label>Название<input name="title" defaultValue={h.title} required maxLength={200} /></label><label>Задание<textarea aria-label="Задание" name="instructions" defaultValue={h.instructions} maxLength={8000} /></label><label>Срок<input type="date" name="dueDate" defaultValue={h.dueDate ?? ''} /></label><button disabled={busy}>Сохранить домашнюю работу</button></form>}
 		<section className="card" aria-label="Задания">{tasks.map(t => <article key={t.id} className="list-row"><div className="grow"><h2>{t.unread && <span className="unread" role="img" aria-label="Новое сообщение" />}<a href={`/leetcode/tasks/${t.id}`}>{t.problemTitle}</a></h2></div><span className={`tag ${t.difficulty}`}>{difficultyLabels[t.difficulty]}</span><span className="tag">{homeworkLabels[t.state]}</span></article>)}{!tasks.length && <p className="empty">Заданий пока нет. {parent ? 'Добавьте задачу ниже.' : 'Родитель может добавить задание.'}</p>}</section>
 		{parent && <AddTask homeworkId={id} added={details.reload} />}
-		<LessonLinks homework={h} user={user} changed={details.reload} />
+		<Materials homework={h} user={user} changed={details.reload} />
 	</div>;
 }
 
@@ -103,7 +103,7 @@ export function Task({ id, user }: { id: string; user: SessionUser }) {
 		{user.role === 'student' && editable && <div className="card card-pad stack">{t.state === 'assigned' && <button disabled={busy} onClick={() => void action('start')}>Начать задание</button>}<label>Попытка для отправки<select value={selected || attempts.data?.items[0]?.id || ''} onChange={event => setSelected(event.target.value)}>{attempts.data?.items.map((a, i, items) => <option key={a.id} value={a.id}>{attemptLabel(items, i)}</option>)}</select></label><button className="primary" disabled={busy || !attempts.data?.items.length} onClick={() => { const a = attempts.data!.items.find(a => a.id === selected) ?? attempts.data!.items[0]; void action('submit', { attemptId: a.id, attemptVersion: a.version }); }}>Отправить на проверку</button></div>}
 		{details.data!.submissions.length > 0 && <section className="stack"><label>История отправок<select value={submission || t.submissionId || ''} onChange={event => setSubmission(event.target.value)}>{details.data!.submissions.map((s, i) => <option key={s.id} value={s.id}>{i === 0 ? 'Последняя отправка' : 'Более ранняя отправка'} - {new Date(s.createdAt).toLocaleString('ru-RU')}</option>)}</select></label>{work.data && <AttemptContent value={work.data} />}</section>}
 		{user.role === 'parent' && t.state === 'submitted' && (!submission || submission === t.submissionId) && <section className="card card-pad stack"><h2>Проверка отправки</h2><label>Отзыв<textarea aria-label="Отзыв" value={feedback} onChange={event => setFeedback(event.target.value)} maxLength={8000} /></label><div className="row"><button disabled={busy} onClick={() => void action('review', { submissionId: t.submissionId, decision: 'changes_requested', body: feedback })}>Вернуть на доработку</button><button className="primary" disabled={busy} onClick={() => void action('review', { submissionId: t.submissionId, decision: 'completed', body: feedback })}>Завершить</button></div></section>}
-		<LessonLinks homework={details.data!.homework} user={user} changed={details.reload} />
+		<Materials homework={details.data!.homework} user={user} changed={details.reload} />
 		<Discussion problemId={t.problemId} taskId={t.id} submissionId={submitted?.id} taskVersion={t.version} />
 	</div>;
 }

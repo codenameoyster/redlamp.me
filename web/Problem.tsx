@@ -5,7 +5,7 @@ import { useResource } from './useResource';
 import { useDraft, type LeaveGuard, type RegisterGuard } from './useDraft';
 import { difficultyLabels, ProblemForm } from './Problems';
 import { Discussion, homeworkLabels } from './Homework';
-import { LessonLinks } from './Lessons';
+import { Materials } from './Materials';
 import { CodeField } from './Code';
 import { Tutor } from './Tutor';
 import { addCalendarDays, localDate } from '../shared/dates';
@@ -124,7 +124,7 @@ export function Problem({ id, user, registerGuard }: { id: string; user: Session
 		{tasks.data?.items.map(t => <article className="card card-pad stack" key={t.id}><h2><a href={`/leetcode/tasks/${t.id}`}>{t.homeworkTitle}</a></h2><p><span className="tag">{homeworkLabels[t.state]}</span> {t.dueDate ? `Срок: ${t.dueDate}` : 'Без срока'}</p><p className="prose">{t.instructions}</p></article>)}
 		{current.data ? <DraftEditor key={`${current.data.id}:${current.data.state}`} initial={current.data} user={user} registerGuard={register} nextReviewDate={record.nextReviewDate} task={tasks.data?.items[0]} reloadTask={tasks.reload} saved={attempt => { if (shown.current === attempt.id) { setSelected(attempt.id); current.setData(attempt); } setError(''); attempts.reload(); problem.reload(); tasks.reload(); }} /> : <p className="empty">{attemptId ? 'Открываем попытку...' : 'Попыток пока нет. Начните попытку, чтобы записать ход решения.'}</p>}
 		<Discussion problemId={id} />
-		<LessonLinks problemId={id} user={user} />
+		<Materials problemId={id} user={user} />
 		{editing && <ProblemForm problem={record} close={() => setEditing(false)} saved={() => { setEditing(false); problem.reload(); }} />}
 	</div>;
 }

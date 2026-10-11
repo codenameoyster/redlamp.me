@@ -22,14 +22,6 @@ async function addProblem(page: Page, baseURL: string) {
 	expect(response.status()).toBe(201);
 	return (await response.json() as Problem).id;
 }
-async function addLesson(DB: D1Database) {
-	const id = crypto.randomUUID();
-	await DB.batch([
-		DB.prepare("INSERT INTO lessons (id,title,description,topics,filename,byte_count,created_at,updated_at) VALUES (?,'Window invariant',?,'[]','window.html',20,'now','now')").bind(id, 'Move the window.\n'.repeat(40)),
-		DB.prepare("INSERT INTO lesson_content (lesson_id,html) VALUES (?,'<p>Window</p>')").bind(id),
-	]);
-	return id;
-}
 
 test('streams an answer, then shows the stored turn', async ({ page, notebook, server }) => {
 	const { DB } = await server.getWorker<TestEnv>().getEnv();
@@ -178,10 +170,9 @@ for (const row of escapes) {
 	});
 }
 
-test('docks the panel beside the lesson at desktop width and keeps it open after a reload', async ({ page, server }) => {
-	const { DB } = await server.getWorker<TestEnv>().getEnv(), id = await addLesson(DB);
+test('docks the panel beside the chapter at desktop width and keeps it open after a reload', async ({ page }) => {
 	await signIn(page);
-	await page.goto(`/leetcode/lessons/${id}`);
+	await page.goto(chapterPath);
 	await page.getByRole('button', { name: 'Спросить ИИ', exact: true }).click();
 	const panel = page.getByRole('dialog', { name: 'ИИ-репетитор' });
 	await expect(panel).toBeVisible();
@@ -271,7 +262,7 @@ test('lists the chats for the parent and opens one in the panel', async ({ page,
 const placements = [
 	{ name: 'shows Read AI chat to the parent on the task page', role: 'parent', path: async (DB: D1Database, problemId: string) => `/leetcode/tasks/${(await addTask(DB, problemId)).taskId}`, heading: 'Two Sum', button: 'Читать чат с ИИ', count: 1 },
 	{ name: 'shows Read AI chat to the parent on the set page', role: 'parent', path: async () => setPath, heading: 'Перестановки и сочетания', button: 'Читать чат с ИИ', count: 1 },
-	{ name: 'shows Read AI chat to the parent on the lesson page', role: 'parent', path: async (DB: D1Database) => `/leetcode/lessons/${await addLesson(DB)}`, heading: 'Window invariant', button: 'Читать чат с ИИ', count: 1 },
+	{ name: 'shows Read AI chat to the parent on the chapter page', role: 'parent', path: async () => chapterPath, heading: 'Глава 2. Перебор: подмножества, перестановки, сочетания', button: 'Читать чат с ИИ', count: 1 },
 	{ name: 'shows no AI button on Today', role: 'student', path: async () => '/leetcode', heading: 'Стройте понимание, задача за задачей.', button: /^(Спросить ИИ|Читать чат с ИИ)$/, count: 0 },
 	{ name: 'shows no AI button on the problem list', role: 'student', path: async () => '/leetcode/problems', heading: 'Задачи', button: /^(Спросить ИИ|Читать чат с ИИ)$/, count: 0 },
 	{ name: 'shows no AI button on the recall page', role: 'student', path: async (_DB: D1Database, problemId: string) => `/leetcode/problems/${problemId}/review`, heading: 'Two Sum', button: /^(Спросить ИИ|Читать чат с ИИ)$/, count: 0 },

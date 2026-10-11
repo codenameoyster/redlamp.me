@@ -1,9 +1,8 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
-import { MAX_LESSON_BYTES, type LearningSetDetails, type LearningSetSummary, type SetTask } from '../shared/leetcode';
-import { sets, taskLabel, taskSlug, tasksOf } from '../src/leetcode/sets';
-import { LESSON_CSP } from '../src/leetcode/lessons';
+import type { LearningSetDetails, LearningSetSummary, SetTask } from '../shared/leetcode';
+import { LESSON_CSP, sets, taskLabel, taskSlug, tasksOf } from '../src/leetcode/sets';
 import LESSON_BRIDGE from '../src/leetcode/lesson-bridge.html';
 import { htmlText } from '../src/leetcode/tutor';
 
@@ -104,7 +103,6 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item 
 	expect(item.chapters.filter(chapter => chapter.tasks.length < 3 || chapter.tasks.length > 5 || chapter.cards.length < 6 || chapter.cards.length > 8).map(chapter => chapter.title)).toEqual([]);
 	expect(item.links.filter(link => new URL(link.url).protocol !== 'https:').map(link => link.url)).toEqual([]);
 	expect(item.lessons).toHaveLength(item.chapters.length);
-	expect(item.lessons.filter(lesson => new TextEncoder().encode(lesson).byteLength > MAX_LESSON_BYTES)).toEqual([]);
 	expect(item.lessons.map(lesson => htmlText(lesson).length).filter(length => length >= 6000)).toEqual([]);
 	expect(item.lessons.filter(lesson => !lesson.includes('<html lang="ru">'))).toEqual([]);
 });
