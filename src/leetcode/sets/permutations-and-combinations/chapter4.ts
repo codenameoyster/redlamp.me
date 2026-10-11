@@ -1,18 +1,20 @@
 import type { Chapter } from '../../../../shared/leetcode';
 
 export default {
-	title: 'Order and counting',
-	summary: 'Some tasks ask for one permutation, or only for a count.',
+	title: 'Порядок и номер',
+	summary: 'Следующая перестановка, пути в сетке, k-я перестановка и ферзи. Вы находите один вариант или число вариантов без списка всех.',
 	tasks: [
-		{ url: 'https://leetcode.com/problems/next-permutation/', number: 31, title: 'Next Permutation', difficulty: 'medium', topics: ['Array', 'Two Pointers'], note: 'Find the next permutation in lexicographic order without a list of all permutations. Find the pivot from the right, swap it with the rightmost value that is larger than the pivot, then reverse the suffix.' },
-		{ url: 'https://leetcode.com/problems/unique-paths/', number: 62, title: 'Unique Paths', difficulty: 'medium', topics: ['Math', 'Dynamic Programming', 'Combinatorics'], note: 'Each path has m - 1 down moves and n - 1 right moves. Count the paths with C(m + n - 2, m - 1), then check the result with a dynamic programming (DP) table.' },
-		{ url: 'https://leetcode.com/problems/permutation-sequence/', number: 60, title: 'Permutation Sequence', difficulty: 'hard', topics: ['Math', 'Recursion'], note: 'Find the k-th permutation without a list of all permutations. Each block of (n - 1)! permutations starts with the same digit, so (k - 1) // (n - 1)! gives the index of the first digit.' },
-		{ url: 'https://leetcode.com/problems/n-queens/', number: 51, title: 'N-Queens', difficulty: 'hard', topics: ['Array', 'Backtracking', 'Algorithm X'], note: 'Put one queen in each row and keep sets for the columns and the two diagonals. Prune a branch when the cell is under attack.' },
+		{ url: 'https://leetcode.com/problems/next-permutation/', number: 31, title: 'Next Permutation', difficulty: 'medium', topics: ['Перестановки', 'Словарный порядок'], note: 'LeetCode, medium. Три шага: найти спад справа, обменять с самым правым большим числом, перевернуть хвост. Проверьте на 1 2 5 4 3.' },
+		{ url: 'https://leetcode.com/problems/unique-paths/', number: 62, title: 'Unique Paths', difficulty: 'medium', topics: ['Сочетания', 'Таблица'], note: 'LeetCode, medium. Путь это строка из R и D. Выберите места для D: C(m + n − 2, m − 1). Проверьте ответ таблицей для сетки 3 на 3.' },
+		{ url: 'https://leetcode.com/problems/permutation-sequence/', number: 60, title: 'Permutation Sequence', difficulty: 'hard', topics: ['Перестановки', 'Факториал'], note: 'LeetCode, hard. Перестановки идут блоками по (n − 1)!. Номер блока (k − 1) // (n − 1)! даёт первую цифру. Повторите для остатка.' },
+		{ url: 'https://leetcode.com/problems/n-queens/', number: 51, title: 'N-Queens', difficulty: 'hard', topics: ['Перебор', 'Отсечение'], note: 'LeetCode, hard. По одному ферзю в строку. Храните занятые столбцы и диагонали r − c и r + c в множествах. Для n = 4 должно быть 2 ответа.' },
 	],
 	cards: [
-		{ id: 'pc-next-perm', type: 'flip', prompt: 'What are the three steps of Next Permutation?', back: '1. From the right, find the first i with nums[i] < nums[i + 1]. 2. Swap nums[i] with the rightmost value that is larger than it. 3. Reverse the suffix after i.', explain: 'If no such i exists, the array is the last permutation: reverse the whole array.' },
-		{ id: 'pc-unique-paths', type: 'short', prompt: 'A grid has 3 rows and 3 columns. You move only right or down. How many paths go from the top left to the bottom right?', answer: '6', explain: 'Each path has 2 down moves and 2 right moves: C(4, 2) = 6.' },
-		{ id: 'pc-kth-block', type: 'choice', prompt: 'Permutation Sequence with n = 4. How many permutations start with the same first digit?', options: ['4', '6', '24'], answer: 1, explain: 'The other 3 digits give (n - 1)! = 3! = 6 permutations per first digit. (k - 1) // 6 gives the index of the first digit.' },
-		{ id: 'pc-queens', type: 'choice', prompt: 'N-Queens: which sets make the attack check O(1)?', options: ['Columns, diagonals r - c, anti-diagonals r + c', 'Rows and columns', 'A copy of the board per row'], answer: 0, explain: 'One queen per row comes from the recursion. The columns and the two diagonal sets cover every attack.' },
+		{ id: 'pc4-next-perm', type: 'flip', prompt: 'Назовите три шага для следующей перестановки.', back: '1. Справа налево найдите первое число, которое меньше правого соседа. 2. Обменяйте его с самым правым числом, которое больше него. 3. Переверните хвост после него.', explain: 'Для 1 2 5 4 3 шаги дают 1 3 2 4 5.' },
+		{ id: 'pc4-last-perm', type: 'choice', prompt: 'Дана перестановка 3 2 1. Спада на шаге 1 нет. Что нужно сделать?', options: ['Перевернуть весь массив', 'Оставить массив без изменений', 'Поменять местами первые два числа'], answer: 0, explain: '3 2 1 это последняя перестановка. После переворота получается первая: 1 2 3.' },
+		{ id: 'pc4-grid-paths', type: 'short', prompt: 'Сетка из 3 строк и 3 столбцов. Ходить можно только вправо и вниз. Сколько путей из левого верхнего угла в правый нижний?', answer: '6', explain: 'В пути 2 шага вниз и 2 шага вправо. Выбираем места для шагов вниз: C(4, 2) = 6.' },
+		{ id: 'pc4-kth-block', type: 'short', prompt: 'Перестановки цифр 1, 2, 3, 4 стоят в словарном порядке. Сколько из них начинается с цифры 2?', answer: '6', explain: 'Остальные 3 цифры дают 3! = 6 перестановок. Столько же в каждом блоке с другой первой цифрой.' },
+		{ id: 'pc4-queens-sets', type: 'choice', prompt: 'Ферзи стоят по одному в строке. Какие множества нужны, чтобы проверить клетку за один шаг?', options: ['Столбцы, разности r − c и суммы r + c', 'Строки и столбцы', 'Копия доски для каждой строки'], answer: 0, explain: 'Строки не пересекаются сами по себе. Столбцы и две диагонали покрывают все остальные удары.' },
+		{ id: 'pc4-lex-next', type: 'short', prompt: 'Перестановки 1, 2, 3 стоят в словарном порядке. Какая идёт после 1 3 2? Запишите цифры без пробелов.', answer: '213', explain: 'Порядок: 123, 132, 213, 231, 312, 321. После 132 идёт 213.' },
 	],
 } satisfies Chapter;

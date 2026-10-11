@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Permutations and combinations</title>
+<title>Считаем варианты</title>
 <style>
 :root{color-scheme:light dark;--paper:#f7f9fc;--surface:#fff;--sunken:#eef2f8;--ink:#1d2433;--muted:#5b6578;--line:#dbe2ec;--pen:#2f5bea;--pen-bg:#eaf0ff;--on-pen:#fff;--margin:#c93426;--margin-bg:#fdecea;--green:#1d7f54;--green-bg:#e4f4ec;--amber:#9a5a00;--amber-bg:#fff1d6;--grey:#7d8799;--sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
 @media (prefers-color-scheme:dark){:root{--paper:#0f141d;--surface:#161d29;--sunken:#1d2635;--ink:#e7ecf4;--muted:#9ba7bb;--line:#2c384b;--pen:#8fa9ff;--pen-bg:#1d2a4a;--on-pen:#0f141d;--margin:#ff7b6b;--margin-bg:#3a1f1e;--green:#62d39c;--green-bg:#16301f;--amber:#f0c064;--amber-bg:#36290f;--grey:#7f8aa0}}
@@ -133,453 +133,139 @@ dl.calc dd.big{font-size:1.25rem;font-weight:700}
 <body>
 <main>
 <header>
-<h1>Permutations and combinations</h1>
-<p class="lead">This lesson teaches you how to count permutations, combinations and subsets. Then you use one backtracking template to list them, remove duplicates and stop bad branches early.</p>
-<ul class="tags" aria-label="Topics"><li>Backtracking</li><li>Recursion</li><li>Combinatorics</li><li>Math</li></ul>
-<p>Before you start, you must know Python lists, loops and functions. You must also know what a recursive function is. The code examples use Python 3.</p>
-<p>Most sections have a short explanation, an example and a self-check. Do the self-check before you go to the next section. The interactive parts work with the mouse, touch and the keyboard.</p>
+<h1>Считаем варианты</h1>
+<p class="lead">Прежде чем писать перебор, посчитайте, сколько вариантов он найдёт. В этой главе два правила счёта, факториал и первые формулы для выбора.</p>
 </header>
 
 <nav aria-labelledby="toc">
-<h2 id="toc">Contents</h2>
+<h2 id="toc">Содержание</h2>
 <ol>
-<li><a href="#s1">Count before you code</a></li>
-<li><a href="#s2">Counting rules</a></li>
+<li><a href="#s1">Зачем считать до кода</a></li>
+<li><a href="#s2">Правило произведения</a></li>
+<li><a href="#s3">Правило суммы</a></li>
+<li><a href="#s4">Перестановки и n!</a></li>
+<li><a href="#s5">Выбор k из n по порядку</a></li>
+<li><a href="#s6">Когда порядок не важен</a></li>
+<li><a href="#s7">Подмножества</a></li>
+<li><a href="#s8">Что нужно запомнить</a></li>
+<li><a href="#s9">Как решать задачи этой главы</a></li>
 </ol>
 </nav>
 
 <section aria-labelledby="s1">
-<h2 id="s1"><span class="n">1</span> Count before you code</h2>
-<ul class="tags" aria-label="Concepts"><li>Combinatorics</li><li>Complexity</li></ul>
-<p>Before you write a search, count the answers. Each item is in a subset or not in it, so n items have 2<sup>n</sup> subsets. n different items have n! orders. n! (n factorial) is n × (n - 1) × ... × 1. A program that lists all answers does at least one step for each answer. So the count tells you if a solution that lists all answers is fast enough.</p>
-<div class="tw"><table>
-<caption class="label" style="text-align:left;padding:10px 12px 0">How fast the counts grow</caption>
-<thead><tr><th scope="col">n</th><th scope="col" class="num">2<sup>n</sup> (subsets)</th><th scope="col" class="num">n! (orders)</th></tr></thead>
-<tbody>
-<tr><td>5</td><td class="num">32</td><td class="num">120</td></tr>
-<tr><td>10</td><td class="num">1,024</td><td class="num">3,628,800</td></tr>
-<tr><td>12</td><td class="num">4,096</td><td class="num">479,001,600</td></tr>
-<tr><td>20</td><td class="num">1,048,576</td><td class="num">2,432,902,008,176,640,000</td></tr>
-</tbody></table></div>
-<div class="box">
-<p><b>Rule for LeetCode limits.</b> Read the limits in the problem first.</p>
-<ul>
-<li>If n is about 9 or less, a search over all orders (n!) is usually fast enough. In Python, 10! orders take some seconds and a lot of memory.</li>
-<li>If n is about 20 or less, a search over all subsets (2<sup>n</sup>) is usually fast enough.</li>
-</ul>
-</div>
-<div class="check">
-<p class="label">Self-check</p>
-<p>The input has 20 items. Can you list all subsets fast enough?</p>
-<button type="button" class="reveal">Show answer</button>
-<div class="ans" hidden><p>Yes. 2<sup>20</sup> = 1,048,576. That is about one million subsets.</p></div>
-</div>
+<h2 id="s1"><span class="n">1</span> Зачем считать до кода</h2>
+<p>Пароль состоит из 4 цифр. Сколько есть разных паролей? На первом месте любая из 10 цифр. На втором тоже 10. На третьем и четвёртом тоже по 10. Всего 10 · 10 · 10 · 10 = 10 000 паролей.</p>
+<p>Программа, которая перебирает все пароли, делает 10 000 шагов. Это быстро. Если пароль из 10 цифр, шагов уже 10 миллиардов. Это долго. Поэтому сначала считаем, потом пишем код.</p>
 </section>
 
 <section aria-labelledby="s2">
-<h2 id="s2"><span class="n">2</span> Counting rules</h2>
-<ul class="tags" aria-label="Concepts"><li>Combinatorics</li><li>Math</li></ul>
-<h3>The product rule</h3>
-<p>You make k independent choices. Choice 1 has a<sub>1</sub> options, choice 2 has a<sub>2</sub> options, and so on. Then the number of results is a<sub>1</sub> × a<sub>2</sub> × ... × a<sub>k</sub>.</p>
-<div class="example">
-<p class="label">Worked example: Letter Combinations of a Phone Number</p>
-<p>The digit 2 gives "abc" and the digit 3 gives "def". The input "23" has 2 choices with 3 options each. The result has 3 × 3 = 9 strings.</p>
+<h2 id="s2"><span class="n">2</span> Правило произведения</h2>
+<p>У вас 3 футболки и 4 пары штанов. Сколько есть разных нарядов? К каждой футболке подходят 4 пары штанов. Футболок 3, значит нарядов 3 · 4 = 12.</p>
+<p>Ещё пример. Из дома до школы ведут 2 дороги, от школы до бассейна 3 дороги. Маршрутов от дома до бассейна 2 · 3 = 6.</p>
+<div class="box">
+<p><b>Правило произведения.</b> Если первый выбор делают a способами, а второй выбор b способами, и выборы не зависят друг от друга, то пар получается a · b.</p>
 </div>
-<h3>Two questions select the formula</h3>
-<p>Ask two questions about the problem. Does the order of the items matter? Can an item repeat? The table gives the formula for each pair of answers. The last column uses n = 5 items and k = 3 places.</p>
-<div class="tw"><table>
-<thead><tr><th scope="col">Order matters</th><th scope="col">Repe&shy;tition</th><th scope="col">Name</th><th scope="col">Formula</th><th scope="col" class="num">n = 5, k = 3</th></tr></thead>
-<tbody>
-<tr><td>yes</td><td>no</td><td>permu&shy;tation P(n, k)</td><td>n! / (n - k)!</td><td class="num">60</td></tr>
-<tr><td>yes</td><td>yes</td><td>sequence</td><td>n<sup>k</sup></td><td class="num">125</td></tr>
-<tr><td>no</td><td>no</td><td>combi&shy;nation C(n, k)</td><td>n! / (k! × (n - k)!)</td><td class="num">10</td></tr>
-<tr><td>no</td><td>yes</td><td>multiset (extra)</td><td>C(n + k - 1, k)</td><td class="num">35</td></tr>
-</tbody></table></div>
-<p>The product rule gives the first two rows. For P(5, 3), the first place has 5 options, the second place has 4 options and the third place has 3 options. So P(5, 3) = 5 × 4 × 3 = 60. For a sequence, each place has 5 options. So the count is 5 × 5 × 5 = 125.</p>
-<h3>Facts that you use often</h3>
-<ul>
-<li>n! = n × (n - 1) × ... × 1. This is P(n, n): all orders of all n items. By definition, 0! = 1.</li>
-<li>C(n, k) = P(n, k) / k!. Each group of k items appears in k! different orders. Example: 60 / 3! = 60 / 6 = 10.</li>
-<li>Repeated values: equal values can change places and the list stays the same. So divide n! by the number of orders of each group of equal values. The formula is n! / (a! × b! × ...), where a, b, ... are the counts of each repeated value. "BOOK" has two O letters, so it gives 4! / 2! = 12 words. The list [1, 1, 2] gives 3! / 2! = 3 orders.</li>
-<li>The sum of C(n, k) for k = 0 to n is 2<sup>n</sup>. Each subset has exactly one size.</li>
-<li>C(n, k) = C(n - 1, k - 1) + C(n - 1, k). You take the first item and choose k - 1 from the rest, or you skip it and choose k from the rest.</li>
-</ul>
-<div class="example">
-<p class="label">Worked example: Unique Paths</p>
-<p>A robot moves on a grid with 3 rows and 7 columns. It moves only down or right, from the top-left cell to the bottom-right cell. Each path has 2 down moves and 6 right moves: 8 moves in total. When you know which 2 of the 8 moves go down, you know the path. So the count is C(8, 2) = 28.</p>
-</div>
-<p>Python has these formulas in the <code>math</code> module. Use them to check the counts that you calculate by hand.</p>
-<pre><code class="py">from math import comb, factorial, perm
-
-print(perm(5, 3), 5 ** 3, comb(5, 3), comb(5 + 3 - 1, 3))
-print(perm(5, 3) // factorial(3))
-print(factorial(4) // factorial(2))
-print(sum(comb(5, k) for k in range(6)), 2 ** 5)
-print(comb(8, 2))</code></pre>
-<pre class="out"><code>60 125 10 35
-10
-12
-32 32
-28</code></pre>
-
-<div class="widget" id="w1">
-<p class="label">Interactive</p>
-<h3>Counting calculator</h3>
-<p>Set n and k. Then answer the two questions with the checkboxes. When n is 5 or less and the result is 120 or less, the calculator lists every result with the letters A to E.</p>
-<div class="controls">
-<label>n (items, 0 to 20)<input type="number" class="n" min="0" max="20" value="5" inputmode="numeric"></label>
-<label>k (places)<input type="number" class="k" min="0" max="5" value="3" inputmode="numeric"></label>
-<label class="chk"><input type="checkbox" class="order" checked> Order matters</label>
-<label class="chk"><input type="checkbox" class="rep"> Repetition allowed</label>
-</div>
-<dl class="calc" aria-live="polite">
-<dt>Rule</dt><dd class="o-name"></dd>
-<dt>Formula</dt><dd class="o-formula"></dd>
-<dt>Your numbers</dt><dd class="o-work"></dd>
-<dt>Result</dt><dd class="o-count big"></dd>
-</dl>
-<button type="button" class="group" aria-pressed="false">Group by letters</button>
-<div class="list" style="margin-top:12px"></div>
-</div>
-<p>Push "Group by letters" when order matters and repetition is off. The list changes into C(n, k) rows. Each row has the k! orders of the same k letters. This shows why C(n, k) = P(n, k) / k!.</p>
-
-<div class="check">
-<p class="label">Self-check</p>
-<p>The digit 7 gives "pqrs" and the digit 9 gives "wxyz". How many strings does Letter Combinations give for the input "79"?</p>
-<div class="try"><label>Number of strings<input type="text" inputmode="numeric" autocomplete="off" data-answer="16"></label><button type="button" class="test">Check</button></div>
-<p class="verdict" aria-live="polite"></p>
-<button type="button" class="reveal">Show answer</button>
-<div class="ans" hidden><p>16. Each digit has 4 letters, so the product rule gives 4 × 4 = 16.</p></div>
-</div>
-<p class="muted">The final self-check in section 13 has more counting questions (questions 1 to 6 and 12).</p>
+<pre><code>shirts = 3
+trousers = 4
+print(shirts * trousers)  # 12</code></pre>
 </section>
 
+<section aria-labelledby="s3">
+<h2 id="s3"><span class="n">3</span> Правило суммы</h2>
+<p>До школы идут 3 автобуса и 2 трамвая. Вы едете или на автобусе, или на трамвае. Сколько есть способов доехать? Вы выбираете один транспорт, а не пару. Способов 3 + 2 = 5.</p>
+<div class="box">
+<p><b>Правило суммы.</b> Если выбирают или один вариант из a, или один из b, и варианты не повторяются, то всего a + b вариантов.</p>
+</div>
+<p>Как отличить правила. Слово «и» значит умножить: футболка и штаны. Слово «или» значит сложить: автобус или трамвай.</p>
+</section>
+
+<section aria-labelledby="s4">
+<h2 id="s4"><span class="n">4</span> Перестановки и n!</h2>
+<p>На полке 4 разные книги. Сколько есть способов расставить их в ряд? На первое место можно поставить любую из 4 книг. На второе любую из 3 оставшихся. На третье любую из 2. На четвёртое последнюю. По правилу произведения 4 · 3 · 2 · 1 = 24.</p>
+<p>Такой ряд называют перестановкой. Число 4 · 3 · 2 · 1 записывают как 4! и читают «четыре факториал».</p>
+<div class="box">
+<p><b>Факториал.</b> n! это произведение всех чисел от 1 до n. Число перестановок n разных предметов равно n!.</p>
+</div>
+<div class="tw"><table>
+<caption class="label" style="text-align:left;padding:10px 12px 0">Факториалы до 10!</caption>
+<thead><tr><th scope="col">n</th><th scope="col" class="num">n!</th><th scope="col">n</th><th scope="col" class="num">n!</th></tr></thead>
+<tbody>
+<tr><td>1</td><td class="num">1</td><td>6</td><td class="num">720</td></tr>
+<tr><td>2</td><td class="num">2</td><td>7</td><td class="num">5 040</td></tr>
+<tr><td>3</td><td class="num">6</td><td>8</td><td class="num">40 320</td></tr>
+<tr><td>4</td><td class="num">24</td><td>9</td><td class="num">362 880</td></tr>
+<tr><td>5</td><td class="num">120</td><td>10</td><td class="num">3 628 800</td></tr>
+</tbody></table></div>
+<p>Факториал растёт очень быстро. Перебрать все 10! порядков ещё можно, а 15! уже нет.</p>
+<pre><code>def factorial(n):
+    result = 1
+    for i in range(1, n + 1):
+        result = result * i
+    return result
+
+print(factorial(5))  # 120</code></pre>
+</section>
+
+<section aria-labelledby="s5">
+<h2 id="s5"><span class="n">5</span> Выбор k из n по порядку</h2>
+<p>В забеге 8 бегунов. Золото, серебро и бронзу получат трое. Сколько есть способов раздать медали? Золото может получить любой из 8. Серебро любой из 7 оставшихся. Бронзу любой из 6. Всего 8 · 7 · 6 = 336.</p>
+<p>Здесь порядок важен: золото у Пети и серебро у Маши не то же самое, что золото у Маши и серебро у Пети.</p>
+<div class="box">
+<p><b>Правило.</b> Чтобы выбрать k предметов из n по порядку, перемножьте k чисел: n, потом n − 1, потом n − 2, и так k раз.</p>
+</div>
+<p>Проверьте: пин-код из 3 разных цифр. 10 · 9 · 8 = 720 кодов.</p>
+</section>
+
+<section aria-labelledby="s6">
+<h2 id="s6"><span class="n">6</span> Когда порядок не важен</h2>
+<p>Из 5 друзей надо выбрать команду из 2 человек. Считаем по порядку: первого выбираем из 5, второго из 4. Получаем 5 · 4 = 20. Но пара «Петя и Маша» и пара «Маша и Петя» это одна команда. Каждую команду мы посчитали 2 раза. Значит команд 20 / 2 = 10.</p>
+<p>Команда из 3 из тех же 5 друзей. По порядку 5 · 4 · 3 = 60. Трёх человек можно записать в ряд 3! = 6 способами. Каждую команду посчитали 6 раз. Команд 60 / 6 = 10.</p>
+<div class="box">
+<p><b>Сочетания.</b> Число команд из k человек из n записывают как C(n, k). Считайте выбор по порядку, потом делите на k!.</p>
+</div>
+<div class="tw"><table>
+<caption class="label" style="text-align:left;padding:10px 12px 0">Маленькая таблица C(n, k)</caption>
+<thead><tr><th scope="col">n</th><th scope="col" class="num">k = 0</th><th scope="col" class="num">k = 1</th><th scope="col" class="num">k = 2</th><th scope="col" class="num">k = 3</th><th scope="col" class="num">k = 4</th><th scope="col" class="num">k = 5</th></tr></thead>
+<tbody>
+<tr><td>3</td><td class="num">1</td><td class="num">3</td><td class="num">3</td><td class="num">1</td><td></td><td></td></tr>
+<tr><td>4</td><td class="num">1</td><td class="num">4</td><td class="num">6</td><td class="num">4</td><td class="num">1</td><td></td></tr>
+<tr><td>5</td><td class="num">1</td><td class="num">5</td><td class="num">10</td><td class="num">10</td><td class="num">5</td><td class="num">1</td></tr>
+</tbody></table></div>
+<p>Посмотрите на строку n = 5: C(5, 2) = 10 и C(5, 3) = 10. Выбрать 2 человек в команду это то же самое, что выбрать 3 человек, которые останутся. Поэтому C(n, k) = C(n, n − k).</p>
+<pre><code>from math import comb
+
+print(comb(5, 2))  # 10
+print(comb(10, 3), comb(10, 7))  # 120 120</code></pre>
+</section>
+
+<section aria-labelledby="s7">
+<h2 id="s7"><span class="n">7</span> Подмножества</h2>
+<p>В рюкзак можно положить яблоко, грушу и сливу. Сколько есть разных наборов? Про яблоко решаем: берём или нет, 2 варианта. Про грушу тоже 2. Про сливу тоже 2. Всего 2 · 2 · 2 = 8 наборов. Один из них пустой, один содержит все три фрукта.</p>
+<p>Вот все 8: пусто; яблоко; груша; слива; яблоко и груша; яблоко и слива; груша и слива; яблоко, груша и слива. Каждый такой набор называют подмножеством.</p>
+<div class="box">
+<p><b>Правило.</b> У n предметов 2<sup>n</sup> подмножеств. Для 4 предметов 16, для 10 предметов 1024, для 20 предметов 1 048 576.</p>
+</div>
+</section>
+
+<section aria-labelledby="s8">
+<h2 id="s8"><span class="n">8</span> Что нужно запомнить</h2>
+<ul>
+<li>«И» значит умножить, «или» значит сложить.</li>
+<li>n разных предметов стоят в ряд n! способами. 5! = 120.</li>
+<li>Выбор k из n по порядку: k множителей от n вниз. 8 · 7 · 6 = 336.</li>
+<li>Порядок не важен: посчитайте по порядку и разделите на k!. C(5, 2) = 20 / 2 = 10.</li>
+<li>У n предметов 2<sup>n</sup> подмножеств. 2<sup>4</sup> = 16.</li>
+</ul>
+</section>
+
+<section aria-labelledby="s9">
+<h2 id="s9"><span class="n">9</span> Как решать задачи этой главы</h2>
+<ol>
+<li>Прочитайте условие и решите на бумаге маленький пример из него.</li>
+<li>Найдите, где выбор «и», а где «или». Запишите формулу и проверьте её на примере из условия.</li>
+<li>Только потом пишите код. В Python есть <code>math.comb</code> и <code>math.factorial</code>.</li>
+</ol>
+</section>
 </main>
-
-<script>
-'use strict';
-const $ = (s, r = document) => r.querySelector(s);
-const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const int = v => (Number.isFinite(+v) && v !== '' ? Math.trunc(+v) : 0);
-const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-const py = v => (Array.isArray(v) ? '[' + v.map(py).join(', ') + ']' : v === true ? 'True' : v === false ? 'False' : String(v));
-const fact = n => { let r = 1n; for (let i = 2n; i <= BigInt(n); i++) r *= i; return r; };
-const nCk = (n, k) => (k < 0 || k > n ? 0n : fact(n) / (fact(k) * fact(n - k)));
-const big = v => v.toLocaleString('en-US').replaceAll(',', ',​');    // line break after a comma
-
-/* Self-check cards */
-$$('.check').forEach((card, idx) => {
-  const ans = $('.ans', card), rev = $('.reveal', card), test = $('.test', card), verdict = $('.verdict', card);
-  ans.id = 'ans' + idx;
-  rev.setAttribute('aria-controls', ans.id);
-  rev.setAttribute('aria-expanded', 'false');
-  rev.addEventListener('click', () => {
-    const open = ans.hidden;
-    ans.hidden = !open;
-    rev.textContent = open ? 'Hide answer' : 'Show answer';
-    rev.setAttribute('aria-expanded', String(open));
-    $$('[data-bug]', card).forEach(line => line.classList.toggle('bug', open));
-  });
-  if (!test) return;
-  const inputs = $$('input', card);
-  const run = () => {
-    const vals = inputs.map(x => x.value.replace(/[\s,_]/g, ''));
-    const ok = inputs.every((x, i) => vals[i] === x.dataset.answer);
-    verdict.textContent = vals.some(v => !v) ? 'Type an answer first.' : ok ? 'Correct.' : 'Not correct. Try again, or show the answer.';
-    verdict.className = 'verdict ' + (ok ? 'ok' : 'no');
-  };
-  test.addEventListener('click', run);
-  inputs.forEach(x => x.addEventListener('keydown', e => { if (e.key === 'Enter') run(); }));
-});
-
-/* W1: counting calculator */
-(() => {
-  const r = $('#w1'); if (!r) return;
-  const nI = $('.n', r), kI = $('.k', r), ord = $('.order', r), rep = $('.rep', r), grp = $('.group', r), list = $('.list', r);
-  const out = c => $('.o-' + c, r);
-  let grouped = false;
-  // The same search as the backtracking template: order selects the loop start, repetition selects the next start.
-  function gen(items, k, order, repeat) {
-    const res = [], path = [], used = items.map(() => false);
-    (function bt(start) {
-      if (path.length === k) { res.push(path.join('')); return; }
-      for (let i = order ? 0 : start; i < items.length; i++) {
-        if (!repeat && used[i]) continue;
-        used[i] = true; path.push(items[i]);
-        bt(repeat ? i : i + 1);
-        path.pop(); used[i] = false;
-      }
-    })(0);
-    return res;
-  }
-  const chips = arr => { const ol = document.createElement('ol'); ol.className = 'chips'; arr.forEach(s => { const li = document.createElement('li'); li.textContent = s || '(empty)'; ol.append(li); }); return ol; };
-  const para = t => { const p = document.createElement('p'); p.textContent = t; return p; };
-  function update(commit) {
-    const n = clamp(int(nI.value), 0, 20), kmax = rep.checked ? 20 : n, k = clamp(int(kI.value), 0, kmax);
-    kI.max = kmax;
-    if (commit) { nI.value = n; kI.value = k; }
-    let name, formula, work, count;
-    if (ord.checked && !rep.checked) {
-      name = 'Permutation P(n, k)'; formula = 'n! / (n - k)!'; count = fact(n) / fact(n - k);
-      work = `${n}! / (${n} - ${k})! = ${big(fact(n))} / ${big(fact(n - k))} = ${big(count)}`;
-    } else if (ord.checked) {
-      name = 'Sequence'; formula = 'n^k'; count = BigInt(n) ** BigInt(k);
-      work = `${n}^${k} = ${big(count)}`;
-    } else if (!rep.checked) {
-      name = 'Combination C(n, k)'; formula = 'n! / (k! × (n - k)!)'; count = nCk(n, k);
-      work = `${n}! / (${k}! × ${n - k}!) = ${big(fact(n))} / (${big(fact(k))} × ${big(fact(n - k))}) = ${big(count)}`;
-    } else {
-      name = 'Multiset (extra)'; formula = 'C(n + k - 1, k)'; count = n === 0 ? (k === 0 ? 1n : 0n) : nCk(n + k - 1, k);
-      work = n === 0 ? 'With no items, only the empty choice is possible when k = 0.' : `C(${n} + ${k} - 1, ${k}) = C(${n + k - 1}, ${k}) = ${big(count)}`;
-    }
-    out('name').textContent = name; out('formula').textContent = formula; out('work').textContent = work; out('count').textContent = big(count);
-    const canList = n <= 5 && count <= 120n, canGroup = canList && ord.checked && !rep.checked;
-    grp.hidden = !canGroup;
-    if (!canGroup) grouped = false;
-    grp.setAttribute('aria-pressed', String(grouped));
-    list.replaceChildren();
-    if (!canList) { list.append(para(n > 5 ? 'The list shows only when n is 5 or less.' : 'The list shows only when the result is 120 or less.')); return; }
-    const items = gen('ABCDE'.slice(0, n).split(''), k, ord.checked, rep.checked);
-    if (!items.length) { list.append(para('There are no results.')); return; }
-    if (!grouped) { list.append(para(items.length === 1 ? 'The only result:' : `All ${items.length} results:`), chips(items)); return; }
-    const groups = new Map();
-    items.forEach(s => { const key = [...s].sort().join(''); groups.set(key, [...(groups.get(key) || []), s]); });
-    const s = c => (Number(c) === 1 ? '' : 's');
-    list.append(para(`${groups.size} group${s(groups.size)}, so C(${n}, ${k}) = ${groups.size}. Each group has ${k}! = ${fact(k)} order${s(fact(k))}.`));
-    const ol = document.createElement('ol'); ol.className = 'groups';
-    groups.forEach((arr, key) => { const li = document.createElement('li'), b = document.createElement('span'); b.className = 'key'; b.textContent = '{' + (key.split('').join(', ') || ' ') + '}'; li.append(b, chips(arr)); ol.append(li); });
-    list.append(ol);
-  }
-  [nI, kI].forEach(x => { x.addEventListener('input', () => update(false)); x.addEventListener('change', () => update(true)); });
-  [ord, rep].forEach(x => x.addEventListener('change', () => update(true)));
-  grp.addEventListener('click', () => { grouped = !grouped; update(false); });
-  update(true);
-})();
-
-/* W2 and W3: one search engine records the tree and every step before the stepper starts. */
-function trace(cfg) {
-  const { mode, nums } = cfg, n = nums.length, dup = cfg.dup || 'none';
-  const nodes = [], steps = [], res = [], path = [], used = nums.map(() => false);
-  let calls = 1;
-  const add = (parent, label, kind, start, remain) => {
-    const nd = { id: nodes.length, parent, label, kind, start, remain, kids: [], depth: parent ? parent.depth + 1 : 0 };
-    if (parent) parent.kids.push(nd);
-    nodes.push(nd);
-    return nd;
-  };
-  const snap = (kind, cur, text, mark) => steps.push({ kind, cur: cur.id, text, mark, path: path.slice(), used: used.slice(), res: res.length, seen: nodes.length, calls });
-  const save = cur => { cur.saved = steps.length; res.push(path.slice()); snap('save', cur, ''); };
-  function go(cur, start, remain) {
-    if (mode === 'sub') save(cur);
-    else if (mode === 'perm' ? path.length === n : mode === 'comb' ? path.length === cfg.k : remain === 0) { save(cur); return; }
-    if (mode === 'csum' && remain < 0) { cur.dead = steps.length; snap('dead', cur, `remain is ${remain}. It is less than 0, so this call returns.`); return; }
-    for (let i = mode === 'perm' ? 0 : start; i < n; i++) {
-      if (mode === 'perm' && used[i]) continue;
-      if (dup !== 'none' && i > (mode === 'perm' || dup === 'wrong' ? 0 : start) && nums[i] === nums[i - 1] && (mode !== 'perm' || dup === 'wrong' || !used[i - 1])) {
-        const same = mode === 'perm' ? !used[i - 1] : i > start;
-        const s = add(cur, nums[i], 'skip');
-        snap('skip', cur, same
-          ? `Skip ${nums[i]} at index ${i}. This level already used the value ${nums[i]}.`
-          : `Skip ${nums[i]} at index ${i} with the wrong rule. nums[${i - 1}] is on the path, so this is a deeper level. The value is allowed here, but the rule blocks it.`, s.id);
-        continue;
-      }
-      if (cfg.prune && nums[i] > remain) {
-        const s = add(cur, nums[i], 'prune');
-        snap('prune', cur, `Prune: ${nums[i]} > remain ${remain}. The later values are larger too, so break.`, s.id);
-        break;
-      }
-      if (mode === 'perm') used[i] = true;
-      path.push(nums[i]); calls++;
-      const next = mode === 'csum' ? i : i + 1, r = mode === 'csum' ? remain - nums[i] : undefined;
-      const child = add(cur, nums[i], 'call', next, r);
-      snap('choose', child, `Choose ${nums[i]} and call backtrack. path = ${py(path)}` + (r === undefined ? '.' : `, remain = ${r}.`));
-      go(child, next, r);
-      path.pop();
-      if (mode === 'perm') used[i] = false;
-      snap('unchoose', cur, `Unchoose ${nums[i]}. path = ${py(path)}.`);
-    }
-  }
-  const root = add(null, null, 'call', 0, cfg.target);
-  snap('start', root, mode === 'perm' ? 'Call backtrack(). path = [] and no item is used.' : mode === 'csum' ? `Call backtrack(0, ${cfg.target}). path = [].` : 'Call backtrack(0). path = [].');
-  go(root, 0, cfg.target);
-  snap('done', root, `Done: ${res.length} answers in ${calls} calls.`);
-  let slots = 0, depth = 0;
-  (function place(nd) {
-    depth = Math.max(depth, nd.depth);
-    if (!nd.kids.length) { nd.x = slots++; return; }
-    nd.kids.forEach(place);
-    nd.x = (nd.kids[0].x + nd.kids[nd.kids.length - 1].x) / 2;
-  })(root);
-  return { nodes, steps, res, calls, slots, depth };
-}
-
-function codeLines(cfg, copy) {
-  const L = [], add = (t, tag = '') => L.push([t, tag]), S = copy ? 'res.append(path[:])' : 'res.append(path)';
-  const sorted = cfg.dup !== undefined;
-  const dupLines = rule => {
-    if (cfg.dup === 'level') { add('            if ' + rule + ':', 'skip'); add('                continue', 'skip'); }
-    if (cfg.dup === 'wrong') { add('            if i > 0 and nums[i] == nums[i - 1]:', 'skip'); add('                continue', 'skip'); }
-  };
-  if (cfg.mode === 'perm') {
-    add('def permute(nums):');
-    if (sorted) add('    nums.sort()');
-    add('    res, path, used = [], [], [False] * len(nums)');
-    add('    def backtrack():');
-    add('        if len(path) == len(nums):');
-    add('            ' + S, 'save'); add('            return', 'save');
-    add('        for i in range(len(nums)):');
-    add('            if used[i]:'); add('                continue');
-    dupLines('i > 0 and nums[i] == nums[i - 1] and not used[i - 1]');
-    add('            used[i] = True', 'choose'); add('            path.append(nums[i])', 'choose');
-    add('            backtrack()', 'explore');
-    add('            path.pop()', 'unchoose'); add('            used[i] = False', 'unchoose');
-    add('    backtrack()', 'start');
-  } else if (cfg.mode === 'csum') {
-    add('def combination_sum(candidates, target):');
-    add('    candidates.sort()');
-    add('    res, path = [], []');
-    add('    def backtrack(start, remain):');
-    add('        if remain == 0:'); add('            ' + S, 'save'); add('            return', 'save');
-    add('        if remain < 0:', 'dead'); add('            return', 'dead');
-    add('        for i in range(start, len(candidates)):');
-    if (cfg.prune) { add('            if candidates[i] > remain:', 'prune'); add('                break', 'prune'); }
-    add('            path.append(candidates[i])', 'choose');
-    add('            backtrack(i, remain - candidates[i])', 'explore');
-    add('            path.pop()', 'unchoose');
-    add('    backtrack(0, target)', 'start');
-  } else {
-    const sub = cfg.mode === 'sub';
-    add(sub ? 'def subsets(nums):' : 'def combine(nums, k):');
-    if (sorted) add('    nums.sort()');
-    add('    res, path = [], []');
-    add('    def backtrack(start):');
-    if (sub) add('        ' + S, 'save');
-    else { add('        if len(path) == k:'); add('            ' + S, 'save'); add('            return', 'save'); }
-    add('        for i in range(start, len(nums)):');
-    dupLines('i > start and nums[i] == nums[i - 1]');
-    add('            path.append(nums[i])', 'choose');
-    add('            backtrack(i + 1)', 'explore');
-    add('            path.pop()', 'unchoose');
-    add('    backtrack(0)', 'start');
-  }
-  add('    return res', 'done');
-  return L;
-}
-
-const TAGS = { start: ['start'], choose: ['choose', 'explore'], save: ['save'], unchoose: ['unchoose'], skip: ['skip'], prune: ['prune'], dead: ['dead'], done: ['done'] };
-
-function drawTree(T, s) {
-  const st = T.steps[s], on = new Set();
-  for (let x = T.nodes[st.cur]; x; x = x.parent) on.add(x.id);
-  const X = nd => 24 + nd.x * 40, Y = nd => 22 + nd.depth * 58;
-  let edges = '', dots = '';
-  for (const nd of T.nodes) {
-    const vis = nd.id < st.seen, off = nd.kind !== 'call';
-    let c = !vis ? 'fut' : off ? 'off' : nd.dead <= s ? 'dead' : nd.saved <= s ? 'saved' : 'vis';
-    if (on.has(nd.id)) c += ' on';
-    if (nd.id === st.cur) c += ' cur';
-    if (nd.id === st.mark) c += ' mark';
-    if (nd.parent) edges += `<line class="ed ${!vis ? 'fut' : off ? 'off' : on.has(nd.id) ? 'on' : ''}" x1="${X(nd.parent)}" y1="${Y(nd.parent)}" x2="${X(nd)}" y2="${Y(nd)}"/>`;
-    const sub = nd.kind === 'skip' ? 'skip' : nd.kind === 'prune' ? 'break' : nd.remain !== undefined ? 'r=' + nd.remain : '';
-    dots += `<g class="nd ${c}"><circle cx="${X(nd)}" cy="${Y(nd)}" r="14"/><text class="v" x="${X(nd)}" y="${Y(nd)}">${nd.parent ? nd.label : '[ ]'}</text>` +
-      (sub ? `<text class="sub" x="${X(nd)}" y="${Y(nd) + 25}">${sub}</text>` : '') + '</g>';
-  }
-  const w = 48 + (T.slots - 1) * 40, h = 62 + T.depth * 58;
-  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Decision tree with ${T.calls} calls. The current path is ${py(st.path)}.">${edges}${dots}</svg>`;
-}
-
-function stepper(root, getCfg, totals) {
-  const q = c => $('.' + c, root), act = a => $(`[data-act=${a}]`, root);
-  const status = q('status'), tree = q('tree'), vars = q('vars'), resEl = q('res'), code = q('code'), counters = q('counters'), stepno = q('stepno'), copyBox = q('copy'), play = act('play');
-  let T, cfg, i = 0, timer = null;
-  const copy = () => !copyBox || copyBox.checked;
-  const stop = () => { clearInterval(timer); timer = null; play.textContent = 'Play'; };
-  function setCode() {
-    code.replaceChildren(...codeLines(cfg, copy()).map(([t, tag]) => { const sp = document.createElement('span'); sp.textContent = t; sp.dataset.tag = tag; return sp; }));
-  }
-  function render() {
-    const s = T.steps[i], cur = T.nodes[s.cur], c = copy();
-    stepno.textContent = `Step ${i} of ${T.steps.length - 1}`;
-    status.textContent = s.kind === 'save'
-      ? (c ? `Save a copy of path: ${py(s.path)}.` : 'Save path itself, not a copy. All saved entries are the same list.') + ` Answers: ${s.res}.`
-      : s.text;
-    tree.innerHTML = drawTree(T, i);
-    const cx = 24 + cur.x * 40;
-    if (cx < tree.scrollLeft + 40 || cx > tree.scrollLeft + tree.clientWidth - 40) tree.scrollLeft = cx - tree.clientWidth / 2;
-    const hot = TAGS[s.kind];
-    for (const sp of code.children) sp.classList.toggle('hot', hot.includes(sp.dataset.tag));
-    let v = `path = ${py(s.path)}`;
-    if (cfg.mode === 'perm') v += `\nused = ${py(s.used)}`;
-    else v += `\nstart = ${cur.start}`;
-    if (cfg.mode === 'csum') v += `\nremain = ${cur.remain}`;
-    vars.textContent = v;
-    const t = totals ? totals(cfg) : [String(T.calls), String(T.res.length)];
-    counters.textContent = `Calls: ${s.calls} of ${t[0]}. Answers: ${s.res} of ${t[1]}.`;
-    resEl.textContent = 'res = ' + py(c ? T.res.slice(0, s.res) : Array(s.res).fill(s.path));
-  }
-  const go = d => { const j = clamp(i + d, 0, T.steps.length - 1); if (j !== i) { i = j; render(); } };
-  act('step').addEventListener('click', () => { stop(); go(1); });
-  act('back').addEventListener('click', () => { stop(); go(-1); });
-  act('reset').addEventListener('click', () => { stop(); i = 0; render(); });
-  play.addEventListener('click', () => {
-    if (timer) { stop(); return; }
-    if (i === T.steps.length - 1) { i = 0; render(); }
-    play.textContent = 'Pause';
-    timer = setInterval(() => { go(1); if (i === T.steps.length - 1) stop(); }, 800);
-  });
-  if (copyBox) copyBox.addEventListener('change', () => { setCode(); render(); });
-  return () => {
-    const next = getCfg();
-    if (!next) return;
-    stop(); cfg = next; T = trace(cfg); i = 0; setCode(); render();
-  };
-}
-
-/* W2: decision tree stepper */
-(() => {
-  const r = $('#w2'); if (!r) return;
-  const vals = $('.vals', r), kI = $('.k', r), kBox = $('.kbox', r), err = $('.err', r);
-  const levels = (n, k, f) => Array.from({ length: k + 1 }, (_, j) => f(n, j));
-  const totals = cfg => {
-    const n = cfg.nums.length, P = (a, j) => Number(fact(a) / fact(a - j)), C = (a, j) => Number(nCk(a, j));
-    const sum = a => `${a.reduce((x, y) => x + y, 0)} (${a.join(' + ')})`;
-    if (cfg.mode === 'perm') return [sum(levels(n, n, P)), `${Number(fact(n))} (${n}!)`];
-    if (cfg.mode === 'comb') return [sum(levels(n, cfg.k, C)), `${C(n, cfg.k)} (C(${n}, ${cfg.k}))`];
-    return [`${2 ** n} (2^${n})`, `${2 ** n} (2^${n})`];
-  };
-  const getCfg = () => {
-    const parts = vals.value.split(/[\s,]+/).filter(Boolean);
-    const ok = parts.length >= 1 && parts.length <= 4 && parts.every(p => /^-?\d{1,2}$/.test(p));
-    err.hidden = ok;
-    err.textContent = ok ? '' : 'Type 1 to 4 integers from -99 to 99, for example 1, 2, 3.';
-    if (!ok) return null;
-    const nums = parts.map(Number), mode = $('input[name=w2mode]:checked', r).value;
-    kI.max = nums.length;
-    const k = clamp(int(kI.value), 0, nums.length);
-    kI.value = k;
-    kBox.hidden = mode !== 'comb';
-    return { mode, nums, k };
-  };
-  const rebuild = stepper(r, getCfg, totals);
-  [vals, kI].forEach(x => x.addEventListener('change', rebuild));
-  $$('input[name=w2mode]', r).forEach(x => x.addEventListener('change', rebuild));
-  rebuild();
-})();
-
-/* W3: duplicates and pruning lab */
-(() => {
-  const r = $('#w3'); if (!r) return;
-  const pa = $('.pa', r), pb = $('.pb', r), prune = $('.prune', r);
-  const pick = name => $(`input[name=${name}]:checked`, r).value;
-  const getCfg = () => {
-    const a = pick('w3preset') === 'A';
-    pa.hidden = !a; pb.hidden = a;
-    return a ? { mode: pick('w3mode'), nums: [1, 1, 2], dup: pick('w3dup') } : { mode: 'csum', nums: [2, 3, 6, 7], target: 7, prune: prune.checked };
-  };
-  const rebuild = stepper(r, getCfg);
-  $$('input', r).forEach(x => x.addEventListener('change', rebuild));
-  rebuild();
-})();
-</script>
 </body>
 </html>
