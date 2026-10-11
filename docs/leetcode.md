@@ -50,7 +50,7 @@ Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and wa
 - As the student, open a task from **Today**, the homework page, or the problem page. Submit an exact attempt for review. The parent can request another attempt or complete the task.
 - A red dot before a homework or a task shows a message or a review decision from the other account that you did not read. Open the discussion of the task or the problem to remove the dot.
 - Use **Recall this problem** to practise before revealing saved work. Record the result. Choose the next review date.
-- **Today** also shows random recall picks: three problems of the Two Pointers set and two problems of the first permutations homework. The picks change every day. A pick that you recall today leaves the list. The recall page of a pick does not show the saved work. Use **Start a new attempt** to solve the problem again.
+- **Today** also shows random recall picks from the library: three problems of the Two Pointers set and two problems of the first permutations homework. The picks change every day. A pick that you recall today leaves the list. The recall page of a pick does not show the summary or the saved work. Use **Start a new attempt** to solve the problem again. If the problem has a draft, the button opens the draft.
 - **Archive problem** moves a problem to **Archived problems** in the library and blocks new homework tasks for it. **Restore problem** returns it.
 - If a save fails, keep the page open. Use **Retry save** or **Copy unsaved work**. Reload recovery is available in the same tab when browser session storage works. Conflicting edits require an explicit choice of the server copy.
 

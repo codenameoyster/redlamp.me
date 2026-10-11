@@ -346,6 +346,15 @@ for (const row of explains) {
 	});
 }
 
+test('ignores a selection outside the lesson', async ({ page }) => {
+	await signIn(page);
+	await page.goto(chapterPath);
+	await lesson(page).locator('p', { hasText: 'Третий шаг нужен' }).selectText();
+	await expect(explain(page)).toBeVisible();
+	await page.getByRole('heading', { level: 1, name: 'Глава 2. Перебор: подмножества, перестановки, сочетания' }).selectText();
+	await expect(explain(page)).toBeHidden();
+});
+
 test('shows no lesson bridge to the parent', async ({ page, server }) => {
 	const { DB } = await server.getWorker<TestEnv>().getEnv();
 	await addMessages(DB, 'set', 'permutations-and-combinations', [{ author: 'student', body: 'What is a circle?' }, { author: 'assistant', body: '```lesson\nТретий шаг нужен, чтобы вернуть path в то состояние, какое было до выбора.\n```' }]);

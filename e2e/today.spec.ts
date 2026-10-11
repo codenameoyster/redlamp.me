@@ -51,29 +51,30 @@ test('student sees the level and the earned badge after an accepted attempt', as
 });
 
 const picks = [
-	{ name: 'library pick hides the saved work and starts a new attempt', control: 'link' as const },
-	{ name: 'set task pick adds the problem and starts a new attempt', control: 'button' as const },
+	{ name: 'pick hides the saved work and starts a new attempt', draft: false, code: '' },
+	{ name: 'pick with a draft opens the draft', draft: true, code: 'return draft_solution' },
 ];
 for (const row of picks) {
 	test(row.name, async ({ page, server }) => {
 		const { DB } = await server.getWorker<TestEnv>().getEnv();
-		const document = JSON.stringify({ notes: '', approaches: [{ id: crypto.randomUUID(), label: '', idea: '', correctness: '', timeComplexity: '', spaceComplexity: '', edgeCases: '', mistakes: '', language: 'python', code: 'return saved_solution' }] });
-		await DB.batch(['sum-of-all-subset-xor-totals', 'letter-case-permutation', 'letter-combinations-of-a-phone-number'].flatMap(slug => {
+		const work = (code: string) => JSON.stringify({ notes: '', approaches: [{ id: crypto.randomUUID(), label: '', idea: '', correctness: '', timeComplexity: '', spaceComplexity: '', edgeCases: '', mistakes: '', language: 'python', code }] });
+		const attempt = DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,saved_at,created_at,updated_at) VALUES (?,?,?,?,'','accepted','with_help',?,'now','now')");
+		await DB.batch(['two-sum-ii-input-array-is-sorted', 'max-number-of-k-sum-pairs', 'container-with-most-water', 'sum-of-all-subset-xor-totals', 'letter-case-permutation', 'letter-combinations-of-a-phone-number'].flatMap(slug => {
 			const id = crypto.randomUUID();
-			return [DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,?,?,'easy','[]','','','now','now')").bind(id, slug, slug),
-				DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,saved_at,created_at,updated_at) VALUES (?,?,'saved',?,'','accepted','with_help','now','now','now')").bind(crypto.randomUUID(), id, document)];
+			return [DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,?,?,'easy','[]','Saved idea.','','now','now')").bind(id, slug, slug),
+				attempt.bind(crypto.randomUUID(), id, 'saved', work('return saved_solution'), 'now'), ...row.draft ? [attempt.bind(crypto.randomUUID(), id, 'draft', work('return draft_solution'), null)] : []];
 		}));
 		await signIn(page);
 		const recall = page.getByRole('region', { name: 'Случайное повторение' });
 		await expect(recall.getByRole('article')).toHaveCount(5);
-		await expect(recall.getByRole('link', { name: 'Повторить', exact: true })).toHaveCount(2);
-		await expect(recall.getByRole('button', { name: 'Повторить', exact: true })).toHaveCount(3);
-		await recall.getByRole(row.control, { name: 'Повторить', exact: true }).first().click();
+		await expect(recall.getByRole('link', { name: 'Повторить', exact: true })).toHaveCount(5);
+		await recall.getByRole('link', { name: 'Повторить', exact: true }).first().click();
 		await expect(page).toHaveURL(/\/leetcode\/problems\/[a-f0-9-]{36}\/review\?pick=1$/);
 		await expect(page.getByText('Решите задачу заново, не подглядывая в старое решение.', { exact: true })).toBeVisible();
+		await expect(page.getByText('Saved idea.', { exact: true })).toHaveCount(0);
 		await expect(page.getByRole('button', { name: 'Показать сохранённую работу' })).toHaveCount(0);
 		await page.getByRole('button', { name: 'Начать новую попытку', exact: true }).click();
 		await expect(page).toHaveURL(/\/leetcode\/problems\/[a-f0-9-]{36}$/);
-		await expect(page.getByLabel('Код решения', { exact: true })).toHaveValue('');
+		await expect(page.getByLabel('Код решения', { exact: true })).toHaveValue(row.code);
 	});
 }

@@ -2,7 +2,7 @@ import type { Chapter } from '../../../../shared/leetcode';
 
 export default {
 	title: 'Две последовательности',
-	summary: 'У каждого массива или каждой строки свой указатель, и оба идут только вперёд. Слияние, подсчёт и поиск общего делают одно сравнение на шаг.',
+	summary: 'У каждого массива или каждой строки свой указатель, и каждый идёт в одну сторону. Слияние, подсчёт и поиск общего делают одно сравнение на шаг.',
 	tasks: [
 		{ url: 'https://leetcode.com/problems/merge-sorted-array/', number: 88, title: 'Merge Sorted Array', difficulty: 'easy', topics: ['Массив', 'Два указателя', 'Сортировка'], note: 'LeetCode, easy. Если сливать слева направо, запись затрёт непрочитанные числа nums1. Подумайте, с какого конца заполнять nums1.' },
 		{ url: 'https://leetcode.com/problems/is-subsequence/', number: 392, title: 'Is Subsequence', difficulty: 'easy', topics: ['Строка', 'Два указателя'], note: 'LeetCode, easy. Указатель i идёт по s, j идёт по t. Буквы совпали: сдвиньте i. Указатель j двигается всегда.' },
