@@ -50,7 +50,8 @@ it.each([
 	const response = await request(`/sets/${set.slug}`, 'GET', undefined, student);
 	expect(response.status).toBe(200);
 	const details = await response.json() as LearningSetDetails;
-	expect(details).toMatchObject({ slug: set.slug, title: set.title, summary: set.summary, topics: set.topics, links: set.links });
+	expect(details).toMatchObject({ slug: set.slug, title: set.title, summary: set.summary, topics: set.topics });
+	expect(details.chapters.map(chapter => chapter.links)).toEqual(set.chapters.map(chapter => chapter.links));
 	expect(details.chapters.map(chapter => ({ number: chapter.number, title: chapter.title, summary: chapter.summary, tasks: chapter.tasks.map(task => task.slug) }))).toEqual([
 		{ number: 1, title: 'Считаем варианты', summary: 'Прежде чем писать перебор, посчитайте варианты. Правило произведения, правило суммы, факториал, выбор по порядку и без порядка, подмножества.', tasks: ['cf-1821-a', 'cf-1743-a', 'cf-629-a', 'cf-1674-b', 'number-of-good-pairs'] },
 		{ number: 2, title: 'Перебор: подмножества, перестановки, сочетания', summary: 'Один шаблон на Python выписывает все варианты: выбрать, пойти глубже, отменить. Индекс start даёт наборы без порядка, список used даёт перестановки.', tasks: ['letter-case-permutation', 'subsets', 'permutations', 'combinations', 'letter-combinations-of-a-phone-number'] },
@@ -97,7 +98,10 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item 
 	expect(tasks.filter((task, index) => tasks.findIndex(other => taskSlug(other) === taskSlug(task)) !== index).map(taskSlug)).toEqual([]);
 	expect(item.chapters.filter(chapter => !chapter.title.trim() || !chapter.summary.trim()).map(chapter => chapter.title)).toEqual([]);
 	expect(item.chapters.filter(chapter => chapter.tasks.length < 3 || chapter.tasks.length > 5 || chapter.cards.length < 6 || chapter.cards.length > 8).map(chapter => chapter.title)).toEqual([]);
-	expect(item.links.filter(link => new URL(link.url).protocol !== 'https:').map(link => link.url)).toEqual([]);
+	const links = item.chapters.flatMap(chapter => chapter.links);
+	expect(item.chapters.filter(chapter => chapter.links.length < 3 || chapter.links.length > 5).map(chapter => chapter.title)).toEqual([]);
+	expect(links.filter(link => new URL(link.url).protocol !== 'https:').map(link => link.url)).toEqual([]);
+	expect(links.filter((link, index) => links.findIndex(other => other.url === link.url) !== index).map(link => link.url)).toEqual([]);
 	expect(item.lessons).toHaveLength(item.chapters.length);
 	expect(item.lessons.map(lesson => htmlText(lesson).length).filter(length => length >= 6000)).toEqual([]);
 	expect(item.lessons.flatMap(lesson => [...lesson.matchAll(/<([a-z][a-z0-9]*)/g)].map(match => match[1]).filter(tag => !fragmentTag.test(tag)))).toEqual([]);

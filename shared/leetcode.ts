@@ -63,11 +63,11 @@ export interface Feedback { id: string; problemId: string; taskId: string | null
 export interface HomeworkDetails { homework: Homework; tasks: HomeworkTask[] }
 export interface TaskDetails { homework: Homework; task: HomeworkTask; submissions: Submission[] }
 export interface SetTask { url: string; number?: number; title: string; difficulty: Difficulty; topics: string[]; note: string }
-export interface Chapter { title: string; summary: string; tasks: SetTask[]; cards: Card[] }
-export interface LearningSet { slug: string; title: string; summary: string; topics: string[]; links: { title: string; url: string; source: string }[]; chapters: Chapter[] }
-export interface LearningSetSummary extends Omit<LearningSet, 'links' | 'chapters'> { chapterCount: number; taskCount: number; acceptedCount: number }
+export interface Chapter { title: string; summary: string; tasks: SetTask[]; cards: Card[]; links: { title: string; url: string; source: string }[] }
+export interface LearningSet { slug: string; title: string; summary: string; topics: string[]; chapters: Chapter[] }
+export interface LearningSetSummary extends Omit<LearningSet, 'chapters'> { chapterCount: number; taskCount: number; acceptedCount: number }
 export type SetTaskRow = SetTask & { slug: string; label: string; problemId: string | null; accepted: boolean; activeTask: Pick<HomeworkTask, 'id' | 'homeworkId' | 'homeworkTitle' | 'state'> | null };
-export interface LearningSetDetails extends Omit<LearningSet, 'chapters'> { chapters: { number: number; title: string; summary: string; tasks: SetTaskRow[] }[] }
+export interface LearningSetDetails extends Omit<LearningSet, 'chapters'> { chapters: { number: number; title: string; summary: string; links: Chapter['links']; tasks: SetTaskRow[] }[] }
 export type Card = { id: string; prompt: string; explain: string } & (
 	{ type: 'flip'; back: string }
 	| { type: 'choice'; options: string[]; answer: number }

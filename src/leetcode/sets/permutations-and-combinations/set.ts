@@ -9,8 +9,5 @@ export default {
 	title: 'Перестановки и сочетания',
 	summary: 'Вы учитесь считать варианты: перестановки, сочетания и подмножества. Потом один шаблон перебора выписывает их, убирает повторы и останавливает лишние ветки.',
 	topics: ['Комбинаторика', 'Рекурсия', 'Перебор'],
-	links: [
-		{ title: 'Курсы Codeforces EDU', url: 'https://codeforces.com/edu/courses?locale=ru', source: 'Codeforces' },
-	],
 	chapters: [chapter1, chapter2, chapter3, chapter4],
 } satisfies LearningSet;

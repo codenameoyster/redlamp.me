@@ -19,4 +19,10 @@ export default {
 		{ id: 'pc3-catalan', type: 'short', prompt: 'Generate Parentheses при n = 3. Сколько правильных строк?', answer: '5', explain: 'Строки: ((())), (()()), (())(), ()(()), ()()().' },
 		{ id: 'pc3-paren-rule', type: 'choice', prompt: 'В Generate Parentheses когда можно добавить закрывающую скобку?', options: ['Пока closed < n', 'Пока closed < opened', 'В любой момент'], answer: 1, explain: 'Закрывающей скобке нужна открытая перед ней. Правило closed < opened держит каждую строку правильной.' },
 	],
+	links: [
+		{ title: 'Перебор с возвратом: отсечения', url: 'https://notes.algoprog.ru/ru/backtrack/01_2_cuts.html', source: 'Заметки П. Калинина (algoprog)' },
+		{ title: 'Правильная скобочная последовательность', url: 'https://ru.wikipedia.org/wiki/Правильная_скобочная_последовательность', source: 'Википедия' },
+		{ title: 'Как устроен алгоритм поиска с возвратом', url: 'https://thecode.media/backtracking/', source: 'Журнал «Код»' },
+		{ title: 'Правильные скобочные последовательности', url: 'https://cp-algorithms.com/combinatorics/bracket_sequences.html', source: 'cp-algorithms (англ.)' },
+	],
 } satisfies Chapter;
