@@ -26,7 +26,7 @@ export async function handleQuiz(request: Request, env: Env, user: SessionUser):
 	const match = /^\/leetcode\/api\/quiz(?:\/([^/]+)(?:\/(cards|answers))?)?$/.exec(url.pathname);
 	if (!match) return null;
 	const deck = decks.find(item => item.slug === match[1]);
-	if (match[1] && !deck) throw new HttpError(404, 'not_found', 'This deck does not exist.');
+	if (match[1] && !deck) throw new HttpError(404, 'not_found', 'Такой колоды нет.');
 	if (match[2] === 'cards') { methods(request, ['GET']); requireRole(user, 'parent'); return Response.json(deck!.cards); }
 	if (match[2] === 'answers') {
 		methods(request, ['POST']); requireRole(user, 'student');

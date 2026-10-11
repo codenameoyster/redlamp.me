@@ -15,12 +15,12 @@ const editableTask = "('assigned','in_progress','changes_requested')";
 export function unreadValue<T extends { unread: boolean }>(row: T): T { return { ...row, unread: Boolean(row.unread) }; }
 export async function getHomework(env: Env, id: string): Promise<Homework> {
 	const row = await env.DB.prepare(`SELECT ${homeworkColumns} FROM homework h WHERE h.id=?`).bind(uuid(id)).first<Homework>();
-	if (!row) throw new HttpError(404, 'not_found', 'This homework does not exist.');
+	if (!row) throw new HttpError(404, 'not_found', 'Такой домашней работы нет.');
 	return row;
 }
 async function getTask(env: Env, id: string, role: Role): Promise<HomeworkTask> {
 	const row = await env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.id=?`).bind(role, uuid(id)).first<HomeworkTask>();
-	if (!row) throw new HttpError(404, 'not_found', 'This task does not exist.');
+	if (!row) throw new HttpError(404, 'not_found', 'Такого задания нет.');
 	return unreadValue(row);
 }
 
@@ -39,8 +39,8 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		}
 		const data = object(await readJson(request), ['body', 'taskId', 'submissionId']);
 		const body = text(data.body, 8000, true).trim(), taskId = data.taskId == null ? null : uuid(data.taskId), submissionId = data.submissionId == null ? null : uuid(data.submissionId);
-		if (taskId && (await getTask(env, taskId, user.role)).problemId !== problemId) throw new HttpError(400, 'invalid_reference', 'Choose a task for this problem.');
-		if (submissionId && !await env.DB.prepare('SELECT s.id FROM submissions s JOIN homework_tasks t ON t.id=s.task_id WHERE s.id=? AND t.problem_id=? AND (? IS NULL OR t.id=?)').bind(submissionId, problemId, taskId, taskId).first()) throw new HttpError(400, 'invalid_reference', 'Choose a submission for this discussion.');
+		if (taskId && (await getTask(env, taskId, user.role)).problemId !== problemId) throw new HttpError(400, 'invalid_reference', 'Выберите задание для этой задачи.');
+		if (submissionId && !await env.DB.prepare('SELECT s.id FROM submissions s JOIN homework_tasks t ON t.id=s.task_id WHERE s.id=? AND t.problem_id=? AND (? IS NULL OR t.id=?)').bind(submissionId, problemId, taskId, taskId).first()) throw new HttpError(400, 'invalid_reference', 'Выберите отправленную работу для этого обсуждения.');
 		const id = crypto.randomUUID();
 		await env.DB.prepare("INSERT INTO feedback VALUES (?,?,?,?,?,'reply',?,?)").bind(id, problemId, taskId, submissionId, user.role, body, now).run();
 		return Response.json(await env.DB.prepare(`SELECT ${feedbackColumns} FROM feedback WHERE id=?`).bind(id).first(), { status: 201 });
@@ -96,14 +96,14 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		const homeworkId = uuid(data.homeworkId), problemId = uuid(data.problemId), newId = crypto.randomUUID();
 		await getHomework(env, homeworkId);
 		const result = await env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) SELECT ?,?,id,'assigned',?,? FROM problems WHERE id=? AND archived_at IS NULL ON CONFLICT DO NOTHING").bind(newId, homeworkId, now, now, problemId).run();
-		if (!result.meta.changes) throw (await getProblem(env, problemId)).archivedAt ? new HttpError(409, 'archived', 'Restore this problem before you assign homework.') : new HttpError(409, 'active_homework', 'This problem already has an active task. Complete or cancel that task first.');
+		if (!result.meta.changes) throw (await getProblem(env, problemId)).archivedAt ? new HttpError(409, 'archived', 'Верните задачу из архива, прежде чем назначать домашнюю работу.') : new HttpError(409, 'active_homework', 'У этой задачи уже есть активное задание. Сначала завершите или отмените его.');
 		return Response.json(await getTask(env, newId, user.role), { status: 201 });
 	}
 	const task = await getTask(env, id, user.role);
 	if (action === 'submit') {
 		const data = object(await readJson(request), ['version', 'attemptId', 'attemptVersion', 'nextReviewDate']);
 		const attempt = await getAttempt(env, task.problemId, uuid(data.attemptId));
-		if (![attempt.document.notes, ...attempt.document.approaches.flatMap(a => [a.idea, a.correctness, a.mistakes, a.code])].some(value => value.trim())) throw new HttpError(400, 'empty_attempt', 'Add an explanation, notes, or code before submitting.');
+		if (![attempt.document.notes, ...attempt.document.approaches.flatMap(a => [a.idea, a.correctness, a.mistakes, a.code])].some(value => value.trim())) throw new HttpError(400, 'empty_attempt', 'Добавьте объяснение, заметки или код перед отправкой.');
 		const submissionId = crypto.randomUUID(), progress = saveProgress(env, task.problemId, attempt.id, data, now);
 		const statements = [env.DB.prepare(`INSERT INTO submissions (id,task_id,attempt_id,task_version,created_at) SELECT ?,t.id,a.id,t.version+1,? FROM homework_tasks t JOIN attempts a ON a.problem_id=t.problem_id WHERE t.id=? AND t.version=? AND t.state IN ${editableTask} AND a.id=? AND a.version=? AND a.state=?`).bind(submissionId, now, id, integer(data.version), attempt.id, integer(data.attemptVersion), attempt.state)];
 		if (attempt.state === 'draft') statements.push(

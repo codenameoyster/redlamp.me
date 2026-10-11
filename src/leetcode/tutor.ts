@@ -10,7 +10,7 @@ import { sets } from './sets';
 import prompt from './tutor-prompt.txt';
 
 const RESPONSES = 'https://api.openai.com/v1/responses';
-const INTERRUPTED = { code: 'ai_interrupted', message: 'The answer stopped. Send your message again.' };
+const INTERRUPTED = { code: 'ai_interrupted', message: 'Ответ прервался. Отправьте сообщение ещё раз.' };
 const THREADS = `SELECT context_kind AS kind,context_ref AS id,count(*) AS count,max(created_at) AS lastAt,
 coalesce((SELECT title FROM problems WHERE id=context_ref AND context_kind='problem'),(SELECT title FROM lessons WHERE id=context_ref AND context_kind='lesson'),context_ref) AS title
 FROM tutor_messages GROUP BY context_kind,context_ref ORDER BY lastAt DESC,kind,id LIMIT ? OFFSET ?`;
@@ -23,7 +23,7 @@ const said = (message: string, quote: string | null) => quote === null ? message
 const squash = (value: string) => value.replace(/\s+/g, ' ').trim();
 function findSet(slug: string) {
 	const set = sets.find(item => item.slug === slug);
-	if (!set) throw new HttpError(404, 'not_found', 'This set does not exist.');
+	if (!set) throw new HttpError(404, 'not_found', 'Такого набора нет.');
 	return set;
 }
 function thread(kind: unknown, id: unknown): [TutorKind, string] {
@@ -76,11 +76,11 @@ async function context(env: Env, kind: TutorKind, id: string, quote: string | nu
 
 // One map for the JSON status before the stream and for the error event in the stream.
 function failure(status: number, code: string): HttpError {
-	if (status === 429 || code === 'subscription_sharing_usage_limit_exceeded') return new HttpError(429, 'ai_usage_limit', 'The ChatGPT plan has no AI usage left now. Try again later.');
-	if (/^(?:subscription_sharing_user_not_eligible|subscription_sharing_v2_client_not_enabled|chatpass_v2_\w+)$/.test(code)) return new HttpError(403, 'ai_not_eligible', 'This ChatGPT plan cannot be used for the AI tutor.');
+	if (status === 429 || code === 'subscription_sharing_usage_limit_exceeded') return new HttpError(429, 'ai_usage_limit', 'Лимит подписки ChatGPT исчерпан. Попробуйте позже.');
+	if (/^(?:subscription_sharing_user_not_eligible|subscription_sharing_v2_client_not_enabled|chatpass_v2_\w+)$/.test(code)) return new HttpError(403, 'ai_not_eligible', 'Эту подписку ChatGPT нельзя использовать для ИИ-репетитора.');
 	if (code === 'model_not_found') return disconnected(); // A retired model: the parent connects again, which reads the model list again.
 	if (!status || status >= 500 || code.endsWith('_unavailable')) return unavailable();
-	return new HttpError(502, 'ai_failed', 'The AI tutor cannot answer now. Try again.');
+	return new HttpError(502, 'ai_failed', 'ИИ-репетитор сейчас не может ответить. Попробуйте снова.');
 }
 
 export async function pump(upstream: Response, writer: WritableStreamDefaultWriter<string>, store: (answer: string) => Promise<unknown>): Promise<void> {

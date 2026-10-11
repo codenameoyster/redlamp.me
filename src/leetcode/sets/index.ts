@@ -32,7 +32,7 @@ export async function handleSets(request: Request, env: Env, user: SessionUser):
 			return Response.json(sets.filter(set => linked.has(set.slug)).map(({ slug, title }) => ({ slug, title })));
 		}
 		requireRole(user, 'parent');
-		if (!sets.some(set => set.slug === slug)) throw new HttpError(404, 'not_found', 'This set does not exist.');
+		if (!sets.some(set => set.slug === slug)) throw new HttpError(404, 'not_found', 'Такого набора нет.');
 		const adding = request.method === 'PUT';
 		if (homework) changed((await env.DB.batch([
 			env.DB.prepare('UPDATE homework SET version=version+1,updated_at=? WHERE id=? AND version=?').bind(new Date().toISOString(), ownerId, integer(object(await readJson(request), ['version']).version)),
@@ -49,7 +49,7 @@ export async function handleSets(request: Request, env: Env, user: SessionUser):
 		return Response.json(sets.map(({ slug, title, summary, topics, tasks }): LearningSetSummary => ({ slug, title, summary, topics, taskCount: tasks.length, acceptedCount: tasks.filter(task => accepted.has(task.slug)).length })));
 	}
 	const set = sets.find(item => item.slug === match[1]);
-	if (!set) throw new HttpError(404, 'not_found', 'This set does not exist.');
+	if (!set) throw new HttpError(404, 'not_found', 'Такого набора нет.');
 	if (match[2]) return new Response(user.role === 'student' ? set.lesson + LESSON_BRIDGE : set.lesson, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': LESSON_CSP } });
 	const rows = await env.DB.prepare(`SELECT p.slug,p.id AS problemId,${solvedSQL} AS accepted,t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,t.state
 		FROM problems p LEFT JOIN homework_tasks t ON t.problem_id=p.id AND t.state NOT IN ('completed','cancelled') LEFT JOIN homework h ON h.id=t.homework_id WHERE p.slug IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(set.tasks.map(task => task.slug))).all<TaskRow>();

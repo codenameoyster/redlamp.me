@@ -22,24 +22,24 @@ async function route(request: Request, env: Env, path: string): Promise<Response
 	if (path.startsWith('/leetcode/assets/')) return env.ASSETS.fetch(request);
 	const read = ['GET', 'HEAD'].includes(request.method);
 	if (url.hostname === 'www.redlamp.me') {
-		if (!read) throw new HttpError(403, 'forbidden', 'Use redlamp.me for the notebook.');
+		if (!read) throw new HttpError(403, 'forbidden', 'Откройте тетрадь на redlamp.me.');
 		url.hostname = 'redlamp.me';
 		return new Response(null, { status: 302, headers: { Location: url.href } });
 	}
-	if (!read && request.headers.get('origin') !== url.origin) throw new HttpError(403, 'forbidden', 'Use the notebook page to send changes.');
+	if (!read && request.headers.get('origin') !== url.origin) throw new HttpError(403, 'forbidden', 'Отправляйте изменения со страницы тетради.');
 	if (path === '/leetcode/api/session') return handleSession(request, env);
 	if (path === '/leetcode/login') { methods(request, ['GET', 'HEAD']); return renderShell(url.origin); }
 	const user = await readSession(request, env);
 	if (path.startsWith('/leetcode/api/')) {
-		if (!user) throw new HttpError(401, 'unauthorized', 'Sign in to continue.');
+		if (!user) throw new HttpError(401, 'unauthorized', 'Войдите, чтобы продолжить.');
 		const response = await handleProblems(request, env) ?? await handleAttempts(request, env, user) ?? await handleHomework(request, env, user) ?? await handleLessons(request, env, user) ?? await handleReviews(request, env, user) ?? await handleSets(request, env, user) ?? await handleChatgpt(request, env, user) ?? await handleTutor(request, env, user) ?? await handleQuiz(request, env, user);
 		if (response) return response;
-		throw new HttpError(404, 'not_found', 'This notebook request does not exist.');
+		throw new HttpError(404, 'not_found', 'Такого запроса к тетради нет.');
 	}
 	methods(request, ['GET', 'HEAD']);
 	const canonical = path.replace(/\.html$/, '').replace(/\/index$/, '').replace(/\/$/, '');
 	if (!user) return new Response(null, { status: 302, headers: { Location: `/leetcode/login?return=${encodeURIComponent(canonical + url.search)}` } });
-	if (!NOTEBOOK_PAGE.test(canonical)) throw new HttpError(404, 'not_found', 'This notebook page does not exist.');
+	if (!NOTEBOOK_PAGE.test(canonical)) throw new HttpError(404, 'not_found', 'Такой страницы тетради нет.');
 	if (canonical !== path) return new Response(null, { status: 302, headers: { Location: canonical + url.search } });
 	return renderShell(url.origin, user);
 }
@@ -49,8 +49,8 @@ export async function handleNotebook(request: Request, env: Env, path: string): 
 	try { response = await route(request, env, path); }
 	catch (error) {
 		if (!(error instanceof HttpError)) console.error('Notebook request failed.', { type: error instanceof Error ? error.name : 'unknown', requestId: request.headers.get('cf-ray') });
-		const failure = error instanceof HttpError ? error : new HttpError(503, 'unavailable', 'The notebook is unavailable. Keep your work and try again.');
-		response = Response.json({ error: { code: failure.code, message: failure.status === 405 ? 'This method is not available.' : failure.message, fields: failure.fields } }, { status: failure.status, headers: failure.status === 405 ? { Allow: failure.message } : {} });
+		const failure = error instanceof HttpError ? error : new HttpError(503, 'unavailable', 'Тетрадь недоступна. Сохраните работу и попробуйте снова.');
+		response = Response.json({ error: { code: failure.code, message: failure.status === 405 ? 'Этот метод недоступен.' : failure.message, fields: failure.fields } }, { status: failure.status, headers: failure.status === 405 ? { Allow: failure.message } : {} });
 	}
 	if (path.startsWith('/leetcode/assets/')) return response;
 	response.headers.set('Cache-Control', 'private, no-store');

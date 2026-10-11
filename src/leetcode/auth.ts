@@ -19,7 +19,7 @@ function accounts(env: Env): Accounts {
 		cachedSecret = env.LEETCODE_ACCOUNTS;
 		cachedAccounts = parsed;
 		return parsed;
-	} catch { throw new HttpError(503, 'setup_required', 'The notebook accounts need configuration.'); }
+	} catch { throw new HttpError(503, 'setup_required', 'Аккаунты тетради не настроены.'); }
 }
 
 function hex(bytes: Uint8Array): string { return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join(''); }
@@ -50,13 +50,13 @@ export async function readSession(request: Request, env: Env): Promise<SessionUs
 }
 
 export function requireRole(user: SessionUser, role: Role): void {
-	if (user.role !== role) throw new HttpError(403, 'forbidden', 'This action is not available for this account.');
+	if (user.role !== role) throw new HttpError(403, 'forbidden', 'Это действие недоступно для этого аккаунта.');
 }
 
 export async function handleSession(request: Request, env: Env): Promise<Response> {
 	methods(request, ['GET', 'POST', 'DELETE']);
 	if (request.method === 'POST') {
-		if (!(await env.LOGIN_LIMITER.limit({ key: request.headers.get('CF-Connecting-IP') ?? 'local' })).success) throw new HttpError(429, 'rate_limited', 'Too many attempts. Try again in one minute.');
+		if (!(await env.LOGIN_LIMITER.limit({ key: request.headers.get('CF-Connecting-IP') ?? 'local' })).success) throw new HttpError(429, 'rate_limited', 'Слишком много попыток входа. Попробуйте снова через минуту.');
 		const data = object(await readJson(request, 4096), ['username', 'password']);
 		const username = text(data.username, 40, true);
 		const password = text(data.password, 256);
@@ -65,7 +65,7 @@ export async function handleSession(request: Request, env: Env): Promise<Respons
 		const digest = await hash(password);
 		const expected = role ? configured[role].passwordHash : '0'.repeat(64);
 		const matches = crypto.subtle.timingSafeEqual(new TextEncoder().encode(digest), new TextEncoder().encode(expected));
-		if (!role || !matches) throw new HttpError(401, 'invalid_credentials', 'The username or password is incorrect.');
+		if (!role || !matches) throw new HttpError(401, 'invalid_credentials', 'Неверное имя пользователя или пароль.');
 		const value = hex(crypto.getRandomValues(new Uint8Array(32)));
 		const now = Date.now();
 		await env.DB.batch([
@@ -80,6 +80,6 @@ export async function handleSession(request: Request, env: Env): Promise<Respons
 		if (value) await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await hash(value)).run();
 		return new Response(null, { status: 204, headers: { 'Set-Cookie': cookie(request, env, '', 0) } });
 	}
-	if (!user) throw new HttpError(401, 'unauthorized', 'Sign in to continue.');
+	if (!user) throw new HttpError(401, 'unauthorized', 'Войдите, чтобы продолжить.');
 	return Response.json(user);
 }

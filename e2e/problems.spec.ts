@@ -2,33 +2,33 @@ import { test, expect, signIn } from './fixtures';
 
 test('adds metadata and finds the problem by its summary', async ({ page }) => {
 	await signIn(page);
-	await page.getByRole('link', { name: 'Problems', exact: true }).click();
-	await page.getByRole('button', { name: 'Add a problem', exact: true }).click();
-	await page.getByLabel('LeetCode URL').fill('https://leetcode.com/problems/minimum-window-substring/description/');
-	await page.getByLabel('Title', { exact: true }).fill('Minimum Window Substring');
-	await page.getByRole('dialog').getByLabel('Difficulty').selectOption('hard');
-	await page.getByLabel('Topics', { exact: true }).fill('Sliding window, Hash map');
-	await page.getByRole('button', { name: 'Save problem', exact: true }).click();
+	await page.getByRole('link', { name: 'Задачи', exact: true }).click();
+	await page.getByRole('button', { name: 'Добавить задачу', exact: true }).click();
+	await page.getByLabel('Ссылка на LeetCode').fill('https://leetcode.com/problems/minimum-window-substring/description/');
+	await page.getByLabel('Название', { exact: true }).fill('Minimum Window Substring');
+	await page.getByRole('dialog').getByLabel('Сложность').selectOption('hard');
+	await page.getByLabel('Темы', { exact: true }).fill('Sliding window, Hash map');
+	await page.getByRole('button', { name: 'Сохранить задачу', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'Minimum Window Substring', exact: true })).toBeVisible();
-	await page.getByRole('button', { name: 'Edit problem', exact: true }).click();
-	await page.getByLabel('Summary', { exact: true }).fill('Explain the invariant.');
-	await page.getByRole('button', { name: 'Save problem', exact: true }).click();
+	await page.getByRole('button', { name: 'Изменить задачу', exact: true }).click();
+	await page.getByLabel('Описание', { exact: true }).fill('Explain the invariant.');
+	await page.getByRole('button', { name: 'Сохранить задачу', exact: true }).click();
 	await expect(page.getByText('Explain the invariant.', { exact: true })).toBeVisible();
-	await page.getByRole('link', { name: 'Problems', exact: true }).click();
-	await page.getByLabel('Search problems and notes', { exact: true }).fill('invariant');
-	await page.getByRole('button', { name: 'Apply filters' }).click();
+	await page.getByRole('link', { name: 'Задачи', exact: true }).click();
+	await page.getByLabel('Поиск по задачам и заметкам', { exact: true }).fill('invariant');
+	await page.getByRole('button', { name: 'Применить фильтры' }).click();
 	await expect(page.getByRole('link', { name: 'Minimum Window Substring', exact: true })).toBeVisible();
 });
 
 test('restores an archived problem to the active library', async ({ page, notebook }) => {
 	const question = new Promise<string>(resolve => page.once('dialog', dialog => { resolve(dialog.message()); void dialog.accept(); }));
-	await page.getByRole('button', { name: 'Archive problem', exact: true }).click();
-	expect(await question).toBe('Archive this problem? You can restore it later.');
-	await expect(page.getByText('Archived', { exact: true })).toBeVisible();
-	await page.getByRole('button', { name: 'Restore problem', exact: true }).click();
-	await expect(page.getByText('Archived', { exact: true })).toHaveCount(0);
-	await expect(page.getByRole('button', { name: 'Archive problem', exact: true })).toBeVisible();
-	await page.getByRole('link', { name: 'Problems', exact: true }).click();
+	await page.getByRole('button', { name: 'В архив', exact: true }).click();
+	expect(await question).toBe('Отправить задачу в архив? Её можно вернуть позже.');
+	await expect(page.getByText('В архиве', { exact: true })).toBeVisible();
+	await page.getByRole('button', { name: 'Вернуть из архива', exact: true }).click();
+	await expect(page.getByText('В архиве', { exact: true })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'В архив', exact: true })).toBeVisible();
+	await page.getByRole('link', { name: 'Задачи', exact: true }).click();
 	await expect(page.getByRole('link', { name: notebook.problem.title, exact: true })).toBeVisible();
 });
 
@@ -38,7 +38,7 @@ test.describe('LeetCode details', () => {
 		await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 		await signIn(page);
 		await page.goto('/leetcode/problems');
-		await page.getByRole('button', { name: 'Add a problem', exact: true }).click();
+		await page.getByRole('button', { name: 'Добавить задачу', exact: true }).click();
 		await page.evaluate(text => navigator.clipboard.writeText(text), url);
 	});
 
@@ -51,14 +51,14 @@ test.describe('LeetCode details', () => {
 			await route.fulfill({ json: { number: 76, title: 'Minimum Window Substring', difficulty: 'hard', topics: ['Hash Table', 'String', 'Sliding Window'] } });
 		});
 		const dialog = page.getByRole('dialog');
-		await dialog.getByLabel('LeetCode URL').focus();
+		await dialog.getByLabel('Ссылка на LeetCode').focus();
 		await page.keyboard.press('ControlOrMeta+V');
-		await expect(dialog.getByRole('status')).toHaveText('Filling in details from LeetCode');
+		await expect(dialog.getByRole('status')).toHaveText('Заполняем данные из LeetCode');
 		release();
-		await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue('Minimum Window Substring');
-		await expect(dialog.getByLabel('Problem number')).toHaveValue('76');
-		await expect(dialog.getByLabel('Difficulty')).toHaveValue('hard');
-		await expect(dialog.getByLabel('Topics', { exact: true })).toHaveValue('Hash Table, String, Sliding Window');
+		await expect(dialog.getByLabel('Название', { exact: true })).toHaveValue('Minimum Window Substring');
+		await expect(dialog.getByLabel('Номер задачи')).toHaveValue('76');
+		await expect(dialog.getByLabel('Сложность')).toHaveValue('hard');
+		await expect(dialog.getByLabel('Темы', { exact: true })).toHaveValue('Hash Table, String, Sliding Window');
 		await expect(dialog.getByRole('status')).toHaveCount(0);
 		expect(requested).toBe(url);
 	});
@@ -66,24 +66,24 @@ test.describe('LeetCode details', () => {
 	test('keeps the fields for manual entry when the LeetCode details are unavailable', async ({ page }) => {
 		await page.route('**/leetcode/api/problem-details?*', route => route.fulfill({ status: 502, json: { error: { code: 'lookup_failed', message: 'LeetCode details are unavailable. Enter them yourself.' } } }));
 		const dialog = page.getByRole('dialog');
-		await dialog.getByLabel('LeetCode URL').focus();
+		await dialog.getByLabel('Ссылка на LeetCode').focus();
 		await page.keyboard.press('ControlOrMeta+V');
 		await expect(dialog.getByRole('status')).toHaveText('LeetCode details are unavailable. Enter them yourself.');
-		await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue('');
-		await expect(dialog.getByLabel('LeetCode URL')).toHaveValue(url);
+		await expect(dialog.getByLabel('Название', { exact: true })).toHaveValue('');
+		await expect(dialog.getByLabel('Ссылка на LeetCode')).toHaveValue(url);
 	});
 });
 
 const fieldButtons = [
-	{ name: 'aligns the link button with the lesson field', role: 'parent', field: 'Related lesson', button: 'Link lesson' },
-	{ name: 'aligns the save button with the review date field', role: 'student', field: 'Next review', button: 'Save attempt' },
+	{ name: 'aligns the link button with the lesson field', role: 'parent', field: 'Связанный урок', button: 'Привязать' },
+	{ name: 'aligns the save button with the review date field', role: 'student', field: 'Следующее повторение', button: 'Сохранить попытку' },
 ] as const;
 for (const row of fieldButtons) {
 	test(row.name, async ({ page, notebook }) => {
 		if (row.role === 'parent') await signIn(page, 'parent');
 		await page.goto(`/leetcode/problems/${notebook.problem.id}`);
-		await expect(page.getByLabel('Key idea', { exact: true })).toBeVisible();
-		await expect(page.getByText('No lessons linked yet.', { exact: true })).toBeVisible();
+		await expect(page.getByLabel('Основная идея', { exact: true })).toBeVisible();
+		await expect(page.getByText('Связанных уроков пока нет.', { exact: true })).toBeVisible();
 		const field = await page.getByLabel(row.field, { exact: true }).boundingBox();
 		const button = await page.getByRole('button', { name: row.button, exact: true }).boundingBox();
 		expect(Math.abs(field!.y + field!.height - (button!.y + button!.height))).toBeLessThanOrEqual(1);

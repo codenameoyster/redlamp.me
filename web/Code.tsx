@@ -12,5 +12,5 @@ export function Code({ language, text, blank }: { language: string; text: string
 
 // A transparent textarea over the highlighted copy. Both wrap the same way, so the wrapper takes the height of the copy.
 export function CodeField({ language, value, readOnly, onChange }: { language: string; value: string; readOnly: boolean; onChange: (value: string) => void }) {
-	return <div className="code-field"><pre aria-hidden="true"><code dangerouslySetInnerHTML={html(language, value.endsWith('\n') ? `${value} ` : value)} /></pre><textarea aria-label="Solution code" className="code" spellCheck={false} value={value} readOnly={readOnly} onChange={event => onChange(event.target.value)} /></div>;
+	return <div className="code-field"><pre aria-hidden="true"><code dangerouslySetInnerHTML={html(language, value.endsWith('\n') ? `${value} ` : value)} /></pre><textarea aria-label="Код решения" className="code" spellCheck={false} value={value} readOnly={readOnly} onChange={event => onChange(event.target.value)} /></div>;
 }

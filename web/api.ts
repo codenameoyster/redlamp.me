@@ -13,7 +13,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export async function apiError(response: Response): Promise<ApiError> {
 	const value = await response.json().catch(() => null);
-	return new ApiError(response.status, value?.error?.code ?? 'request_failed', value?.error?.message ?? 'Request failed. Try again.', value?.error?.fields);
+	return new ApiError(response.status, value?.error?.code ?? 'request_failed', value?.error?.message ?? 'Запрос не выполнен. Попробуйте снова.', value?.error?.fields);
 }
 
-export function message(error: unknown): string { return error instanceof Error ? error.message : 'Request failed. Try again.'; }
+export function message(error: unknown): string { return error instanceof Error ? error.message : 'Запрос не выполнен. Попробуйте снова.'; }

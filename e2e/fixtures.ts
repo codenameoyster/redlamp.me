@@ -8,10 +8,10 @@ export interface TestEnv { DB: D1Database }
 
 export async function signIn(page: Page, role: Role = 'student') {
 	await page.goto('/leetcode/login');
-	await page.getByLabel('Username').fill(`${role}-test`);
-	await page.getByLabel('Password').fill(role === 'student' ? 'student-test-password-01' : 'parent-test-password-001');
-	await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-	await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
+	await page.getByLabel('Имя пользователя').fill(`${role}-test`);
+	await page.getByLabel('Пароль').fill(role === 'student' ? 'student-test-password-01' : 'parent-test-password-001');
+	await page.getByRole('button', { name: 'Войти', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Выйти' })).toBeVisible();
 }
 
 export async function addTask(DB: D1Database, problemId: string, state = 'assigned', dueDate: string | null = null) {
@@ -50,7 +50,7 @@ export const test = base.extend<{ reset: void; notebook: { problem: Problem; att
 		expect(response.status()).toBe(201);
 		const attempt = await response.json() as Attempt;
 		await page.goto(`/leetcode/problems/${problem.id}`);
-		await expect(page.getByLabel('Key idea', { exact: true })).toBeVisible();
+		await expect(page.getByLabel('Основная идея', { exact: true })).toBeVisible();
 		await use({ problem, attempt });
 	},
 });

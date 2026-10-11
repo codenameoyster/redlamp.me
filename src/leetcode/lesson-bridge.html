@@ -5,7 +5,7 @@
 	const host = document.createElement('lesson-ai');
 	host.style.cssText = 'all:initial;position:absolute;z-index:2147483647;display:none';
 	const root = host.attachShadow({ mode: 'open' });
-	root.innerHTML = '<style>button{font:600 14px/1.2 system-ui,sans-serif;padding:10px 14px;border:0;border-radius:999px;background:#1d2433;color:#fff;box-shadow:0 0 0 1px #fff,0 4px 12px #0006;cursor:pointer;user-select:none}button:focus-visible{outline:3px solid #8fa9ff;outline-offset:2px}</style><button type="button" title="Ctrl+Enter" aria-keyshortcuts="Control+Enter Meta+Enter">Explain with AI</button>';
+	root.innerHTML = '<style>button{font:600 14px/1.2 system-ui,sans-serif;padding:10px 14px;border:0;border-radius:999px;background:#1d2433;color:#fff;box-shadow:0 0 0 1px #fff,0 4px 12px #0006;cursor:pointer;user-select:none}button:focus-visible{outline:3px solid #8fa9ff;outline-offset:2px}</style><button type="button" title="Ctrl+Enter" aria-keyshortcuts="Control+Enter Meta+Enter">Объяснить с ИИ</button>';
 	document.documentElement.append(host);
 	const button = root.querySelector('button'), skip = /[\s\u00ad\u200b]/, low = c => c.toLowerCase()[0];
 	let picked = '', pressing = false, marks = [];

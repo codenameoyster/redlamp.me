@@ -30,9 +30,9 @@ export function useDraft(initial: Attempt, user: SessionUser) {
 			if (dirty()) sessionStorage.setItem(key, JSON.stringify({ attemptId: initial.id, baseVersion: confirmed.current.version, value: latest.current, editedAt: new Date().toISOString() }));
 			else sessionStorage.removeItem(key);
 			return true;
-		} catch { setStorageError('Reload recovery is unavailable. Keep this page open or copy your work.'); return false; }
+		} catch { setStorageError('Восстановление после перезагрузки недоступно. Не закрывайте эту страницу или скопируйте работу.'); return false; }
 	}
-	function removeRecovery() { try { sessionStorage.removeItem(key); } catch { setStorageError('Reload recovery is unavailable.'); } }
+	function removeRecovery() { try { sessionStorage.removeItem(key); } catch { setStorageError('Восстановление после перезагрузки недоступно.'); } }
 	function schedule() {
 		if (!dirty()) return clearTimers();
 		if (!enabled || pending.current || blocked.current || recovering.current || !alive.current) return;
@@ -88,7 +88,7 @@ export function useDraft(initial: Attempt, user: SessionUser) {
 	function conflicted(server: Attempt) { setConflict(server); blocked.current = 'conflict'; setStatus('conflict'); }
 	function discard() { leaving.current = true; clearTimers(); removeRecovery(); }
 	async function reload() {
-		if (!confirm('Discard your unsaved copy and use the server copy?')) return;
+		if (!confirm('Отказаться от несохранённой копии и использовать копию с сервера?')) return;
 		try {
 			const server = await api<Attempt>(path);
 			confirmed.current = server; latest.current = content(server); acknowledged.current = JSON.stringify(latest.current);
@@ -114,7 +114,7 @@ export function useDraft(initial: Attempt, user: SessionUser) {
 			try {
 				const saved = JSON.parse(sessionStorage.getItem(key) ?? 'null') as Recovery | null;
 				if (saved?.value?.document?.approaches && (saved.attemptId !== initial.id || JSON.stringify(saved.value) !== acknowledged.current)) { setRecovery(saved); recovering.current = true; } else if (saved) removeRecovery();
-			} catch { setStorageError('The recovery copy cannot be read. Keep this page open or copy your work.'); }
+			} catch { setStorageError('Не удалось прочитать копию для восстановления. Не закрывайте эту страницу или скопируйте работу.'); }
 		}
 		function beforeUnload(event: BeforeUnloadEvent) { if (!leaving.current && (dirty() || recovering.current)) event.preventDefault(); }
 		window.addEventListener('beforeunload', beforeUnload);

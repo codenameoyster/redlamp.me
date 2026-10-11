@@ -10,9 +10,9 @@ const LESSON_HTML = '<h1>Recursion</h1><p>A function calls itself.</p><h2>Base c
 const tokens = { access_token: 'access-1', refresh_token: 'refresh-1', token_type: 'Bearer', expires_in: 3600, scope: 'openid profile email offline_access resource.invoke chatgpt.tokens.use.direct' };
 const rotated = { access_token: 'access-2', refresh_token: 'refresh-2', token_type: 'Bearer', expires_in: 3600 };
 const approach = { id: '33333333-3333-4333-8333-333333333333', label: 'Hash map', idea: 'Remember seen values.', correctness: 'Each pair is checked once.', timeComplexity: 'O(n)', spaceComplexity: 'O(n)', edgeCases: 'Empty input', mistakes: '', language: 'python' };
-const USAGE_LIMIT = { code: 'ai_usage_limit', message: 'The ChatGPT plan has no AI usage left now. Try again later.' };
-const INTERRUPTED = { code: 'ai_interrupted', message: 'The answer stopped. Send your message again.' };
-const UNAVAILABLE = { code: 'ai_unavailable', message: 'ChatGPT is not available now. Try again in a few minutes.' };
+const USAGE_LIMIT = { code: 'ai_usage_limit', message: 'Лимит подписки ChatGPT исчерпан. Попробуйте позже.' };
+const INTERRUPTED = { code: 'ai_interrupted', message: 'Ответ прервался. Отправьте сообщение ещё раз.' };
+const UNAVAILABLE = { code: 'ai_unavailable', message: 'ChatGPT сейчас недоступен. Попробуйте снова через несколько минут.' };
 type Reply = () => Response | Promise<Response>;
 type Item = { role: string; content: string };
 

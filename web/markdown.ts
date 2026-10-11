@@ -1,3 +1,5 @@
+import { plural } from './text';
+
 export type Inline = string | { kind: 'code'; text: string } | { kind: 'strong' | 'em'; children: Inline[] };
 export type TreeNode = { label: string; note?: string; hl?: boolean; kind?: 'answer' | 'pruned'; children?: TreeNode[] };
 export type Diagram =
@@ -101,12 +103,11 @@ export function layoutTree(root: TreeNode): { nodes: Placed[]; slot: number; wid
 	return { nodes, slot, width: 2 * PAD + leaves * slot, height: 2 * PAD + BOX + NOTE + depth * ROW };
 }
 
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 const part = (label: string, items: string[]) => items.length ? ` ${label}: ${items.join(', ')}.` : '';
 
 export function diagramLabel(d: Diagram): string {
-	if (d.type === 'array') return `Array: ${d.cells.join(', ')}.${part('Pointers', Object.entries(d.pointers ?? {}).map(([name, at]) => `${name} at ${at}`))}${part('Highlighted', (d.hl ?? []).map(i => `${d.cells[i]} at ${i}`))}`;
-	if (d.type === 'grid') return `Grid with ${plural(d.cells.length, 'row')} and ${plural(d.cells[0].length, 'column')}.${part('Highlighted', (d.hl ?? []).map(([row, col]) => `row ${row + 1} column ${col + 1}`))}`;
+	if (d.type === 'array') return `Массив: ${d.cells.join(', ')}.${part('Указатели', Object.entries(d.pointers ?? {}).map(([name, at]) => `${name} на ${at}`))}${part('Выделено', (d.hl ?? []).map(i => `${d.cells[i]} на ${i}`))}`;
+	if (d.type === 'grid') return `Сетка: ${plural(d.cells.length, ['строка', 'строки', 'строк'])} и ${plural(d.cells[0].length, ['столбец', 'столбца', 'столбцов'])}.${part('Выделено', (d.hl ?? []).map(([row, col]) => `строка ${row + 1} столбец ${col + 1}`))}`;
 	const nodes = layoutTree(d.root).nodes.map(placed => placed.node);
-	return `Tree with ${plural(nodes.length, 'node')}.${part('Highlighted', nodes.filter(node => node.hl).map(node => node.label))}${part('Answers', nodes.filter(node => node.kind === 'answer').map(node => node.label))}${part('Pruned', nodes.filter(node => node.kind === 'pruned').map(node => node.label))}`;
+	return `Дерево: ${plural(nodes.length, ['узел', 'узла', 'узлов'])}.${part('Выделено', nodes.filter(node => node.hl).map(node => node.label))}${part('Ответы', nodes.filter(node => node.kind === 'answer').map(node => node.label))}${part('Отсечено', nodes.filter(node => node.kind === 'pruned').map(node => node.label))}`;
 }

@@ -44,7 +44,7 @@ const fullPageChecks = [
 for (const row of fullPageChecks) {
 	test(row.name, async ({ page }) => {
 		await page.goto(`/leetcode/lessons/${lessonId}`);
-		await page.goto((await page.getByRole('link', { name: 'Full-page display' }).getAttribute('href'))!);
+		await page.goto((await page.getByRole('link', { name: 'Открыть на всю страницу' }).getAttribute('href'))!);
 		await expect(page.locator(row.output)).toHaveText('blocked');
 	});
 }
@@ -66,5 +66,5 @@ test('shows a lesson to the student without archive controls', async ({ page }) 
 	await signIn(page);
 	await page.goto(`/leetcode/lessons/${lessonId}`);
 	await expect(page.frameLocator('iframe').getByRole('button', { name: 'Next step' })).toBeVisible();
-	await expect(page.getByRole('button', { name: 'Archive lesson' })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'В архив' })).toHaveCount(0);
 });
