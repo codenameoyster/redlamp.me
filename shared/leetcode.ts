@@ -1,7 +1,7 @@
 export type Role = 'parent' | 'student';
 export interface SessionUser { role: Role; username: string }
 export interface Page<T> { items: T[]; nextOffset: number | null }
-export const NOTEBOOK_PAGE = /^\/leetcode(?:\/(?:problems|homework|lessons)(?:\/[a-f0-9-]{36}(?:\/review)?)?|\/tasks\/[a-f0-9-]{36}|\/sets(?:\/[a-z0-9-]+(?:\/[1-9][0-9]?)?)?|\/quiz(?:\/[a-z0-9-]+)?|\/tutor)?$/;
+export const NOTEBOOK_PAGE = /^\/leetcode(?:\/(?:problems|homework)(?:\/[a-f0-9-]{36}(?:\/review)?)?|\/tasks\/[a-f0-9-]{36}|\/sets(?:\/[a-z0-9-]+(?:\/[1-9][0-9]?)?)?|\/quiz(?:\/[a-z0-9-]+)?|\/tutor)?$/;
 export type Acceptance = 'not_submitted' | 'not_accepted' | 'accepted';
 export type Understanding = 'needs_practice' | 'with_help' | 'independent';
 export type Difficulty = 'easy' | 'medium' | 'hard';
@@ -62,15 +62,13 @@ export interface Submission { id: string; taskId: string; attemptId: string; tas
 export interface Feedback { id: string; problemId: string; taskId: string | null; submissionId: string | null; author: Role; kind: 'reply' | 'changes_requested' | 'completed'; body: string; createdAt: string }
 export interface HomeworkDetails { homework: Homework; tasks: HomeworkTask[] }
 export interface TaskDetails { homework: Homework; task: HomeworkTask; submissions: Submission[] }
-export interface Lesson { id: string; title: string; description: string; topics: string[]; filename: string; byteCount: number; archivedAt: string | null; version: number; createdAt: string; updatedAt: string }
-export const MAX_LESSON_BYTES = 1_000_000;
-export const MAX_UPLOAD_BYTES = 1_032_768;
 export interface SetTask { url: string; number?: number; title: string; difficulty: Difficulty; topics: string[]; note: string }
-export interface Chapter { title: string; summary: string; tasks: SetTask[]; cards: Card[] }
-export interface LearningSet { slug: string; title: string; summary: string; topics: string[]; links: { title: string; url: string; source: string }[]; chapters: Chapter[] }
-export interface LearningSetSummary extends Omit<LearningSet, 'links' | 'chapters'> { chapterCount: number; taskCount: number; acceptedCount: number }
+export interface Chapter { title: string; summary: string; tasks: SetTask[]; cards: Card[]; links: { title: string; url: string; source: string }[] }
+export interface LearningSet { slug: string; title: string; summary: string; topics: string[]; chapters: Chapter[] }
+export interface ChapterRef { set: string; setTitle: string; number: number; title: string }
+export interface LearningSetSummary extends Omit<LearningSet, 'chapters'> { chapterCount: number; taskCount: number; acceptedCount: number }
 export type SetTaskRow = SetTask & { slug: string; label: string; problemId: string | null; accepted: boolean; activeTask: Pick<HomeworkTask, 'id' | 'homeworkId' | 'homeworkTitle' | 'state'> | null };
-export interface LearningSetDetails extends Omit<LearningSet, 'chapters'> { chapters: { number: number; title: string; summary: string; tasks: SetTaskRow[] }[] }
+export interface LearningSetDetails extends Omit<LearningSet, 'chapters'> { chapters: { number: number; title: string; summary: string; links: Chapter['links']; tasks: SetTaskRow[] }[] }
 export type Card = { id: string; prompt: string; explain: string } & (
 	{ type: 'flip'; back: string }
 	| { type: 'choice'; options: string[]; answer: number }
@@ -88,8 +86,9 @@ export interface Dashboard {
 	homework: HomeworkTask[];
 	drafts: (AttemptSummary & { problemTitle: string })[];
 	dueReviews: Problem[];
+	recallPicks: Omit<SetTaskRow, 'accepted' | 'activeTask'>[];
 }
-export type TutorKind = 'problem' | 'set' | 'lesson';
+export type TutorKind = 'problem' | 'set';
 export interface TutorMessage { id: string; author: 'student' | 'assistant'; body: string; quote: string | null; createdAt: string }
 export interface TutorThread { kind: TutorKind; id: string; title: string; count: number; lastAt: string }
 export type TutorEvent = { delta: string } | { done: true } | { error: { code: string; message: string } };

@@ -6,6 +6,7 @@ import { taskColumns, taskTables, unreadValue } from './homework';
 import { getProblem, problemColumns, problemValue, solvedSQL } from './problems';
 import { acceptedSetSlugs, sets, taskSlug, tasksOf } from './sets';
 import { cardIds, dueCardsSQL } from './quiz';
+import { recallPicks } from './recall';
 import { calendarDate, changed, choice, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
 
 const reviewColumns = 'id,problem_id AS problemId,result,note,reviewed_on AS reviewedOn,next_review_date AS nextReviewDate,created_at AS createdAt';
@@ -15,7 +16,7 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 	if (url.pathname === '/leetcode/api/dashboard') {
 		methods(request, ['GET']);
 		const today = calendarDate(text(url.searchParams.get('today'), 10, true));
-		const [progress, assignments, topics, homework, drafts, dueReviews, dueCards] = await env.DB.batch<Record<string, unknown>>([
+		const [[progress, assignments, topics, homework, drafts, dueReviews, dueCards], picks] = await Promise.all([env.DB.batch<Record<string, unknown>>([
 			env.DB.prepare(`SELECT count(*) AS recorded,coalesce(sum(${solvedSQL}),0) AS solved,coalesce(sum(${solvedSQL} AND p.understanding='independent'),0) AS independent,coalesce(sum(p.next_review_date<=?),0) AS dueReviews FROM problems p WHERE p.archived_at IS NULL`).bind(today),
 			env.DB.prepare("SELECT count(*) AS waitingReview FROM homework_tasks t JOIN problems p ON p.id=t.problem_id WHERE t.state='submitted' AND p.archived_at IS NULL"),
 			env.DB.prepare(`SELECT t.value AS topic,count(*) AS solved,sum(p.understanding='independent') AS independent FROM problems p,json_each(p.topics) t WHERE p.archived_at IS NULL AND ${solvedSQL} GROUP BY t.value ORDER BY t.value LIMIT 50`),
@@ -23,8 +24,8 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 			env.DB.prepare(`SELECT ${attemptColumns},(SELECT title FROM problems p WHERE p.id=attempts.problem_id) AS problemTitle FROM attempts WHERE state='draft' AND EXISTS(SELECT 1 FROM problems p WHERE p.id=attempts.problem_id AND p.archived_at IS NULL) ORDER BY updated_at DESC,id LIMIT 5`),
 			env.DB.prepare(`SELECT ${problemColumns} FROM problems p WHERE p.archived_at IS NULL AND p.next_review_date<=? ORDER BY p.next_review_date,p.id LIMIT 10`).bind(today),
 			env.DB.prepare(dueCardsSQL).bind(cardIds, today),
-		]);
-		return Response.json({ counts: { ...progress.results[0], ...assignments.results[0], ...dueCards.results[0] }, topics: topics.results, homework: (homework.results as unknown as HomeworkTask[]).map(unreadValue), drafts: drafts.results, dueReviews: dueReviews.results.map(row => problemValue(row as unknown as Parameters<typeof problemValue>[0])) } as Dashboard);
+		]), recallPicks(env, today!)]);
+		return Response.json({ counts: { ...progress.results[0], ...assignments.results[0], ...dueCards.results[0] }, topics: topics.results, homework: (homework.results as unknown as HomeworkTask[]).map(unreadValue), drafts: drafts.results, dueReviews: dueReviews.results.map(row => problemValue(row as unknown as Parameters<typeof problemValue>[0])), recallPicks: picks } as Dashboard);
 	}
 	if (url.pathname === '/leetcode/api/game') {
 		methods(request, ['GET']);

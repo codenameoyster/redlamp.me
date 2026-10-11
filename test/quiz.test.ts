@@ -91,6 +91,10 @@ it('lists one deck per chapter and builds the round from due cards, then new car
 		{ slug: 'permutations-and-combinations-2', title: 'Перестановки и сочетания, глава 2', cardCount: 8, dueCount: 0, newCount: 8 },
 		{ slug: 'permutations-and-combinations-3', title: 'Перестановки и сочетания, глава 3', cardCount: 7, dueCount: 1, newCount: 6 },
 		{ slug: 'permutations-and-combinations-4', title: 'Перестановки и сочетания, глава 4', cardCount: 6, dueCount: 0, newCount: 6 },
+		{ slug: 'two-pointers-1', title: 'Два указателя, глава 1', cardCount: 8, dueCount: 0, newCount: 8 },
+		{ slug: 'two-pointers-2', title: 'Два указателя, глава 2', cardCount: 7, dueCount: 0, newCount: 7 },
+		{ slug: 'two-pointers-3', title: 'Два указателя, глава 3', cardCount: 8, dueCount: 0, newCount: 8 },
+		{ slug: 'two-pointers-4', title: 'Два указателя, глава 4', cardCount: 8, dueCount: 0, newCount: 8 },
 	]);
 	const round = await (await request(`/quiz/${slug}?today=${today}`, 'GET', undefined, student)).json() as QuizRound;
 	expect(round.title).toBe('Перестановки и сочетания, глава 1');

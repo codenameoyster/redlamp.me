@@ -4,15 +4,14 @@ import type { AttemptDocument, SessionUser, TutorEvent, TutorKind, TutorMessage,
 import { requireRole } from './auth';
 import { accessToken, disconnected, unavailable, type Token } from './chatgpt';
 import { choice, HttpError, methods, object, page, pagination, readJson, text, uuid } from './http';
-import { getLesson } from './lessons';
 import { getProblem, question } from './problems';
-import { sets, taskLabel } from './sets';
+import { chaptersOf, sets, taskLabel } from './sets';
 import prompt from './tutor-prompt.txt';
 
 const RESPONSES = 'https://api.openai.com/v1/responses';
 const INTERRUPTED = { code: 'ai_interrupted', message: 'Ответ прервался. Отправьте сообщение ещё раз.' };
 const THREADS = `SELECT context_kind AS kind,context_ref AS id,count(*) AS count,max(created_at) AS lastAt,
-coalesce((SELECT title FROM problems WHERE id=context_ref AND context_kind='problem'),(SELECT title FROM lessons WHERE id=context_ref AND context_kind='lesson'),context_ref) AS title
+coalesce((SELECT title FROM problems WHERE id=context_ref AND context_kind='problem'),context_ref) AS title
 FROM tutor_messages GROUP BY context_kind,context_ref ORDER BY lastAt DESC,kind,id LIMIT ? OFFSET ?`;
 const ENTITIES: Record<string, string> = { lt: '<', gt: '>', amp: '&', quot: '"', '#39': "'", nbsp: ' ' };
 type Upstream = { type?: string; delta?: string; code?: string | null; response?: { error?: { code?: string } | null } };
@@ -27,7 +26,7 @@ function findSet(slug: string) {
 	return set;
 }
 function thread(kind: unknown, id: unknown): [TutorKind, string] {
-	const value = choice(kind, ['problem', 'set', 'lesson'] as const);
+	const value = choice(kind, ['problem', 'set'] as const);
 	return [value, value === 'set' ? text(id, 100) : uuid(id)];
 }
 
@@ -53,11 +52,7 @@ async function context(env: Env, kind: TutorKind, id: string, quote: string | nu
 	if (kind === 'set') {
 		const set = findSet(id);
 		const chapters = set.chapters.map((chapter, index) => [`${index + 1}. ${chapter.title}: ${chapter.summary}`, ...chapter.tasks.map(task => `${task.title} (${taskLabel(task)}, ${task.difficulty}). ${task.note}`)].join('\n'));
-		return `${clip(`Learning set: ${set.title}\nSummary: ${set.summary}\nTopics: ${set.topics.join(', ')}\nChapters:\n${chapters.join('\n')}`, 4000)}\n\n${lessonText(set.lessons.join('\n'), quote)}`;
-	}
-	if (kind === 'lesson') {
-		const lesson = await getLesson(env, id), row = await env.DB.prepare('SELECT html FROM lesson_content WHERE lesson_id=?').bind(id).first<{ html: string }>();
-		return `${clip(`Lesson: ${lesson.title}\nDescription: ${lesson.description}\nTopics: ${lesson.topics.join(', ')}`, 4000)}\n\n${lessonText(row!.html, quote)}`;
+		return `${clip(`Learning set: ${set.title}\nSummary: ${set.summary}\nTopics: ${set.topics.join(', ')}\nChapters:\n${chapters.join('\n')}`, 4000)}\n\n${lessonText(set.lessons.map((html, index) => `<h1>Глава ${index + 1}. ${set.chapters[index].title}</h1>\n${html}`).join('\n'), quote)}`;
 	}
 	const problem = await getProblem(env, id);
 	const [statement, task, attempt] = await Promise.all([
@@ -68,6 +63,8 @@ async function context(env: Env, kind: TutorKind, id: string, quote: string | nu
 	const parts = [clip([`Problem: ${problem.number === null ? '' : `${problem.number}. `}${problem.title} (${problem.difficulty})`, `Topics: ${problem.topics.join(', ')}`, `Summary: ${problem.summary}`, ...(task ? [`Homework: ${task.title}. State: ${task.state}. Due date: ${task.dueDate ?? 'none'}.`] : [])].join('\n'), 4000)];
 	if (statement) parts.push(`LeetCode statement:\n${clip(htmlText(statement), 6000)}`);
 	if (task) parts.push(`Homework instructions:\n${clip(task.instructions, 2000)}`);
+	const [chapter] = chaptersOf(problem.slug);
+	if (chapter) parts.push(`Chapter: ${chapter.setTitle}, глава ${chapter.number}. ${chapter.title}\n${clip(lessonText(findSet(chapter.set).lessons[chapter.number - 1], quote), 8000)}`);
 	if (attempt) {
 		const work = JSON.parse(attempt.document) as AttemptDocument;
 		parts.push(`${attempt.state === 'draft' ? 'Current draft' : 'Newest saved attempt'}:\n${clip([`Notes: ${work.notes}`, ...work.approaches.map((a, i) => `Approach ${i + 1}: ${a.label}\nIdea: ${a.idea}\nWhy it works: ${a.correctness}\nTime complexity: ${a.timeComplexity}\nSpace complexity: ${a.spaceComplexity}\nEdge cases: ${a.edgeCases}\nMistakes: ${a.mistakes}\nLanguage: ${a.language}\nCode:\n${a.code}`)].join('\n\n'), 12_000)}`);
@@ -152,7 +149,7 @@ export async function handleTutor(request: Request, env: Env, user: SessionUser)
 		return Response.json(page(rows.results.map(row => row.kind === 'set' ? { ...row, title: sets.find(set => set.slug === row.id)?.title ?? row.id } : row), limit, offset));
 	}
 	const [kind, id] = thread(url.searchParams.get('kind'), url.searchParams.get('id'));
-	if (kind === 'set') findSet(id); else await (kind === 'lesson' ? getLesson : getProblem)(env, id);
+	if (kind === 'set') findSet(id); else await getProblem(env, id);
 	const rows = await env.DB.prepare('SELECT id,author,body,quote,created_at AS createdAt FROM tutor_messages WHERE context_kind=? AND context_ref=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?').bind(kind, id, limit + 1, offset).all<TutorMessage>();
 	return Response.json(page(rows.results, limit, offset));
 }

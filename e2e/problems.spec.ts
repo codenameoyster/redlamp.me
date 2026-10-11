@@ -92,7 +92,7 @@ test.describe('problem details', () => {
 });
 
 const fieldButtons = [
-	{ name: 'aligns the link button with the lesson field', role: 'parent', field: 'Связанный урок', button: 'Привязать' },
+	{ name: 'aligns the link button with the set field', role: 'parent', field: 'Набор', button: 'Привязать' },
 	{ name: 'aligns the save button with the review date field', role: 'student', field: 'Следующее повторение', button: 'Сохранить попытку' },
 ] as const;
 for (const row of fieldButtons) {
@@ -100,7 +100,7 @@ for (const row of fieldButtons) {
 		if (row.role === 'parent') await signIn(page, 'parent');
 		await page.goto(`/leetcode/problems/${notebook.problem.id}`);
 		await expect(page.getByLabel('Основная идея', { exact: true })).toBeVisible();
-		await expect(page.getByText('Связанных уроков пока нет.', { exact: true })).toBeVisible();
+		await expect(page.getByText('Материалов пока нет.', { exact: true })).toBeVisible();
 		const field = await page.getByLabel(row.field, { exact: true }).boundingBox();
 		const button = await page.getByRole('button', { name: row.button, exact: true }).boundingBox();
 		expect(Math.abs(field!.y + field!.height - (button!.y + button!.height))).toBeLessThanOrEqual(1);

@@ -1,166 +1,8 @@
-<!doctype html>
-<html lang="ru">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Перебор: подмножества, перестановки, сочетания</title>
-<style>
-:root{color-scheme:light dark;--paper:#f7f9fc;--surface:#fff;--sunken:#eef2f8;--ink:#1d2433;--muted:#5b6578;--line:#dbe2ec;--pen:#2f5bea;--pen-bg:#eaf0ff;--on-pen:#fff;--margin:#c93426;--margin-bg:#fdecea;--green:#1d7f54;--green-bg:#e4f4ec;--amber:#9a5a00;--amber-bg:#fff1d6;--grey:#7d8799;--sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
-@media (prefers-color-scheme:dark){:root{--paper:#0f141d;--surface:#161d29;--sunken:#1d2635;--ink:#e7ecf4;--muted:#9ba7bb;--line:#2c384b;--pen:#8fa9ff;--pen-bg:#1d2a4a;--on-pen:#0f141d;--margin:#ff7b6b;--margin-bg:#3a1f1e;--green:#62d39c;--green-bg:#16301f;--amber:#f0c064;--amber-bg:#36290f;--grey:#7f8aa0}}
-*{box-sizing:border-box}
-[hidden]{display:none!important}
-html{-webkit-text-size-adjust:100%}
-@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
-body{margin:0;background:var(--paper);color:var(--ink);font:400 17px/1.6 var(--sans);overflow-wrap:break-word}
-main{max-width:46rem;margin:0 auto;padding:28px 16px 72px}
-h1{font-size:2rem;line-height:1.15;margin:0 0 12px;letter-spacing:-.01em}
-h2{font-size:1.4rem;line-height:1.3;margin:60px 0 10px;display:flex;gap:10px;align-items:baseline}
-h2 .n{font:600 .8rem/1 var(--mono);color:var(--margin);border:1px solid currentColor;border-radius:6px;padding:4px 6px;flex-shrink:0}
-h3{font-size:1.1rem;line-height:1.3;margin:28px 0 8px}
-h4{font-size:.9rem;margin:14px 0 6px;color:var(--muted)}
-p,ul,ol{margin:0 0 14px}
-ul,ol{padding-left:1.4rem}
-li{margin:4px 0}
-a{color:var(--pen);text-underline-offset:3px}
-sup{line-height:0}
-.lead{font-size:1.1rem;color:var(--muted)}
-.muted{color:var(--muted)}
-.tags{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 18px;padding:0;list-style:none}
-.tags li{margin:0;font-size:13px;line-height:1.4;padding:3px 10px;border-radius:999px;background:var(--pen-bg);color:var(--pen)}
-h2+.tags{margin-top:-2px}
-nav ol{columns:2 15rem;column-gap:24px;padding-left:1.6rem}
-nav li{break-inside:avoid}
-code{font-family:var(--mono);font-size:.86em;background:var(--sunken);padding:1px 5px;border-radius:5px}
-pre{font:14px/1.55 var(--mono);background:var(--sunken);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;margin:0 0 14px;tab-size:4}
-pre code{background:none;padding:0;font-size:inherit;border-radius:0}
-pre.out{background:var(--surface);border-left:4px solid var(--green);white-space:pre-wrap}
-pre.out::before{content:"Output";display:block;font:600 12px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--green);margin-bottom:8px}
-.box{border-left:4px solid var(--pen);background:var(--pen-bg);padding:12px 16px;border-radius:0 10px 10px 0;margin:0 0 16px}
-.box p:last-child,.box ul:last-child,.box ol:last-child{margin-bottom:0}
-.example{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 16px;margin:0 0 16px}
-.example>:last-child{margin-bottom:0}
-.label{font:600 12px/1.2 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
-.tw{overflow-x:auto;margin:0 0 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
-table{border-collapse:collapse;width:100%;font-size:15px}
-th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
-tr:last-child td{border-bottom:0}
-th{font-weight:600;background:var(--sunken)}
-td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
-.grid3 td{text-align:center;font:600 15px var(--mono);width:3rem}
-.grid3{width:auto}
-button{font:inherit;font-size:15px;font-weight:600;line-height:1.2;min-height:40px;padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer}
-button:hover{background:var(--sunken)}
-button.primary{background:var(--pen);border-color:var(--pen);color:var(--on-pen)}
-button[aria-pressed=true]{border-color:var(--pen);background:var(--pen-bg);color:var(--pen)}
-:focus-visible{outline:3px solid var(--pen);outline-offset:2px}
-input[type=text],input[type=number]{font:inherit;font-size:16px;min-height:40px;padding:6px 10px;border:1px solid var(--grey);border-radius:8px;background:var(--paper);color:var(--ink);width:6.5rem;min-width:0}
-input[type=checkbox],input[type=radio]{width:18px;height:18px;margin:0;accent-color:var(--pen);flex-shrink:0}
-fieldset{border:0;padding:0;margin:0;min-width:0}
-legend{font-size:14px;font-weight:600;color:var(--muted);padding:0;margin-bottom:6px}
-.widget{border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:16px;margin:24px 0}
-.widget h3{margin-top:0}
-.controls{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:flex-end;margin:0 0 12px}
-.controls>label{display:grid;gap:4px;font-size:14px;font-weight:600;color:var(--muted)}
-.controls>label.chk,.seg label{display:inline-flex;align-items:center;gap:8px;min-height:40px;color:var(--ink);font-size:15px;font-weight:500}
-.seg{display:flex;flex-wrap:wrap;gap:6px}
-.seg label{border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;background:var(--paper)}
-.seg label:has(input:checked){border-color:var(--pen);background:var(--pen-bg)}
-.vals{width:9rem!important}
-.err{color:var(--margin);font-weight:600}
-dl.calc{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 14px;margin:0 0 12px;padding:12px 14px;background:var(--sunken);border-radius:10px}
-dl.calc dt{color:var(--muted);font-size:15px}
-dl.calc dd{margin:0;font-family:var(--mono);font-size:15px}
-dl.calc dd.big{font-size:1.25rem;font-weight:700}
-.chips{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0 0 12px}
-.chips li{margin:0;font:600 14px/1 var(--mono);padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper)}
-.groups{list-style:none;padding:0;margin:0 0 12px}
-.groups li{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
-.groups .key{font:600 14px var(--mono);color:var(--green);min-width:6.5rem}
-.groups .chips{margin:0}
-.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.stepno{font-size:14px;color:var(--muted);margin-left:auto}
-.status{min-height:3.3em;margin:10px 0;padding:8px 12px;background:var(--sunken);border-radius:8px;font-size:15px}
-.tree{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:4px 0;margin:0 0 6px}
-.tree svg{display:block;margin:0 auto}
-.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);margin:0 0 10px;padding:0;list-style:none}
-.legend li{margin:0;display:inline-flex;align-items:center;gap:6px}
-.sw{width:14px;height:14px;border-radius:50%;border:2px solid var(--muted);background:var(--surface)}
-.sw.cur{background:var(--pen);border-color:var(--pen)}
-.sw.on{background:var(--pen-bg);border-color:var(--pen)}
-.sw.saved{background:var(--green-bg);border-color:var(--green)}
-.sw.off{border:2px dashed var(--grey);background:var(--paper)}
-.sw.dead{background:var(--margin-bg);border-color:var(--margin)}
-.panes{display:grid;grid-template-columns:minmax(0,1fr);gap:4px 16px}
-.panes pre{margin-bottom:8px;font-size:13px}
-.res{white-space:pre-wrap;max-height:13rem;overflow:auto}
-.counters{font-size:14px;margin:0 0 8px}
-.code span{display:block;padding:0 8px;margin:0 -8px;border-radius:4px;white-space:pre}
-.code span.hot{background:var(--amber-bg);box-shadow:inset 3px 0 var(--amber)}
-.ed{stroke:var(--muted);stroke-width:1.5}
-.ed.fut{stroke:var(--line);stroke-dasharray:2 4}
-.ed.off{stroke:var(--grey);stroke-dasharray:4 3}
-.ed.on{stroke:var(--pen);stroke-width:3}
-.nd circle{fill:var(--surface);stroke:var(--muted);stroke-width:1.5}
-.nd text{fill:var(--ink);font:600 12px var(--mono);text-anchor:middle;dominant-baseline:central}
-.nd text.sub{font:500 10px var(--mono);fill:var(--muted);paint-order:stroke;stroke:var(--paper);stroke-width:3px}
-.nd.fut{opacity:.28}
-.nd.saved circle{fill:var(--green-bg);stroke:var(--green);stroke-width:2}
-.nd.on circle{fill:var(--pen-bg);stroke:var(--pen);stroke-width:2}
-.nd.off circle{fill:var(--paper);stroke:var(--grey);stroke-dasharray:3 3}
-.nd.off text{fill:var(--muted)}
-.nd.dead circle{fill:var(--margin-bg);stroke:var(--margin)}
-.nd.cur circle{fill:var(--pen);stroke:var(--pen);stroke-width:3}
-.nd.cur text.v{fill:var(--on-pen)}
-.nd.mark circle{stroke:var(--amber);stroke-width:3;stroke-dasharray:none}
-.check{border:1px solid var(--line);border-left:4px solid var(--amber);background:var(--surface);border-radius:0 12px 12px 0;padding:14px 16px;margin:20px 0}
-.check>p{margin-bottom:10px}
-.try{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin:0 0 8px}
-.try label{display:grid;gap:4px;font-size:14px;font-weight:600;color:var(--muted)}
-.verdict{margin:0 0 8px!important;font-weight:600}
-.verdict.ok{color:var(--green)}
-.verdict.no{color:var(--margin)}
-.ans{margin-top:10px;padding:10px 14px;background:var(--green-bg);border-radius:8px}
-.ans>:last-child{margin-bottom:0}
-.check pre{font-size:13px}
-.bug{background:var(--margin-bg);box-shadow:inset 3px 0 var(--margin);display:inline-block;min-width:100%}
-.stages{list-style:none;padding:0}
-.stages li{border-left:3px solid var(--line);padding:2px 0 2px 14px;margin:0 0 12px}
-.stages b{display:block}
-@media (max-width:30rem){table{font-size:14px}th,td{padding:6px 5px}}
-</style>
-</head>
-<body>
-<main>
-<header>
-<h1>Перебор: подмножества, перестановки, сочетания</h1>
 <p class="lead">В первой главе вы считали, сколько есть вариантов. В этой главе вы научитесь выписывать сами варианты. Для этого есть один шаблон на Python. Он решает четыре задачи этой главы.</p>
-</header>
-
-<nav aria-labelledby="toc">
-<h2 id="toc">Содержание</h2>
-<ol>
-<li><a href="#s1">Когда нужны сами варианты</a></li>
-<li><a href="#s2">Дерево вариантов</a></li>
-<li><a href="#s3">Рекурсия простыми словами</a></li>
-<li><a href="#s4">Шаблон: выбрать, пойти глубже, отменить</a></li>
-<li><a href="#s5">Подмножества</a></li>
-<li><a href="#s6">Перестановки</a></li>
-<li><a href="#s7">Сочетания</a></li>
-<li><a href="#s8">Буквы на телефоне</a></li>
-<li><a href="#s9">Что нужно запомнить</a></li>
-<li><a href="#s10">Как решать задачи этой главы</a></li>
-</ol>
-</nav>
-
-<section aria-labelledby="s1">
-<h2 id="s1"><span class="n">1</span> Когда нужны сами варианты</h2>
+<h2 id="s1">1. Когда нужны сами варианты</h2>
 <p>Вы знаете, что из 3 предметов можно собрать 8 подмножеств. Но задача часто просит другое: выпишите все 8. Например, LeetCode 78 ждёт эти 8 списков, в любом порядке: <code>[[], [1], [1, 2], [1, 2, 3], [1, 3], [2], [2, 3], [3]]</code>.</p>
 <p>Число вариантов подсказывает, сколько строк должно быть в ответе. Это хорошая проверка. Сам список строит программа. Такой способ называют перебор.</p>
-</section>
-
-<section aria-labelledby="s2">
-<h2 id="s2"><span class="n">2</span> Дерево вариантов</h2>
+<h2 id="s2">2. Дерево вариантов</h2>
 <p>Возьмём список <code>[1, 2, 3]</code>. Про каждое число решаем: взять или не взять.</p>
 <ul>
 <li>Число 1: взять или нет. Это 2 ветки.</li>
@@ -169,16 +11,10 @@ dl.calc dd.big{font-size:1.25rem;font-weight:700}
 </ul>
 <p>Получилось дерево. Корень это пустой список. Каждый шаг вниз это одно решение. Лист это конец ветки: все числа рассмотрены. Каждый лист это одно подмножество. Листьев 8, подмножеств тоже 8: 2 · 2 · 2 = 8.</p>
 <p>Программа идёт по дереву так: спускается по левой ветке до листа, возвращается на шаг назад, пробует другую ветку. Это и есть перебор с возвратом.</p>
-</section>
-
-<section aria-labelledby="s3">
-<h2 id="s3"><span class="n">3</span> Рекурсия простыми словами</h2>
+<h2 id="s3">3. Рекурсия простыми словами</h2>
 <p>Рекурсия это функция, которая вызывает сама себя. Для дерева это удобно. Функция делает один шаг вниз, а дальше просит саму себя сделать остальное. Функцию, которая идёт по дереву, назовём <code>dfs</code>.</p>
 <p>У такой функции два правила. Первое: есть условие остановки, например «все числа рассмотрены». Второе: каждый вызов делает задачу меньше, например переходит к следующему числу. Без первого правила функция не остановится.</p>
-</section>
-
-<section aria-labelledby="s4">
-<h2 id="s4"><span class="n">4</span> Шаблон: выбрать, пойти глубже, отменить</h2>
+<h2 id="s4">4. Шаблон: выбрать, пойти глубже, отменить</h2>
 <p>Список <code>path</code> это путь от корня до текущей точки дерева. В цикле делаем три шага.</p>
 <ol>
 <li>Выбрать: <code>path.append(x)</code>.</li>
@@ -187,12 +23,9 @@ dl.calc dd.big{font-size:1.25rem;font-weight:700}
 </ol>
 <p>Третий шаг нужен, чтобы вернуть <code>path</code> в то состояние, какое было до выбора. Тогда следующий шаг цикла начинает с чистого места.</p>
 <p>Ещё одна деталь. Результат сохраняем как <code>path[:]</code>, то есть копию. Если сохранить сам <code>path</code>, все строки ответа будут указывать на один и тот же список. В конце он пустой. Для <code>[1, 2, 3]</code> вы получите восемь пустых списков.</p>
-</section>
-
-<section aria-labelledby="s5">
-<h2 id="s5"><span class="n">5</span> Подмножества</h2>
+<h2 id="s5">5. Подмножества</h2>
 <p>LeetCode 78. Код строит другое дерево: из каждой точки ветки идут только к числам правее, это индекс <code>start</code>. Тогда <code>[2, 1]</code> после <code>[1, 2]</code> не появится. В таком дереве каждая точка это подмножество, поэтому сохраняем <code>path</code> при каждом вызове, а не только в листьях.</p>
-<pre><code>def subsets(nums):
+<pre><code class="language-python">def subsets(nums):
     res = []
     def dfs(start, path):
         res.append(path[:])
@@ -203,12 +36,9 @@ dl.calc dd.big{font-size:1.25rem;font-weight:700}
     dfs(0, [])
     return res</code></pre>
 <p>Для <code>[1, 2, 3]</code> функция выдаёт 8 списков в таком порядке: <code>[]</code>, <code>[1]</code>, <code>[1, 2]</code>, <code>[1, 2, 3]</code>, <code>[1, 3]</code>, <code>[2]</code>, <code>[2, 3]</code>, <code>[3]</code>. Для 4 чисел будет 16 списков.</p>
-</section>
-
-<section aria-labelledby="s6">
-<h2 id="s6"><span class="n">6</span> Перестановки</h2>
+<h2 id="s6">6. Перестановки</h2>
 <p>LeetCode 46. Теперь порядок важен: <code>[1, 2, 3]</code> и <code>[2, 1, 3]</code> это разные ответы. Поэтому цикл каждый раз идёт с нуля. Чтобы не взять одно и то же число дважды, заводим список <code>used</code>. Он помечает индексы, которые уже лежат в <code>path</code>.</p>
-<pre><code>def permute(nums):
+<pre><code class="language-python">def permute(nums):
     res = []
     used = [False] * len(nums)
     def dfs(path):
@@ -226,12 +56,9 @@ dl.calc dd.big{font-size:1.25rem;font-weight:700}
     dfs([])
     return res</code></pre>
 <p>Отмена здесь из двух строк: <code>path.pop()</code> и <code>used[i] = False</code>. Ответ сохраняем только в листе, когда длина <code>path</code> равна длине <code>nums</code>. Для 3 чисел будет 3! = 6 ответов, для 4 чисел 4! = 24.</p>
-</section>
-
-<section aria-labelledby="s7">
-<h2 id="s7"><span class="n">7</span> Сочетания</h2>
+<h2 id="s7">7. Сочетания</h2>
 <p>LeetCode 77. Нужны все наборы из <code>k</code> чисел от 1 до <code>n</code>, порядок не важен. Это шаблон подмножеств с одним отличием: сохраняем только пути длины <code>k</code>.</p>
-<pre><code>def combine(n, k):
+<pre><code class="language-python">def combine(n, k):
     res = []
     def dfs(start, path):
         if len(path) == k:
@@ -244,15 +71,11 @@ dl.calc dd.big{font-size:1.25rem;font-weight:700}
     dfs(1, [])
     return res</code></pre>
 <p>Для n = 4 и k = 2 получаем 6 наборов: <code>[1, 2]</code>, <code>[1, 3]</code>, <code>[1, 4]</code>, <code>[2, 3]</code>, <code>[2, 4]</code>, <code>[3, 4]</code>. Это C(4, 2) = 6 из первой главы.</p>
-</section>
-
-<section aria-labelledby="s8">
-<h2 id="s8"><span class="n">8</span> Буквы на телефоне</h2>
+<h2 id="s8">8. Буквы на телефоне</h2>
 <p>LeetCode 17. На кнопке 2 буквы <code>abc</code>, на кнопке 3 буквы <code>def</code>. Для строки <code>"23"</code> нужны все пары: <code>ad</code>, <code>ae</code>, <code>af</code>, <code>bd</code>, <code>be</code>, <code>bf</code>, <code>cd</code>, <code>ce</code>, <code>cf</code>. Это 3 · 3 = 9 строк.</p>
 <p>Здесь каждая цифра это один уровень дерева. На уровне перебираем буквы этой цифры. Ответ сохраняем, когда дошли до конца строки.</p>
-<pre><code>KEYS = {'2': 'abc', '3': 'def', '4': 'ghi', '5': 'jkl',
+<pre><code class="language-python">KEYS = {'2': 'abc', '3': 'def', '4': 'ghi', '5': 'jkl',
         '6': 'mno', '7': 'pqrs', '8': 'tuv', '9': 'wxyz'}
-
 def letters(digits):
     res = []
     def dfs(i, path):
@@ -267,10 +90,7 @@ def letters(digits):
         dfs(0, [])
     return res</code></pre>
 <p>Пустая строка даёт пустой список, это условие задачи. Для <code>"234"</code> будет 3 · 3 · 3 = 27 строк.</p>
-</section>
-
-<section aria-labelledby="s9">
-<h2 id="s9"><span class="n">9</span> Что нужно запомнить</h2>
+<h2 id="s9">9. Что нужно запомнить</h2>
 <ul>
 <li>Три шага в цикле: выбрать, пойти глубже, отменить.</li>
 <li>Сохраняйте копию: <code>path[:]</code>, а не <code>path</code>.</li>
@@ -278,17 +98,10 @@ def letters(digits):
 <li>Подмножества сохраняем в каждой точке, перестановки и сочетания только в листе.</li>
 <li>Число ответов из первой главы проверяет вашу программу: 8, 24, 6, 9.</li>
 </ul>
-</section>
-
-<section aria-labelledby="s10">
-<h2 id="s10"><span class="n">10</span> Как решать задачи этой главы</h2>
+<h2 id="s10">10. Как решать задачи этой главы</h2>
 <ol>
 <li>Прочитайте условие и решите, важен ли порядок.</li>
 <li>Посчитайте на бумаге, сколько ответов должно быть для маленького примера.</li>
 <li>Выпишите шаблон и выберите: <code>start</code> или <code>used</code>, сохранять везде или в листе.</li>
 <li>Запустите на примере и сравните число ответов с бумагой.</li>
 </ol>
-</section>
-</main>
-</body>
-</html>

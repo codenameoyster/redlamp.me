@@ -1,8 +1,9 @@
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState, type RefObject } from 'react';
 import { Bot, X } from 'lucide-react';
 import type { Page, SessionUser, TutorEvent, TutorKind, TutorMessage } from '../shared/leetcode';
 import { api, apiError, message } from './api';
 import { Answer } from './Answer';
+import { highlightIn, watchSelection } from './lessonTools';
 import { useResource } from './useResource';
 
 const wide = () => matchMedia('(min-width: 1400px)').matches;
@@ -10,18 +11,14 @@ function remember(open: boolean) {
 	try { if (open) localStorage.setItem('leetcode:tutor', 'open'); else localStorage.removeItem('leetcode:tutor'); } catch { /* The panel stays available on this page. */ }
 }
 function stored() { try { return localStorage.getItem('leetcode:tutor') === 'open'; } catch { return false; } }
-// ponytail: one lesson frame per page (LessonView or SetView). Match all frames if a page ever shows two.
-const lessonFrame = () => document.querySelector<HTMLIFrameElement>('iframe.lesson-frame');
-// The frame origin is opaque ("null"), so '*' is the only target that matches. The quote is lesson text, not a secret.
-const highlightLesson = (quote: string) => lessonFrame()?.contentWindow?.postMessage({ type: 'highlight', quote }, '*');
 const said = (body: string, quote: string | null) => <>{quote && <blockquote>{quote}</blockquote>}<p className="prose">{body}</p></>;
 
-export function Tutor({ context, title, user, flush, quote }: { context: { kind: TutorKind; id: string }; title: string; user: SessionUser; flush?: () => Promise<unknown> | undefined; quote?: string }) {
-	const student = user.role === 'student', bridge = student && context.kind !== 'problem', path = `/tutor/messages?kind=${context.kind}&id=${encodeURIComponent(context.id)}`;
+export function Tutor({ context, title, user, flush, quote, lesson }: { context: { kind: TutorKind; id: string }; title: string; user: SessionUser; flush?: () => Promise<unknown> | undefined; quote?: string; lesson?: RefObject<HTMLElement | null> }) {
+	const student = user.role === 'student', bridge = student && lesson !== undefined, path = `/tutor/messages?kind=${context.kind}&id=${encodeURIComponent(context.id)}`;
 	const dialog = useRef<HTMLDialogElement>(null), trigger = useRef<HTMLButtonElement>(null), heading = useRef<HTMLHeadingElement>(null), input = useRef<HTMLTextAreaElement>(null), log = useRef<HTMLDivElement>(null);
 	const [open, setOpen] = useState(false), [text, setText] = useState(''), [error, setError] = useState(''), [status, setStatus] = useState(''), [marked, setMarked] = useState('');
 	const [pending, setPending] = useState<{ body: string; quote: string | null; answer: string } | null>(null);
-	const busy = useRef(false); // Message events from one burst run before React renders, so they see an old `pending`.
+	const busy = useRef(false); // Events from one burst run before React renders, so they see an old `pending`.
 	const [older, setOlder] = useState<TutorMessage[]>([]), [next, setNext] = useState<number | null>();
 	const messages = useResource<Page<TutorMessage>>(open ? path : null);
 	const items = [...messages.data?.items ?? [], ...older].reverse(), nextOffset = next === undefined ? messages.data?.nextOffset : next;
@@ -38,26 +35,15 @@ export function Tutor({ context, title, user, flush, quote }: { context: { kind:
 		query.addEventListener('change', narrow);
 		return () => query.removeEventListener('change', narrow);
 	}, []);
-	// The bridge in the lesson frame posts these messages: src/leetcode/lesson-bridge.html
-	const onLesson = useEffectEvent((event: MessageEvent) => {
-		if (event.source !== lessonFrame()?.contentWindow) return;
-		if (event.data?.type === 'highlighted') setMarked(event.data.found ? 'Отрывок выделен в уроке.' : 'Этого отрывка нет в тексте урока.');
-		if (event.data?.type !== 'explain' || typeof event.data.text !== 'string' || busy.current) return;
-		const quote = event.data.text.replace(/\s+/g, ' ').trim().slice(0, 2000);
-		if (!quote) return;
+	const explain = useEffectEvent((text: string) => {
+		if (busy.current) return;
 		if (!dialog.current!.open) show();
-		void ask('Объясните эту часть.', quote);
+		void ask('Объясните эту часть.', text);
 	});
-	useEffect(() => {
-		if (!bridge) return;
-		const listen = (event: MessageEvent) => onLesson(event);
-		addEventListener('message', listen);
-		return () => removeEventListener('message', listen);
-	}, [bridge]);
+	useEffect(() => bridge ? watchSelection(lesson!.current!, text => explain(text)) : undefined, [bridge, lesson]);
 	function highlight(quote: string) {
 		if (dialog.current!.matches(':modal')) dialog.current!.close(); // A modal panel covers the lesson.
-		setMarked('');
-		highlightLesson(quote);
+		setMarked(highlightIn(lesson!.current!, quote) ? 'Отрывок выделен в уроке.' : 'Этого отрывка нет в тексте урока.');
 	}
 	useEffect(() => { log.current?.scrollTo({ top: log.current.scrollHeight }); }, [messages.data, pending]);
 	async function loadOlder() {
@@ -86,7 +72,8 @@ export function Tutor({ context, title, user, flush, quote }: { context: { kind:
 			}
 			if (!end) throw new Error('Ответ прервался. Отправьте сообщение ещё раз.');
 			if ('error' in end) throw new Error(end.error.message);
-			messages.setData(await api<Page<TutorMessage>>(path)); setOlder([]); setNext(undefined);
+			// The panel can open in the same event as this call, so `messages` can still have a null path.
+			messages.setData(await api<Page<TutorMessage>>(path), path); setOlder([]); setNext(undefined);
 			setText(value => value === body ? '' : value); setStatus('Репетитор ответил.');
 		} catch (error) { setError(message(error)); setStatus(''); } finally { busy.current = false; setPending(null); }
 	}

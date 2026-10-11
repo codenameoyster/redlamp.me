@@ -22,14 +22,6 @@ async function addProblem(page: Page, baseURL: string) {
 	expect(response.status()).toBe(201);
 	return (await response.json() as Problem).id;
 }
-async function addLesson(DB: D1Database) {
-	const id = crypto.randomUUID();
-	await DB.batch([
-		DB.prepare("INSERT INTO lessons (id,title,description,topics,filename,byte_count,created_at,updated_at) VALUES (?,'Window invariant',?,'[]','window.html',20,'now','now')").bind(id, 'Move the window.\n'.repeat(40)),
-		DB.prepare("INSERT INTO lesson_content (lesson_id,html) VALUES (?,'<p>Window</p>')").bind(id),
-	]);
-	return id;
-}
 
 test('streams an answer, then shows the stored turn', async ({ page, notebook, server }) => {
 	const { DB } = await server.getWorker<TestEnv>().getEnv();
@@ -178,10 +170,9 @@ for (const row of escapes) {
 	});
 }
 
-test('docks the panel beside the lesson at desktop width and keeps it open after a reload', async ({ page, server }) => {
-	const { DB } = await server.getWorker<TestEnv>().getEnv(), id = await addLesson(DB);
+test('docks the panel beside the chapter at desktop width and keeps it open after a reload', async ({ page }) => {
 	await signIn(page);
-	await page.goto(`/leetcode/lessons/${id}`);
+	await page.goto(chapterPath);
 	await page.getByRole('button', { name: 'Спросить ИИ', exact: true }).click();
 	const panel = page.getByRole('dialog', { name: 'ИИ-репетитор' });
 	await expect(panel).toBeVisible();
@@ -271,7 +262,7 @@ test('lists the chats for the parent and opens one in the panel', async ({ page,
 const placements = [
 	{ name: 'shows Read AI chat to the parent on the task page', role: 'parent', path: async (DB: D1Database, problemId: string) => `/leetcode/tasks/${(await addTask(DB, problemId)).taskId}`, heading: 'Two Sum', button: 'Читать чат с ИИ', count: 1 },
 	{ name: 'shows Read AI chat to the parent on the set page', role: 'parent', path: async () => setPath, heading: 'Перестановки и сочетания', button: 'Читать чат с ИИ', count: 1 },
-	{ name: 'shows Read AI chat to the parent on the lesson page', role: 'parent', path: async (DB: D1Database) => `/leetcode/lessons/${await addLesson(DB)}`, heading: 'Window invariant', button: 'Читать чат с ИИ', count: 1 },
+	{ name: 'shows Read AI chat to the parent on the chapter page', role: 'parent', path: async () => chapterPath, heading: 'Глава 2. Перебор: подмножества, перестановки, сочетания', button: 'Читать чат с ИИ', count: 1 },
 	{ name: 'shows no AI button on Today', role: 'student', path: async () => '/leetcode', heading: 'Стройте понимание, задача за задачей.', button: /^(Спросить ИИ|Читать чат с ИИ)$/, count: 0 },
 	{ name: 'shows no AI button on the problem list', role: 'student', path: async () => '/leetcode/problems', heading: 'Задачи', button: /^(Спросить ИИ|Читать чат с ИИ)$/, count: 0 },
 	{ name: 'shows no AI button on the recall page', role: 'student', path: async (_DB: D1Database, problemId: string) => `/leetcode/problems/${problemId}/review`, heading: 'Two Sum', button: /^(Спросить ИИ|Читать чат с ИИ)$/, count: 0 },
@@ -309,25 +300,28 @@ test('shows the address error under the address field', async ({ page }) => {
 
 const undo = 'Третий шаг нужен, чтобы вернуть path в то состояние, какое было до выбора. Тогда следующий шаг цикла начинает с чистого места.';
 const marked = 'Отрывок выделен в уроке.', notFound = 'Этого отрывка нет в тексте урока.';
-const lesson = (page: Page) => page.frameLocator('iframe.lesson-frame');
+const lesson = (page: Page) => page.locator('article.lesson');
+const explain = (page: Page) => page.getByRole('button', { name: 'Объяснить с ИИ', exact: true });
 const highlight = (page: Page) => page.getByRole('status', { name: 'Выделение в уроке' });
 const explains = [
-	{ name: 'explains a mouse selection with the frame button', select: async (page: Page) => {
+	{ name: 'explains a mouse selection with the page button', select: async (page: Page) => {
 		const box = (await lesson(page).locator('p', { hasText: 'Третий шаг нужен' }).boundingBox())!;
 		await page.mouse.move(box.x + 1, box.y + 4);
 		await page.mouse.down();
 		await page.mouse.move(box.x + box.width - 1, box.y + box.height - 4, { steps: 5 });
 		await page.mouse.up();
-		await lesson(page).getByRole('button', { name: 'Объяснить с ИИ', exact: true }).click();
+		await explain(page).click();
 	} },
 	{ name: 'explains a selection with Ctrl+Enter', select: async (page: Page) => {
-		const paragraph = lesson(page).locator('p', { hasText: 'Третий шаг нужен' });
-		await paragraph.click(); // The key goes to the focused frame.
-		await paragraph.selectText();
-		await expect(lesson(page).getByRole('button', { name: 'Объяснить с ИИ', exact: true })).toBeVisible(); // The bridge reads the selection in a later task.
+		await lesson(page).locator('p', { hasText: 'Третий шаг нужен' }).selectText();
+		await expect(explain(page)).toBeVisible(); // The selectionchange event runs in a later task.
 		await page.keyboard.press('Control+Enter');
 	} },
-	{ name: 'sends one request for a burst of lesson posts', select: (page: Page) => lesson(page).locator('body').evaluate((_, text) => { for (let i = 0; i < 3; i++) parent.postMessage({ type: 'explain', text }, '*'); }, undo) },
+	{ name: 'sends one request for a burst of Ctrl+Enter presses', select: async (page: Page) => {
+		await lesson(page).locator('p', { hasText: 'Третий шаг нужен' }).selectText();
+		await expect(explain(page)).toBeVisible();
+		for (let i = 0; i < 3; i++) await page.keyboard.press('Control+Enter');
+	} },
 ];
 for (const row of explains) {
 	test(row.name, async ({ page, server }) => {
@@ -348,9 +342,18 @@ for (const row of explains) {
 		await expect(panel.getByRole('status')).toHaveText('Репетитор ответил.');
 		await expect(messages(page).nth(0).locator('blockquote')).toHaveText(undo);
 		expect(bodies).toEqual([{ kind: 'set', id: 'permutations-and-combinations', message: 'Объясните эту часть.', quote: undo }]);
-		await expect(lesson(page).getByRole('button', { name: 'Объяснить с ИИ' })).toHaveCount(0);
+		await expect(explain(page)).toBeHidden();
 	});
 }
+
+test('ignores a selection outside the lesson', async ({ page }) => {
+	await signIn(page);
+	await page.goto(chapterPath);
+	await lesson(page).locator('p', { hasText: 'Третий шаг нужен' }).selectText();
+	await expect(explain(page)).toBeVisible();
+	await page.getByRole('heading', { level: 1, name: 'Глава 2. Перебор: подмножества, перестановки, сочетания' }).selectText();
+	await expect(explain(page)).toBeHidden();
+});
 
 test('shows no lesson bridge to the parent', async ({ page, server }) => {
 	const { DB } = await server.getWorker<TestEnv>().getEnv();
@@ -361,36 +364,31 @@ test('shows no lesson bridge to the parent', async ({ page, server }) => {
 	await expect(messages(page).nth(1).locator('blockquote')).toHaveText('Третий шаг нужен, чтобы вернуть path в то состояние, какое было до выбора.');
 	await expect(page.getByRole('button', { name: 'Показать в уроке' })).toHaveCount(0);
 	await lesson(page).locator('p', { hasText: 'Третий шаг нужен' }).selectText();
-	await expect.poll(() => lesson(page).locator('html').evaluate(() => document.readyState)).toBe('complete');
-	await expect(lesson(page).locator('lesson-ai')).toHaveCount(0);
-});
-
-test('shows no lesson bridge in the full-page display', async ({ page }) => {
-	await signIn(page);
-	const response = await page.goto('/leetcode/api/sets/permutations-and-combinations/lesson/2');
-	expect(await response!.text()).toContain("document.createElement('lesson-ai')");
-	await page.locator('p', { hasText: 'Третий шаг нужен' }).selectText();
-	await expect(page.locator('lesson-ai')).toHaveCount(0);
+	await expect(page.locator('.lesson-ai')).toHaveCount(0);
 });
 
 const highlights = [
-	{ name: 'marks a quote with other whitespace and case', from: 'notebook', quotes: ['третий шаг нужен,   чтобы\nвернуть path в то состояние, какое было до выбора.'], marks: ['Третий шаг нужен, чтобы вернуть', 'path', 'в то состояние, какое было до выбора.'], status: marked },
-	{ name: 'marks the longest quote prefix after a drift', from: 'notebook', quotes: ['Тогда следующий шаг цикла начинает и потом …'], marks: ['Тогда следующий шаг цикла начинает'], status: marked },
-	{ name: 'tells that a quote is not in the lesson', from: 'notebook', quotes: ['A heap keeps the smallest item at the root.'], marks: [], status: notFound },
-	{ name: 'does not mark hidden lesson text', from: 'notebook', quotes: ['Скрытый текст урока.'], marks: [], status: notFound },
-	{ name: 'removes the marks of the first quote', from: 'notebook', quotes: ['Третий шаг нужен, чтобы вернуть path в то состояние, какое было до выбора.', 'Тогда следующий шаг цикла начинает'], marks: ['Тогда следующий шаг цикла начинает'], status: marked },
-	{ name: 'ignores a highlight that the lesson posts', from: 'lesson', quotes: ['Третий шаг нужен, чтобы вернуть path в то состояние, какое было до выбора.'], marks: [], status: '' },
+	{ name: 'marks a quote with other whitespace and case', from: 'tutor', quotes: ['третий шаг нужен,чтобы вернуть PATH в то состояние, какое было до выбора.'], marks: ['Третий шаг нужен, чтобы вернуть', 'path', 'в то состояние, какое было до выбора.'], status: marked },
+	{ name: 'marks the longest quote prefix after a drift', from: 'tutor', quotes: ['Тогда следующий шаг цикла начинает и потом …'], marks: ['Тогда следующий шаг цикла начинает'], status: marked },
+	{ name: 'tells that a quote is not in the lesson', from: 'tutor', quotes: ['A heap keeps the smallest item at the root.'], marks: [], status: notFound },
+	{ name: 'does not mark hidden lesson text', from: 'tutor', quotes: ['Скрытый текст урока.'], marks: [], status: notFound },
+	{ name: 'removes the marks of the first quote', from: 'tutor', quotes: ['Третий шаг нужен, чтобы вернуть path в то состояние, какое было до выбора.', 'Тогда следующий шаг цикла начинает'], marks: ['Тогда следующий шаг цикла начинает'], status: marked },
+	{ name: 'ignores a highlight message that the page posts', from: 'page', quotes: ['Третий шаг нужен, чтобы вернуть path в то состояние, какое было до выбора.'], marks: [], status: '' },
 ] as const;
 for (const row of highlights) {
-	test(row.name, async ({ page }) => {
+	test(row.name, async ({ page, server }) => {
+		const { DB } = await server.getWorker<TestEnv>().getEnv();
+		if (row.from === 'tutor') await addMessages(DB, 'set', 'permutations-and-combinations', row.quotes.map(quote => ({ author: 'assistant' as const, body: `\`\`\`lesson\n${quote}\n\`\`\`` })));
 		await signIn(page);
 		await page.goto(chapterPath);
-		await expect(lesson(page).locator('lesson-ai')).toHaveCount(1);
-		await lesson(page).locator('body').evaluate(body => body.insertAdjacentHTML('beforeend', '<p hidden>Скрытый текст урока.</p>'));
-		for (const quote of row.quotes) {
-			if (row.from === 'notebook') await page.evaluate(quote => document.querySelector<HTMLIFrameElement>('iframe.lesson-frame')!.contentWindow!.postMessage({ type: 'highlight', quote }, '*'), quote);
-			// The bridge listener runs before this one, so the bridge has handled the message when the promise resolves.
-			else await lesson(page).locator('body').evaluate((_, quote) => new Promise(resolve => { addEventListener('message', resolve, { once: true }); postMessage({ type: 'highlight', quote }, '*'); }), quote);
+		await expect(page.locator('.lesson-ai')).toHaveCount(1);
+		await expect(lesson(page).locator('p', { hasText: 'Третий шаг нужен' })).toBeVisible();
+		await lesson(page).evaluate(article => article.insertAdjacentHTML('beforeend', '<p hidden>Скрытый текст урока.</p>'));
+		if (row.from === 'tutor') await page.getByRole('button', { name: 'Спросить ИИ', exact: true }).click();
+		for (const [i, quote] of row.quotes.entries()) {
+			if (row.from === 'tutor') await page.getByRole('dialog', { name: 'ИИ-репетитор' }).getByRole('button', { name: 'Показать в уроке', exact: true }).nth(i).click();
+			// Listeners run in the order they were added, so the page has handled the message when the promise resolves.
+			else await page.evaluate(quote => new Promise(resolve => { addEventListener('message', resolve, { once: true }); postMessage({ type: 'highlight', quote }, '*'); }), quote);
 		}
 		await expect(highlight(page)).toHaveText(row.status);
 		await expect(lesson(page).locator('mark')).toHaveText([...row.marks]);

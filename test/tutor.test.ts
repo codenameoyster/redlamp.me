@@ -5,8 +5,7 @@ import { htmlText, pump } from '../src/leetcode/tutor';
 import { login, request } from './client';
 
 const TOKEN = 'https://auth.openai.com/api/accounts/oauth/token', MODELS = 'https://api.openai.com/v1/models', RESPONSES = 'https://api.openai.com/v1/responses', GRAPHQL = 'https://leetcode.com/graphql';
-const PROBLEM = '11111111-1111-4111-8111-111111111111', LESSON = '22222222-2222-4222-8222-222222222222', SET = 'permutations-and-combinations', HOMEWORK = '77777777-7777-4777-8777-777777777777';
-const LESSON_HTML = '<h1>Recursion</h1><p>A function calls itself.</p><h2>Base case</h2><p>Each circle is one call of backtrack.</p><h2>Depth</h2><p>The depth is the height of the tree.</p>';
+const PROBLEM = '11111111-1111-4111-8111-111111111111', SET = 'permutations-and-combinations', HOMEWORK = '77777777-7777-4777-8777-777777777777';
 const tokens = { access_token: 'access-1', refresh_token: 'refresh-1', token_type: 'Bearer', expires_in: 3600, scope: 'openid profile email offline_access resource.invoke chatgpt.tokens.use.direct' };
 const rotated = { access_token: 'access-2', refresh_token: 'refresh-2', token_type: 'Bearer', expires_in: 3600 };
 const approach = { id: '33333333-3333-4333-8333-333333333333', label: 'Hash map', idea: 'Remember seen values.', correctness: 'Each pair is checked once.', timeComplexity: 'O(n)', spaceComplexity: 'O(n)', edgeCases: 'Empty input', mistakes: '', language: 'python' };
@@ -18,11 +17,7 @@ type Item = { role: string; content: string };
 
 let student: string;
 beforeEach(async () => {
-	await env.DB.batch([
-		env.DB.prepare("INSERT INTO problems (id,slug,number,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,'two-sum',1,'Two Sum','easy','[\"Array\"]','Find two numbers.','','now','now')").bind(PROBLEM),
-		env.DB.prepare("INSERT INTO lessons (id,title,description,topics,filename,byte_count,created_at,updated_at) VALUES (?,'Recursion','Calls that call themselves.','[\"Recursion\"]','recursion.html',1,'now','now')").bind(LESSON),
-		env.DB.prepare('INSERT INTO lesson_content VALUES (?,?)').bind(LESSON, LESSON_HTML),
-	]);
+	await env.DB.prepare("INSERT INTO problems (id,slug,number,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,'two-sum',1,'Two Sum','easy','[\"Array\"]','Find two numbers.','','now','now')").bind(PROBLEM).run();
 	const parent = await login('parent');
 	const state = new URL((await (await request('/tutor/account/start', 'POST', undefined, parent)).json() as { url: string }).url).searchParams.get('state');
 	upstream({ [TOKEN]: [() => Response.json(tokens)], [MODELS]: [() => Response.json({ models: [{ slug: 'gpt-6.1-sol', display_name: 'GPT-6.1 Sol', visibility: 'list' }] })] });
@@ -50,7 +45,7 @@ const completed = { type: 'response.completed', response: { id: 'resp_1', status
 const failed = (code: string) => ({ type: 'response.failed', response: { id: 'resp_1', status: 'failed', error: { code, message: 'Failed.' } } });
 const openaiError = (status: number, code: string) => Response.json({ error: { message: 'Failed.', type: 'invalid_request_error', param: null, code } }, { status });
 const answer = () => sse([delta('Hi'), completed]);
-const send = (data: Record<string, unknown> = {}) => ({ kind: 'lesson', id: LESSON, message: 'Explain this part.', quote: null, ...data });
+const send = (data: Record<string, unknown> = {}) => ({ kind: 'set', id: SET, message: 'Explain this part.', quote: null, ...data });
 const events = async (response: Response) => (await response.text()).split('\n\n').filter(Boolean).map(frame => JSON.parse(frame.replace(/^data: /, '')));
 const stored = async () => (await env.DB.prepare('SELECT context_kind AS kind,context_ref AS ref,author,body,quote FROM tutor_messages ORDER BY author DESC').all()).results;
 const sent = (spy: ReturnType<typeof upstream>) => spy.mock.calls.filter(([target]) => String(target) === RESPONSES).map(([, init]) => JSON.parse(String(init?.body)) as { input: Item[] } & Record<string, unknown>);
@@ -63,7 +58,7 @@ it.each([
 	{ name: 'parent reads a thread', role: 'parent', method: 'GET', path: `/tutor/messages?kind=problem&id=${PROBLEM}`, status: 200 },
 	{ name: 'student lists threads', role: 'student', method: 'GET', path: '/tutor/threads', status: 403 },
 	{ name: 'unknown problem', role: 'student', method: 'POST', path: '/tutor/messages', body: send({ kind: 'problem', id: crypto.randomUUID() }), status: 404 },
-	{ name: 'unknown lesson', role: 'student', method: 'GET', path: `/tutor/messages?kind=lesson&id=${crypto.randomUUID()}`, status: 404 },
+	{ name: 'lesson kind', role: 'student', method: 'GET', path: `/tutor/messages?kind=lesson&id=${crypto.randomUUID()}`, status: 400 },
 	{ name: 'unknown set', role: 'student', method: 'POST', path: '/tutor/messages', body: send({ kind: 'set', id: 'missing-set' }), status: 404 },
 	{ name: 'unknown kind', role: 'student', method: 'POST', path: '/tutor/messages', body: send({ kind: 'homework' }), status: 400 },
 	{ name: 'empty message', role: 'student', method: 'POST', path: '/tutor/messages', body: send({ message: ' ' }), status: 400 },
@@ -83,12 +78,12 @@ it.each([
 });
 
 it.each([
-	{ name: 'completed answer', reply: () => sse([delta('Hi '), delta('there'), completed]), received: [{ delta: 'Hi ' }, { delta: 'there' }, { done: true }], rows: [{ kind: 'lesson', ref: LESSON, author: 'student', body: 'Explain this part.', quote: 'Each circle is one call' }, { kind: 'lesson', ref: LESSON, author: 'assistant', body: 'Hi there', quote: null }] },
+	{ name: 'completed answer', reply: () => sse([delta('Hi '), delta('there'), completed]), received: [{ delta: 'Hi ' }, { delta: 'there' }, { done: true }], rows: [{ kind: 'set', ref: SET, author: 'student', body: 'Explain this part.', quote: 'Each circle is one call' }, { kind: 'set', ref: SET, author: 'assistant', body: 'Hi there', quote: null }] },
 	{ name: 'usage limit after text', reply: () => sse([delta('Hi '), failed('subscription_sharing_usage_limit_exceeded')]), received: [{ delta: 'Hi ' }, { error: USAGE_LIMIT }], rows: [] },
 	{ name: 'incomplete', reply: () => sse([delta('Hi '), { type: 'response.incomplete', response: { id: 'resp_1', status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' } } }]), received: [{ delta: 'Hi ' }, { error: INTERRUPTED }], rows: [] },
 	{ name: 'DONE without completed', reply: () => sse([delta('Hi '), '[DONE]']), received: [{ delta: 'Hi ' }, { error: INTERRUPTED }], rows: [] },
 	{ name: 'error event', reply: () => sse([{ type: 'error', code: 'subscription_sharing_usage_unavailable', message: 'Failed.', param: null }]), received: [{ error: UNAVAILABLE }], rows: [] },
-	{ name: 'stream with no content type', reply: () => sse([delta('Hi'), completed], null), received: [{ delta: 'Hi' }, { done: true }], rows: [{ kind: 'lesson', ref: LESSON, author: 'student', body: 'Explain this part.', quote: 'Each circle is one call' }, { kind: 'lesson', ref: LESSON, author: 'assistant', body: 'Hi', quote: null }] },
+	{ name: 'stream with no content type', reply: () => sse([delta('Hi'), completed], null), received: [{ delta: 'Hi' }, { done: true }], rows: [{ kind: 'set', ref: SET, author: 'student', body: 'Explain this part.', quote: 'Each circle is one call' }, { kind: 'set', ref: SET, author: 'assistant', body: 'Hi', quote: null }] },
 ])('$name', async ({ reply, received, rows }) => {
 	upstream({ [RESPONSES]: [reply] });
 	const log = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -145,7 +140,7 @@ it.each([
 	{ name: 'history over the character budget', history: 3, size: 7000, quote: null, count: 2 },
 ] as { name: string; history: number; size: number; quote: string | null; historyQuote?: string; count: number }[])('$name', async ({ history, size, quote, historyQuote, count }) => {
 	const seeded = Array.from({ length: history }, (_, i) => ({ author: i % 2 ? 'assistant' : 'student', body: `m${i}`.padEnd(size, '.'), quote: i ? null : historyQuote ?? null }));
-	if (history) await env.DB.batch(seeded.map((item, i) => message('lesson', LESSON, item.author, item.body, item.quote, minute(i))));
+	if (history) await env.DB.batch(seeded.map((item, i) => message('set', SET, item.author, item.body, item.quote, minute(i))));
 	const spy = upstream({ [RESPONSES]: [answer] });
 	const response = await request('/tutor/messages', 'POST', send({ quote }), student);
 	await response.text();
@@ -167,11 +162,12 @@ it.each([
 	{ name: 'statement fetch fails', kind: 'problem', statement: 500, includes: ['Problem: 1. Two Sum (easy)'], excludes: ['LeetCode statement'] },
 	{ name: 'paid-only statement', kind: 'problem', statement: null, includes: ['Problem: 1. Two Sum (easy)'], excludes: ['LeetCode statement'] },
 	{ name: 'Codeforces problem has no LeetCode statement', kind: 'problem', slug: 'cf-1-a', includes: ['Problem: 1. Two Sum (easy)'], excludes: ['LeetCode statement'] },
+	{ name: 'chapter of the problem after the homework', kind: 'problem', slug: 'subsets', task: true, work: [['draft', 'return seen', null]], statement: '<p>Text</p>', includes: [/Homework instructions:\nUse a hash map\.\n\nChapter: Перестановки и сочетания, глава 2\. Перебор: подмножества, перестановки, сочетания\nLesson outline:\n## 1\. Когда нужны сами варианты\n[\s\S]*\nLesson text \(sections 1-11 of 11\)\.\n[\s\S]*\n\nCurrent draft:\n/], excludes: ['К каждой футболке подходят 4 пары штанов.', 'Learning set', 'The rest is cut'] },
+	{ name: 'quote selects a chapter section', kind: 'problem', slug: 'subsets', statement: '<p>Text</p>', quote: 'Рекурсия  это функция,\nкоторая вызывает сама себя. Для дерева это удобно.', includes: [/Lesson text \(sections 4-11 of 11\)\. The rest is cut\.\n## 3\. Рекурсия простыми словами\n/], excludes: [] },
+	{ name: 'problem in no chapter', kind: 'problem', statement: '<p>Text</p>', includes: ['Problem: 1. Two Sum (easy)'], excludes: ['Chapter:', 'Lesson'] },
 	{ name: 'field over its cap', kind: 'problem', work: [['draft', 'x'.repeat(13_000), null]], statement: null, includes: [/Current draft:\n[\s\S]{12000} \[cut\]\n<\/context>$/], excludes: [] },
-	{ name: 'quote selects a section', kind: 'set', quote: 'Рекурсия это функция, которая вызывает сама себя. Для дерева это удобно.', includes: ['Learning set: Перестановки и сочетания', /Lesson text \(sections 15-39 of 39\)\. The rest is cut\.\n## 3 Рекурсия простыми словами\n/], excludes: ['К каждой футболке подходят 4 пары штанов.'] },
-	{ name: 'set without a quote', kind: 'set', includes: ['Lesson text (sections 1-39 of 39).\n', 'Chapters:\n1. Считаем варианты: Прежде чем писать перебор, посчитайте варианты. Правило произведения, правило суммы, факториал, выбор по порядку и без порядка, подмножества.\nMatching (Codeforces 1821A, easy). Codeforces, рейтинг 800. Каждый знак ? даёт 10 вариантов', '\n2. Перебор: подмножества, перестановки, сочетания: Один шаблон на Python выписывает все варианты: выбрать, пойти глубже, отменить. Индекс start даёт наборы без порядка, список used даёт перестановки.\nLetter Case Permutation (LeetCode 784, medium).'], excludes: ['The rest is cut'] },
-	{ name: 'lesson', kind: 'lesson', includes: ['Lesson: Recursion', 'Lesson outline:\n# Recursion\n## Base case\n## Depth', 'Lesson text (sections 1-3 of 3).\n# Recursion\nA function calls itself.'], excludes: ['The rest is cut'] },
-	{ name: 'lesson quote from section 2', kind: 'lesson', quote: 'Each  circle is\none call', includes: ['Lesson text (sections 2-3 of 3). The rest is cut.\n## Base case'], excludes: ['A function calls itself.'] },
+	{ name: 'quote selects a section', kind: 'set', quote: 'Рекурсия это функция, которая вызывает сама себя. Для дерева это удобно.', includes: ['Learning set: Перестановки и сочетания', /Lesson text \(sections 13-35 of 35\)\. The rest is cut\.\n## 3\. Рекурсия простыми словами\n/], excludes: ['К каждой футболке подходят 4 пары штанов.'] },
+	{ name: 'set without a quote', kind: 'set', includes: ['Lesson outline:\n# Глава 1. Считаем варианты\n## 1. Зачем считать до кода\n', '\n# Глава 2. Перебор: подмножества, перестановки, сочетания\n## 1. Когда нужны сами варианты\n', 'Lesson text (sections 1-35 of 35).\n', 'Chapters:\n1. Считаем варианты: Прежде чем писать перебор, посчитайте варианты. Правило произведения, правило суммы, факториал, выбор по порядку и без порядка, подмножества.\nMatching (Codeforces 1821A, easy). Codeforces, рейтинг 800. Каждый знак ? даёт 10 вариантов', '\n2. Перебор: подмножества, перестановки, сочетания: Один шаблон на Python выписывает все варианты: выбрать, пойти глубже, отменить. Индекс start даёт наборы без порядка, список used даёт перестановки.\nLetter Case Permutation (LeetCode 784, medium).'], excludes: ['The rest is cut'] },
 ] as { name: string; kind: string; task?: boolean; slug?: string; work?: [string, string, string | null][]; statement?: string | number | null; quote?: string; includes: (string | RegExp)[]; excludes: string[] }[])('$name', async ({ kind, task, slug, work, statement, quote, includes, excludes }) => {
 	if (slug) await env.DB.prepare('UPDATE problems SET slug=? WHERE id=?').bind(slug, PROBLEM).run();
 	if (task) await env.DB.batch([
@@ -180,12 +176,13 @@ it.each([
 	]);
 	for (const [state, code, savedAt] of work ?? []) await env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at,saved_at) VALUES (?,?,?,?,'','not_submitted','needs_practice','now','now',?)")
 		.bind(crypto.randomUUID(), PROBLEM, state, JSON.stringify({ notes: 'My notes', approaches: [{ ...approach, code }] }), savedAt).run();
-	const spy = upstream({ [RESPONSES]: [answer], [GRAPHQL]: kind === 'problem' && !slug ? [() => typeof statement === 'number' ? new Response('Busy', { status: statement }) : Response.json({ data: { question: { content: statement } } })] : [] });
-	const response = await request('/tutor/messages', 'POST', send({ kind, id: { problem: PROBLEM, set: SET, lesson: LESSON }[kind], quote: quote ?? null }), student);
+	const leetcode = kind === 'problem' && !slug?.startsWith('cf-');
+	const spy = upstream({ [RESPONSES]: [answer], [GRAPHQL]: leetcode ? [() => typeof statement === 'number' ? new Response('Busy', { status: statement }) : Response.json({ data: { question: { content: statement } } })] : [] });
+	const response = await request('/tutor/messages', 'POST', send({ kind, id: kind === 'set' ? SET : PROBLEM, quote: quote ?? null }), student);
 	expect(response.status).toBe(200);
 	expect(await events(response)).toEqual([{ delta: 'Hi' }, { done: true }]);
-	if (kind === 'problem' && !slug) expect(JSON.parse(String(spy.mock.calls[0][1]?.body))).toMatchObject({ variables: { titleSlug: 'two-sum' }, query: expect.stringContaining('content') });
-	if (slug) expect(spy.mock.calls.filter(([target]) => String(target) === GRAPHQL)).toEqual([]);
+	if (leetcode) expect(JSON.parse(String(spy.mock.calls[0][1]?.body))).toMatchObject({ variables: { titleSlug: slug ?? 'two-sum' }, query: expect.stringContaining('content') });
+	else expect(spy.mock.calls.filter(([target]) => String(target) === GRAPHQL)).toEqual([]);
 	const context = sent(spy)[0].input.at(-2)!.content;
 	for (const pattern of includes) expect(context).toMatch(pattern);
 	for (const text of excludes) expect(context).not.toContain(text);
@@ -201,8 +198,7 @@ it.each([
 
 it.each([
 	{ name: 'newest first', messages: [['problem', PROBLEM, minute(0)], ['set', SET, minute(60)]], expected: [{ kind: 'set', id: SET, title: 'Перестановки и сочетания', count: 1, lastAt: minute(60) }, { kind: 'problem', id: PROBLEM, title: 'Two Sum', count: 1, lastAt: minute(0) }] },
-	{ name: 'titles', messages: [['problem', PROBLEM, minute(2)], ['lesson', LESSON, minute(1)], ['set', SET, minute(0)]], expected: [{ kind: 'problem', id: PROBLEM, title: 'Two Sum', count: 1, lastAt: minute(2) }, { kind: 'lesson', id: LESSON, title: 'Recursion', count: 1, lastAt: minute(1) }, { kind: 'set', id: SET, title: 'Перестановки и сочетания', count: 1, lastAt: minute(0) }] },
-	{ name: 'count', messages: [0, 1, 2, 3].map(i => ['lesson', LESSON, minute(i)]), expected: [{ kind: 'lesson', id: LESSON, title: 'Recursion', count: 4, lastAt: minute(3) }] },
+	{ name: 'count', messages: [0, 1, 2, 3].map(i => ['set', SET, minute(i)]), expected: [{ kind: 'set', id: SET, title: 'Перестановки и сочетания', count: 4, lastAt: minute(3) }] },
 ])('$name', async ({ messages, expected }) => {
 	await env.DB.batch(messages.map(([kind, ref, at]) => message(kind, ref, 'student', 'Why?', null, at)));
 	const response = await request('/tutor/threads', 'GET', undefined, await login('parent'));

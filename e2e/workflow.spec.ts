@@ -1,7 +1,7 @@
 import { test, expect, signIn, addMessages, type TestEnv } from './fixtures';
 import type { TaskDetails } from '../shared/leetcode';
 
-test('completes learning with two accounts, two approaches, and a linked lesson', async ({ page: parent, browser, baseURL }, testInfo) => {
+test('completes learning with two accounts, two approaches, and a linked set', async ({ page: parent, browser, baseURL }, testInfo) => {
 	const studentContext = await browser.newContext({ baseURL, viewport: testInfo.project.use.viewport });
 	const student = await studentContext.newPage();
 	try {
@@ -15,12 +15,6 @@ test('completes learning with two accounts, two approaches, and a linked lesson'
 		await parent.getByRole('button', { name: 'Сохранить задачу', exact: true }).click();
 		await expect(parent.getByRole('heading', { name: 'Minimum Window Substring', exact: true })).toBeVisible();
 		const problemId = parent.url().split('/').at(-1)!;
-		await parent.getByRole('link', { name: 'Уроки', exact: true }).click();
-		await parent.getByLabel('Название', { exact: true }).fill('Window invariant');
-		await parent.getByLabel('HTML-файл').setInputFiles({ name: 'window.html', mimeType: 'text/html', buffer: Buffer.from('<button onclick="this.textContent=\'Window is valid\'">Move the window</button>') });
-		await parent.getByRole('button', { name: 'Загрузить и открыть' }).click();
-		await expect(parent.getByRole('heading', { name: 'Window invariant' })).toBeVisible();
-		const lessonId = parent.url().split('/').at(-1)!;
 		await parent.getByRole('link', { name: 'Домашняя работа', exact: true }).click();
 		await parent.getByLabel('Название', { exact: true }).fill('Week 41: sliding window');
 		await parent.getByLabel('Задание', { exact: true }).fill('Compare two approaches. Explain when the window can shrink.');
@@ -29,18 +23,17 @@ test('completes learning with two accounts, two approaches, and a linked lesson'
 		await parent.getByRole('group', { name: 'Задача', exact: true }).getByRole('radio', { name: /^Minimum Window Substring/ }).check();
 		await parent.getByRole('button', { name: 'Добавить задание', exact: true }).click();
 		await expect(parent.getByText('Назначено', { exact: true })).toBeVisible();
-		await parent.getByRole('combobox', { name: 'Связанный урок', exact: true }).selectOption(`lessons/${lessonId}`);
+		await parent.getByRole('combobox', { name: 'Набор', exact: true }).selectOption({ label: 'Перестановки и сочетания' });
 		await parent.getByRole('button', { name: 'Привязать' }).click();
-		await expect(parent.getByRole('link', { name: 'Window invariant', exact: true })).toBeVisible();
+		await expect(parent.getByRole('link', { name: 'Перестановки и сочетания', exact: true })).toBeVisible();
 		await parent.getByRole('link', { name: 'Minimum Window Substring', exact: true }).click();
 		await expect(parent.getByRole('heading', { name: 'Minimum Window Substring', level: 1 })).toBeVisible();
 		const taskURL = parent.url(), taskId = taskURL.split('/').at(-1)!;
 		await signIn(student);
 		await student.goto(taskURL);
-		await student.getByRole('link', { name: 'Window invariant', exact: true }).click();
-		await student.frameLocator('iframe').getByRole('button', { name: 'Move the window' }).click();
-		await expect(student.frameLocator('iframe').getByRole('button', { name: 'Window is valid' })).toBeVisible();
-		await student.getByRole('link', { name: 'Назад', exact: true }).click();
+		await student.getByRole('link', { name: 'Перестановки и сочетания', exact: true }).click();
+		await expect(student.getByRole('heading', { name: 'Перестановки и сочетания', level: 1 })).toBeVisible();
+		await student.goBack();
 		await student.getByRole('link', { name: 'Открыть тетрадь', exact: true }).click();
 		await student.getByRole('button', { name: 'Начать новую попытку' }).click();
 		await student.getByLabel('Название подхода', { exact: true }).fill('Brute force');
@@ -124,15 +117,6 @@ test('opens and closes the problem dialog with the keyboard', async ({ page }) =
 	await expect(page.getByRole('button', { name: 'Добавить задачу', exact: true })).toBeFocused();
 });
 
-test('rejects an oversized lesson file', async ({ page }) => {
-	await signIn(page, 'parent');
-	await page.goto('/leetcode/lessons');
-	await page.getByLabel('Название', { exact: true }).fill('Oversized file');
-	await page.getByLabel('HTML-файл').setInputFiles({ name: 'large.html', mimeType: 'text/html', buffer: Buffer.alloc(1_000_001, 'x') });
-	await page.getByRole('button', { name: 'Загрузить и открыть' }).click();
-	await expect(page.getByRole('alert')).toContainText('1 000 000 байт');
-});
-
 test('shows the tutor panel full screen on a phone', async ({ page, notebook, server }, testInfo) => {
 	test.skip(testInfo.project.name !== 'mobile', 'Only the mobile project has a phone viewport.');
 	const { DB } = await server.getWorker<TestEnv>().getEnv(), cells = Array.from({ length: 24 }, (_, i) => `cell_${i}`);
@@ -158,9 +142,8 @@ test('explains a lesson selection with a touch tap', async ({ browser, baseURL }
 			return route.fulfill({ contentType: 'text/event-stream', body: 'data: {"done":true}\n\n' });
 		});
 		await page.goto('/leetcode/sets/permutations-and-combinations/2');
-		const frame = page.frameLocator('iframe.lesson-frame');
-		await frame.locator('p', { hasText: 'которая вызывает сама себя' }).selectText();
-		await frame.getByRole('button', { name: 'Объяснить с ИИ', exact: true }).tap();
+		await page.locator('article.lesson').locator('p', { hasText: 'которая вызывает сама себя' }).selectText();
+		await page.getByRole('button', { name: 'Объяснить с ИИ', exact: true }).tap();
 		await expect(page.getByRole('dialog', { name: 'ИИ-репетитор' })).toBeVisible();
 		await expect.poll(() => body).toEqual({ kind: 'set', id: 'permutations-and-combinations', message: 'Объясните эту часть.', quote: 'Рекурсия это функция, которая вызывает сама себя. Для дерева это удобно. Функция делает один шаг вниз, а дальше просит саму себя сделать остальное. Функцию, которая идёт по дереву, назовём dfs.' });
 	} finally { await context.close(); }

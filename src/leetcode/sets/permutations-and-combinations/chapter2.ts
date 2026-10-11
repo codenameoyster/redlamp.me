@@ -20,4 +20,10 @@ export default {
 		{ id: 'pc2-save-where', type: 'choice', prompt: 'В Subsets (LeetCode 78) где шаблон сохраняет ответ?', options: ['Только в листьях', 'В каждой точке дерева', 'Только когда path пустой'], answer: 1, explain: 'Каждый путь это подмножество, поэтому сохраняем при каждом вызове, включая пустой путь.' },
 		{ id: 'pc2-phone', type: 'short', prompt: 'Letter Combinations (LeetCode 17), digits = "23". Сколько строк в ответе?', answer: '9', explain: 'На кнопке 2 три буквы, на кнопке 3 три буквы: 3 · 3 = 9.' },
 	],
+	links: [
+		{ title: 'Перебор с возвратом: элементарные примеры', url: 'https://notes.algoprog.ru/ru/backtrack/01_1_elementary.html', source: 'Заметки П. Калинина (algoprog)' },
+		{ title: 'Обзор задач по алгоритмам для собеседований: генерация множеств', url: 'https://habr.com/ru/companies/vk/articles/420605/', source: 'Хабр' },
+		{ title: 'Поиск с возвратом', url: 'https://ru.wikipedia.org/wiki/Поиск_с_возвратом', source: 'Википедия' },
+		{ title: 'Полный перебор с рекурсией: подмножества, перестановки, ферзи', url: 'https://usaco.guide/bronze/complete-rec', source: 'USACO Guide (англ.)' },
+	],
 } satisfies Chapter;

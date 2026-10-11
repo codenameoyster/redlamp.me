@@ -1,10 +1,8 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
-import { MAX_LESSON_BYTES, type LearningSetDetails, type LearningSetSummary, type SetTask } from '../shared/leetcode';
+import type { LearningSetDetails, LearningSetSummary, SetTask } from '../shared/leetcode';
 import { sets, taskLabel, taskSlug, tasksOf } from '../src/leetcode/sets';
-import { LESSON_CSP } from '../src/leetcode/lessons';
-import LESSON_BRIDGE from '../src/leetcode/lesson-bridge.html';
 import { htmlText } from '../src/leetcode/tutor';
 
 let student: string;
@@ -52,7 +50,8 @@ it.each([
 	const response = await request(`/sets/${set.slug}`, 'GET', undefined, student);
 	expect(response.status).toBe(200);
 	const details = await response.json() as LearningSetDetails;
-	expect(details).toMatchObject({ slug: set.slug, title: set.title, summary: set.summary, topics: set.topics, links: set.links });
+	expect(details).toMatchObject({ slug: set.slug, title: set.title, summary: set.summary, topics: set.topics });
+	expect(details.chapters.map(chapter => chapter.links)).toEqual(set.chapters.map(chapter => chapter.links));
 	expect(details.chapters.map(chapter => ({ number: chapter.number, title: chapter.title, summary: chapter.summary, tasks: chapter.tasks.map(task => task.slug) }))).toEqual([
 		{ number: 1, title: 'Считаем варианты', summary: 'Прежде чем писать перебор, посчитайте варианты. Правило произведения, правило суммы, факториал, выбор по порядку и без порядка, подмножества.', tasks: ['cf-1821-a', 'cf-1743-a', 'cf-629-a', 'cf-1674-b', 'number-of-good-pairs'] },
 		{ number: 2, title: 'Перебор: подмножества, перестановки, сочетания', summary: 'Один шаблон на Python выписывает все варианты: выбрать, пойти глубже, отменить. Индекс start даёт наборы без порядка, список used даёт перестановки.', tasks: ['letter-case-permutation', 'subsets', 'permutations', 'combinations', 'letter-combinations-of-a-phone-number'] },
@@ -65,20 +64,17 @@ it.each([
 });
 
 it.each([
-	{ name: 'student chapter 1 lesson ends with the bridge', role: 'student', chapter: '1', body: set.lessons[0] + LESSON_BRIDGE },
-	{ name: 'parent chapter 1 lesson is unchanged', role: 'parent', chapter: '1', body: set.lessons[0] },
-	{ name: 'chapter 4 lesson', role: 'parent', chapter: '4', body: set.lessons[3] },
-	{ name: 'chapter 5 is missing', role: 'parent', chapter: '5', body: null },
-	{ name: 'chapter 0 is missing', role: 'parent', chapter: '0', body: null },
-	{ name: 'chapter x is missing', role: 'parent', chapter: 'x', body: null },
-	{ name: 'lesson without a chapter number is missing', role: 'parent', chapter: '', body: null },
-])('$name', async ({ role, chapter, body }) => {
+	{ name: 'student chapter 1 lesson', role: 'student', chapter: '1', html: set.lessons[0] },
+	{ name: 'parent chapter 4 lesson', role: 'parent', chapter: '4', html: set.lessons[3] },
+	{ name: 'chapter 5 is missing', role: 'parent', chapter: '5', html: null },
+	{ name: 'chapter 0 is missing', role: 'parent', chapter: '0', html: null },
+	{ name: 'chapter x is missing', role: 'parent', chapter: 'x', html: null },
+	{ name: 'lesson without a chapter number is missing', role: 'parent', chapter: '', html: null },
+])('$name', async ({ role, chapter, html }) => {
 	const response = await request(`/sets/${set.slug}/lesson${chapter && `/${chapter}`}`, 'GET', undefined, role === 'parent' ? await login('parent') : student);
-	if (body === null) { expect(response.status).toBe(404); expect(await response.json()).toMatchObject({ error: { code: 'not_found' } }); return; }
+	if (html === null) { expect(response.status).toBe(404); expect(await response.json()).toMatchObject({ error: { code: 'not_found' } }); return; }
 	expect(response.status).toBe(200);
-	expect(response.headers.get('content-type')).toBe('text/html; charset=utf-8');
-	expect(response.headers.get('content-security-policy')).toBe(LESSON_CSP);
-	expect(await response.text()).toBe(body);
+	expect(await response.json()).toEqual({ html });
 });
 
 it.each([
@@ -93,7 +89,7 @@ it.each([
 	expect(await response.json()).toMatchObject({ error: { code } });
 });
 
-const slugFormat = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const slugFormat = /^[a-z0-9]+(?:-[a-z0-9]+)*$/, fragmentTag = /^(?:h2|h3|p|ul|ol|li|table|caption|thead|tbody|tr|th|td|pre|code|strong|em|sup|blockquote|details|summary|a|br|div)$/;
 it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item }) => {
 	expect(sets.filter(other => other.slug === item.slug)).toHaveLength(1);
 	expect(item.slug).toMatch(slugFormat);
@@ -102,11 +98,14 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item 
 	expect(tasks.filter((task, index) => tasks.findIndex(other => taskSlug(other) === taskSlug(task)) !== index).map(taskSlug)).toEqual([]);
 	expect(item.chapters.filter(chapter => !chapter.title.trim() || !chapter.summary.trim()).map(chapter => chapter.title)).toEqual([]);
 	expect(item.chapters.filter(chapter => chapter.tasks.length < 3 || chapter.tasks.length > 5 || chapter.cards.length < 6 || chapter.cards.length > 8).map(chapter => chapter.title)).toEqual([]);
-	expect(item.links.filter(link => new URL(link.url).protocol !== 'https:').map(link => link.url)).toEqual([]);
+	const links = item.chapters.flatMap(chapter => chapter.links);
+	expect(item.chapters.filter(chapter => chapter.links.length < 3 || chapter.links.length > 5).map(chapter => chapter.title)).toEqual([]);
+	expect(links.filter(link => new URL(link.url).protocol !== 'https:').map(link => link.url)).toEqual([]);
+	expect(links.filter((link, index) => links.findIndex(other => other.url === link.url) !== index).map(link => link.url)).toEqual([]);
 	expect(item.lessons).toHaveLength(item.chapters.length);
-	expect(item.lessons.filter(lesson => new TextEncoder().encode(lesson).byteLength > MAX_LESSON_BYTES)).toEqual([]);
 	expect(item.lessons.map(lesson => htmlText(lesson).length).filter(length => length >= 6000)).toEqual([]);
-	expect(item.lessons.filter(lesson => !lesson.includes('<html lang="ru">'))).toEqual([]);
+	expect(item.lessons.flatMap(lesson => [...lesson.matchAll(/<([a-z][a-z0-9]*)/gi)].map(match => match[1]).filter(tag => !fragmentTag.test(tag)))).toEqual([]);
+	expect(item.lessons.flatMap((lesson, index) => lesson.startsWith('<p class="lead">') && !/\s(?:style|on[a-z]+)=|<div(?! class="rule">)/i.test(lesson) ? [] : [index + 1])).toEqual([]);
 });
 
 const task: Omit<SetTask, 'url' | 'number'> = { title: 'Task', difficulty: 'easy', topics: [], note: '' };
@@ -134,8 +133,24 @@ it.each([
 	const ownerId = owner === 'homework' ? homeworkId : problemId;
 	if (before) await env.DB.prepare(`INSERT INTO ${owner === 'homework' ? 'homework_sets' : 'problem_sets'} VALUES (?,?)`).bind(ownerId, slug).run();
 	expect((await request(`/${owner}/${ownerId}/sets/${slug}`, method, owner === 'homework' ? { version } : {}, role === 'parent' ? parent : student)).status).toBe(expected);
-	expect(await (await request(`/${owner}/${ownerId}/sets`, 'GET', undefined, student)).json()).toEqual(linked);
+	expect((await (await request(`/${owner}/${ownerId}/sets`, 'GET', undefined, student)).json() as { sets: unknown }).sets).toEqual(linked);
 	expect(await env.DB.prepare('SELECT version FROM homework WHERE id=?').bind(homeworkId).first()).toEqual({ version: homeworkVersion });
+});
+
+const chapter2 = { set: 'permutations-and-combinations', setTitle: 'Перестановки и сочетания', number: 2, title: 'Перебор: подмножества, перестановки, сочетания' };
+const chapter3 = { ...chapter2, number: 3, title: 'Повторы и отсечения' };
+it.each([
+	{ name: 'problem in a chapter', owner: 'problems', slugs: ['subsets'], chapters: [chapter2] },
+	{ name: 'problem in no chapter', owner: 'problems', slugs: ['two-sum'], chapters: [] },
+	{ name: 'homework with tasks in two chapters', owner: 'homework', slugs: ['subsets-ii', 'two-sum', 'subsets', 'permutations'], chapters: [chapter3, chapter2] },
+])('$name', async ({ owner, slugs, chapters }) => {
+	const homeworkId = crypto.randomUUID(), problemIds: string[] = [];
+	for (const slug of slugs) problemIds.push(await addProblem(slug, null));
+	// Reverse insert order, so only created_at gives the task order.
+	await env.DB.batch([insertBundle.bind(homeworkId, 'Week 41'), ...problemIds.map((id, index) => env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) VALUES (?,?,?,'assigned',?,'now')").bind(crypto.randomUUID(), homeworkId, id, `2026-10-1${index}`)).reverse()]);
+	const response = await request(`/${owner}/${owner === 'homework' ? homeworkId : problemIds[0]}/sets`, 'GET', undefined, student);
+	expect(response.status).toBe(200);
+	expect(await response.json()).toEqual({ chapters, sets: [] });
 });
 
 it('card ids are unique across all sets', () => {

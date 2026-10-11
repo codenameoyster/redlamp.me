@@ -20,4 +20,10 @@ export default {
 		{ id: 'pc1-subsets', type: 'short', prompt: 'Сколько подмножеств у набора из 4 предметов? Пустой набор тоже считается.', answer: '16', explain: 'Каждый предмет берём или нет: 2 варианта на предмет. 2 · 2 · 2 · 2 = 16.' },
 		{ id: 'pc1-order-matters', type: 'choice', prompt: 'В каком вопросе порядок важен?', options: ['Выбрать 3 начинки для пиццы', 'Раздать золото, серебро и бронзу 8 бегунам', 'Выбрать 2 человек в команду'], answer: 1, explain: 'Медали разные, поэтому порядок трёх бегунов важен. У начинок и у команды порядка нет.' },
 	],
+	links: [
+		{ title: 'Перестановки, сочетания и размещения: стартер-пак по комбинаторике для IT', url: 'https://skillbox.ru/media/code/perestanovki-sochetaniya-i-razmeshcheniya-starterpak-po-kombinatorike-dlya-it/', source: 'Skillbox Медиа' },
+		{ title: 'Правило умножения', url: 'https://ru.wikipedia.org/wiki/Правило_умножения_(комбинаторика)', source: 'Википедия' },
+		{ title: 'Сочетание', url: 'https://ru.wikipedia.org/wiki/Сочетание', source: 'Википедия' },
+		{ title: 'Комбинаторика в Python', url: 'https://habr.com/ru/articles/479816/', source: 'Хабр' },
+	],
 } satisfies Chapter;

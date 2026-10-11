@@ -1,28 +1,32 @@
 import { test, expect, signIn } from './fixtures';
 import type { Page } from '@playwright/test';
-import type { Homework, Problem } from '../shared/leetcode';
+import type { Homework, HomeworkTask, Problem } from '../shared/leetcode';
 
 const setPath = '/leetcode/sets/permutations-and-combinations', chapterPath = `${setPath}/2`;
 function row(page: Page, title: string) { return page.getByRole('article').filter({ has: page.getByRole('heading', { name: title, exact: true }) }); }
 
 test('assigns set tasks to new and existing homework', async ({ page, context }) => {
 	await signIn(page, 'parent');
-	await page.getByRole('link', { name: 'Наборы', exact: true }).click();
+	await page.getByRole('link', { name: 'Бомжарня', exact: true }).click();
+	await expect(page.getByRole('heading', { name: 'Бомжарня', level: 1 })).toBeVisible();
 	await page.getByRole('link', { name: 'Перестановки и сочетания', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'Перестановки и сочетания', level: 1 })).toBeVisible();
 	await expect(page.getByRole('link', { name: 'Открыть главу', exact: true })).toHaveCount(4);
 	await expect(row(page, 'Перебор: подмножества, перестановки, сочетания')).toContainText('Задач принято 0 из 5');
 	await expect(row(page, 'Перебор: подмножества, перестановки, сочетания')).toContainText('Карточек: 0 к повторению, 8 новых');
-	await context.route('https://codeforces.com/**', route => route.fulfill({ contentType: 'text/html', body: '<p>Reading</p>' }));
-	const reading = page.getByRole('link', { name: 'Курсы Codeforces EDU', exact: true });
-	await expect(reading).toHaveAttribute('rel', 'noopener noreferrer');
-	const [tab] = await Promise.all([context.waitForEvent('page'), reading.click()]);
-	await expect(tab).toHaveURL('https://codeforces.com/edu/courses?locale=ru');
-	await tab.close();
 	await page.getByRole('link', { name: 'Перебор: подмножества, перестановки, сочетания', exact: true }).click();
 	await expect(page).toHaveURL(chapterPath);
 	await expect(page.getByRole('heading', { name: 'Глава 2. Перебор: подмножества, перестановки, сочетания', level: 1 })).toBeVisible();
-	await expect(page.frameLocator('iframe').getByRole('heading', { name: '3 Рекурсия простыми словами', level: 2 })).toBeVisible();
+	await expect(page.locator('article.lesson').getByRole('heading', { name: '3. Рекурсия простыми словами', level: 2 })).toBeVisible();
+	await expect(page.locator('article.lesson pre code .hljs-keyword').first()).toHaveText('def');
+	const reading = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Где узнать больше', level: 2 }) }), link = reading.getByRole('link', { name: 'Перебор с возвратом: элементарные примеры', exact: true });
+	await expect(reading.getByRole('listitem')).toHaveCount(4);
+	await expect(reading.getByRole('listitem').last()).toHaveText('Полный перебор с рекурсией: подмножества, перестановки, ферзи USACO Guide (англ.)');
+	await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+	await context.route('https://notes.algoprog.ru/**', route => route.fulfill({ contentType: 'text/html', body: '<p>Reading</p>' }));
+	const [tab] = await Promise.all([context.waitForEvent('page'), link.click()]);
+	await expect(tab).toHaveURL('https://notes.algoprog.ru/ru/backtrack/01_1_elementary.html');
+	await tab.close();
 	await expect(page.getByRole('link', { name: 'Пройти квиз', exact: true })).toHaveAttribute('href', '/leetcode/quiz/permutations-and-combinations-2');
 	await expect(page.getByRole('link', { name: 'Предыдущая глава', exact: true })).toHaveAttribute('href', `${setPath}/1`);
 	await expect(page.getByRole('link', { name: 'Следующая глава', exact: true })).toHaveAttribute('href', `${setPath}/3`);
@@ -124,12 +128,26 @@ test('fits the set pages at the mobile width', async ({ page }, testInfo) => {
 	expect(await page.getByRole('dialog').evaluate(dialog => dialog.scrollWidth <= dialog.clientWidth)).toBe(true);
 });
 
-test('links a set as a related lesson of a problem', async ({ page, notebook }) => {
+test('links a set as material of a problem', async ({ page, notebook }) => {
 	await signIn(page, 'parent');
 	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
-	await page.getByRole('combobox', { name: 'Связанный урок', exact: true }).selectOption({ label: 'Перестановки и сочетания' });
+	await page.getByRole('combobox', { name: 'Набор', exact: true }).selectOption({ label: 'Перестановки и сочетания' });
 	await page.getByRole('button', { name: 'Привязать', exact: true }).click();
 	await expect(page.getByRole('button', { name: 'Отвязать Перестановки и сочетания', exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Перестановки и сочетания', exact: true }).click();
 	await expect(page).toHaveURL(setPath);
+});
+
+test('shows the chapter of a task as its material', async ({ page, baseURL }) => {
+	const headers = { Origin: new URL(baseURL!).origin };
+	await signIn(page, 'parent');
+	const homework = await (await page.request.post('/leetcode/api/homework', { headers, data: { title: 'Week 41', instructions: '', dueDate: null } })).json() as Homework;
+	const problem = await (await page.request.post('/leetcode/api/problems', { headers, data: { url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
+	const task = await (await page.request.post('/leetcode/api/tasks', { headers, data: { homeworkId: homework.id, problemId: problem.id } })).json() as HomeworkTask;
+	await page.goto(`/leetcode/tasks/${task.id}`);
+	const materials = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Материалы', level: 2 }) });
+	await expect(materials.locator('small')).toHaveText('Перестановки и сочетания');
+	await expect(materials.getByRole('button', { name: /^Отвязать/ })).toHaveCount(0);
+	await materials.getByRole('link', { name: 'Глава 2. Перебор: подмножества, перестановки, сочетания', exact: true }).click();
+	await expect(page).toHaveURL(chapterPath);
 });

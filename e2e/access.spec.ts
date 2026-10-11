@@ -35,7 +35,6 @@ for (const row of returns) {
 }
 
 const statuses = [
-	{ name: 'private lesson content requires login', path: '/leetcode/api/lessons/11111111-1111-4111-8111-111111111111/content', status: 401 },
 	{ name: 'public site is open', path: '/', status: 200 },
 	{ name: 'notebook script is open', path: '/leetcode/assets/main.js', status: 200 },
 ];
