@@ -86,7 +86,7 @@ export interface Dashboard {
 	homework: HomeworkTask[];
 	drafts: (AttemptSummary & { problemTitle: string })[];
 	dueReviews: Problem[];
-	recallPicks: (Omit<SetTaskRow, 'accepted' | 'activeTask'> & { problemId: string })[];
+	recallPicks: Omit<SetTaskRow, 'accepted' | 'activeTask'>[];
 }
 export type TutorKind = 'problem' | 'set';
 export interface TutorMessage { id: string; author: 'student' | 'assistant'; body: string; quote: string | null; createdAt: string }
