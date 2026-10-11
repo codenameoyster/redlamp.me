@@ -3,7 +3,6 @@ import type { LearningSet, LearningSetDetails, LearningSetSummary, SessionUser, 
 import { requireRole } from '../auth';
 import { getHomework } from '../homework';
 import { changed, HttpError, integer, methods, object, readJson, uuid } from '../http';
-import LESSON_BRIDGE from '../lesson-bridge.html';
 import { getProblem, slug as problemSlug, solvedSQL } from '../problems';
 import permutationsAndCombinations from './permutations-and-combinations/set';
 import permutationsAndCombinations1 from './permutations-and-combinations/chapter1.html';
@@ -15,7 +14,6 @@ export const sets: (LearningSet & { lessons: string[] })[] = [
 	{ ...permutationsAndCombinations, lessons: [permutationsAndCombinations1, permutationsAndCombinations2, permutationsAndCombinations3, permutationsAndCombinations4] },
 ];
 
-export const LESSON_CSP = "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data: blob:; media-src data: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 export const tasksOf = (set: LearningSet): SetTask[] => set.chapters.flatMap(chapter => chapter.tasks);
 export const taskSlug = (task: SetTask): string => problemSlug(task.url);
 export function taskLabel(task: SetTask): string {
@@ -52,7 +50,7 @@ export async function handleSets(request: Request, env: Env, user: SessionUser):
 	}
 	const match = /^\/leetcode\/api\/sets(?:\/([^/]+)(?:\/lesson\/([1-9][0-9]?))?)?$/.exec(new URL(request.url).pathname);
 	if (!match) return null;
-	methods(request, match[2] ? ['GET', 'HEAD'] : ['GET']);
+	methods(request, ['GET']);
 	if (!match[1]) {
 		const accepted = await acceptedSetSlugs(env);
 		return Response.json(sets.map((set): LearningSetSummary => ({ slug: set.slug, title: set.title, summary: set.summary, topics: set.topics, chapterCount: set.chapters.length, taskCount: tasksOf(set).length, acceptedCount: tasksOf(set).filter(task => accepted.has(taskSlug(task))).length })));
@@ -60,9 +58,9 @@ export async function handleSets(request: Request, env: Env, user: SessionUser):
 	const set = sets.find(item => item.slug === match[1]);
 	if (!set) throw new HttpError(404, 'not_found', 'Такого набора нет.');
 	if (match[2]) {
-		const lesson = set.lessons[Number(match[2]) - 1];
-		if (!lesson) throw new HttpError(404, 'not_found', 'Такой главы нет.');
-		return new Response(user.role === 'student' ? lesson + LESSON_BRIDGE : lesson, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': LESSON_CSP } });
+		const html = set.lessons[Number(match[2]) - 1];
+		if (!html) throw new HttpError(404, 'not_found', 'Такой главы нет.');
+		return Response.json({ html });
 	}
 	const rows = await env.DB.prepare(`SELECT p.slug,p.id AS problemId,${solvedSQL} AS accepted,t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,t.state
 		FROM problems p LEFT JOIN homework_tasks t ON t.problem_id=p.id AND t.state NOT IN ('completed','cancelled') LEFT JOIN homework h ON h.id=t.homework_id WHERE p.slug IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(tasksOf(set).map(taskSlug))).all<TaskRow>();

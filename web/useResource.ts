@@ -12,5 +12,5 @@ export function useResource<T>(path: string | null, revision = 0) {
 		if (path) api<T>(path, { signal: controller.signal }).then(value => { if (!controller.signal.aborted) setResult({ path, value }); }).catch(error => { if (!controller.signal.aborted) setError(message(error)); });
 		return () => controller.abort();
 	}, [path, version, revision]);
-	return { data: result?.path === path ? result.value : null, error, reload, setData: (value: T) => { if (path) setResult({ path, value }); } };
+	return { data: result?.path === path ? result.value : null, error, reload, setData: (value: T, at = path) => { if (at) setResult({ path: at, value }); } };
 }

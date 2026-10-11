@@ -2,8 +2,7 @@ import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
 import type { LearningSetDetails, LearningSetSummary, SetTask } from '../shared/leetcode';
-import { LESSON_CSP, sets, taskLabel, taskSlug, tasksOf } from '../src/leetcode/sets';
-import LESSON_BRIDGE from '../src/leetcode/lesson-bridge.html';
+import { sets, taskLabel, taskSlug, tasksOf } from '../src/leetcode/sets';
 import { htmlText } from '../src/leetcode/tutor';
 
 let student: string;
@@ -64,20 +63,17 @@ it.each([
 });
 
 it.each([
-	{ name: 'student chapter 1 lesson ends with the bridge', role: 'student', chapter: '1', body: set.lessons[0] + LESSON_BRIDGE },
-	{ name: 'parent chapter 1 lesson is unchanged', role: 'parent', chapter: '1', body: set.lessons[0] },
-	{ name: 'chapter 4 lesson', role: 'parent', chapter: '4', body: set.lessons[3] },
-	{ name: 'chapter 5 is missing', role: 'parent', chapter: '5', body: null },
-	{ name: 'chapter 0 is missing', role: 'parent', chapter: '0', body: null },
-	{ name: 'chapter x is missing', role: 'parent', chapter: 'x', body: null },
-	{ name: 'lesson without a chapter number is missing', role: 'parent', chapter: '', body: null },
-])('$name', async ({ role, chapter, body }) => {
+	{ name: 'student chapter 1 lesson', role: 'student', chapter: '1', html: set.lessons[0] },
+	{ name: 'parent chapter 4 lesson', role: 'parent', chapter: '4', html: set.lessons[3] },
+	{ name: 'chapter 5 is missing', role: 'parent', chapter: '5', html: null },
+	{ name: 'chapter 0 is missing', role: 'parent', chapter: '0', html: null },
+	{ name: 'chapter x is missing', role: 'parent', chapter: 'x', html: null },
+	{ name: 'lesson without a chapter number is missing', role: 'parent', chapter: '', html: null },
+])('$name', async ({ role, chapter, html }) => {
 	const response = await request(`/sets/${set.slug}/lesson${chapter && `/${chapter}`}`, 'GET', undefined, role === 'parent' ? await login('parent') : student);
-	if (body === null) { expect(response.status).toBe(404); expect(await response.json()).toMatchObject({ error: { code: 'not_found' } }); return; }
+	if (html === null) { expect(response.status).toBe(404); expect(await response.json()).toMatchObject({ error: { code: 'not_found' } }); return; }
 	expect(response.status).toBe(200);
-	expect(response.headers.get('content-type')).toBe('text/html; charset=utf-8');
-	expect(response.headers.get('content-security-policy')).toBe(LESSON_CSP);
-	expect(await response.text()).toBe(body);
+	expect(await response.json()).toEqual({ html });
 });
 
 it.each([
@@ -92,7 +88,7 @@ it.each([
 	expect(await response.json()).toMatchObject({ error: { code } });
 });
 
-const slugFormat = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const slugFormat = /^[a-z0-9]+(?:-[a-z0-9]+)*$/, fragmentTag = /^(?:h2|h3|p|ul|ol|li|table|caption|thead|tbody|tr|th|td|pre|code|strong|em|sup|blockquote|details|summary|a|br|div)$/;
 it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item }) => {
 	expect(sets.filter(other => other.slug === item.slug)).toHaveLength(1);
 	expect(item.slug).toMatch(slugFormat);
@@ -104,7 +100,8 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item 
 	expect(item.links.filter(link => new URL(link.url).protocol !== 'https:').map(link => link.url)).toEqual([]);
 	expect(item.lessons).toHaveLength(item.chapters.length);
 	expect(item.lessons.map(lesson => htmlText(lesson).length).filter(length => length >= 6000)).toEqual([]);
-	expect(item.lessons.filter(lesson => !lesson.includes('<html lang="ru">'))).toEqual([]);
+	expect(item.lessons.flatMap(lesson => [...lesson.matchAll(/<([a-z][a-z0-9]*)/g)].map(match => match[1]).filter(tag => !fragmentTag.test(tag)))).toEqual([]);
+	expect(item.lessons.flatMap((lesson, index) => lesson.startsWith('<p class="lead">') && !/\s(?:style|on[a-z]+)=|<div(?! class="rule">)/.test(lesson) ? [] : [index + 1])).toEqual([]);
 });
 
 const task: Omit<SetTask, 'url' | 'number'> = { title: 'Task', difficulty: 'easy', topics: [], note: '' };

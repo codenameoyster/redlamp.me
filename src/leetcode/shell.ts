@@ -1,6 +1,6 @@
 import type { SessionUser } from '../../shared/leetcode';
 
-export function renderShell(origin: string, user?: SessionUser): Response {
+export function renderShell(user?: SessionUser): Response {
 	return new Response(`<!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Тетрадь LeetCode | redlamp</title><link rel="stylesheet" href="/leetcode/assets/style.css">
@@ -8,7 +8,7 @@ ${user ? `<script id="session" type="application/json">${JSON.stringify(user)}</
 <body><div id="root"></div><noscript>Включите JavaScript, чтобы пользоваться тетрадью.</noscript></body></html>`, {
 		headers: {
 			'Content-Type': 'text/html; charset=utf-8',
-			'Content-Security-Policy': `default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-src ${origin}/leetcode/api/sets/; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
+			'Content-Security-Policy': `default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
 		},
 	});
 }

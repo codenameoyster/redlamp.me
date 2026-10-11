@@ -23,7 +23,8 @@ test('assigns set tasks to new and existing homework', async ({ page, context })
 	await page.getByRole('link', { name: 'Перебор: подмножества, перестановки, сочетания', exact: true }).click();
 	await expect(page).toHaveURL(chapterPath);
 	await expect(page.getByRole('heading', { name: 'Глава 2. Перебор: подмножества, перестановки, сочетания', level: 1 })).toBeVisible();
-	await expect(page.frameLocator('iframe').getByRole('heading', { name: '3 Рекурсия простыми словами', level: 2 })).toBeVisible();
+	await expect(page.locator('article.lesson').getByRole('heading', { name: '3. Рекурсия простыми словами', level: 2 })).toBeVisible();
+	await expect(page.locator('article.lesson pre code .hljs-keyword').first()).toHaveText('def');
 	await expect(page.getByRole('link', { name: 'Пройти квиз', exact: true })).toHaveAttribute('href', '/leetcode/quiz/permutations-and-combinations-2');
 	await expect(page.getByRole('link', { name: 'Предыдущая глава', exact: true })).toHaveAttribute('href', `${setPath}/1`);
 	await expect(page.getByRole('link', { name: 'Следующая глава', exact: true })).toHaveAttribute('href', `${setPath}/3`);

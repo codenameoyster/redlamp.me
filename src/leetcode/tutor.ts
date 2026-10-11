@@ -52,7 +52,7 @@ async function context(env: Env, kind: TutorKind, id: string, quote: string | nu
 	if (kind === 'set') {
 		const set = findSet(id);
 		const chapters = set.chapters.map((chapter, index) => [`${index + 1}. ${chapter.title}: ${chapter.summary}`, ...chapter.tasks.map(task => `${task.title} (${taskLabel(task)}, ${task.difficulty}). ${task.note}`)].join('\n'));
-		return `${clip(`Learning set: ${set.title}\nSummary: ${set.summary}\nTopics: ${set.topics.join(', ')}\nChapters:\n${chapters.join('\n')}`, 4000)}\n\n${lessonText(set.lessons.join('\n'), quote)}`;
+		return `${clip(`Learning set: ${set.title}\nSummary: ${set.summary}\nTopics: ${set.topics.join(', ')}\nChapters:\n${chapters.join('\n')}`, 4000)}\n\n${lessonText(set.lessons.map((html, index) => `<h1>Глава ${index + 1}. ${set.chapters[index].title}</h1>\n${html}`).join('\n'), quote)}`;
 	}
 	const problem = await getProblem(env, id);
 	const [statement, task, attempt] = await Promise.all([

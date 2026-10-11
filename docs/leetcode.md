@@ -57,11 +57,11 @@ Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and wa
 
 A learning set is a sequence of chapters about one subject. Each chapter has a lesson, a list of problems and a deck of quiz cards. The sets are content in the repository. A deployment publishes them. The **Бомжарня** page lists the sets. It is read-only for both roles.
 
-A set page shows the reading links and the chapters. A chapter row shows the accepted problem count and the quiz card counts. A chapter page shows the chapter lesson in an isolated frame, the problems and a link to the chapter quiz. The frame permits inline JavaScript. Its HTTP content security policy also applies to full-page display. A problem row shows **Accepted** when the library problem has an accepted saved attempt. A problem row with an active homework task shows the task state. The state links to the task.
+A set page shows the reading links and the chapters. A chapter row shows the accepted problem count and the quiz card counts. A chapter page shows the chapter lesson, the problems and a link to the chapter quiz. A problem row shows **Accepted** when the library problem has an accepted saved attempt. A problem row with an active homework task shows the task state. The state links to the task.
 
 As the parent, use **Add to homework** on a problem row. The dialog shows the active homework. Use the search box to find homework by title. Use **Assign** to add the problem to that homework. Use **Create and assign** to create new homework with the problem in one step. The notebook adds the problem to the library when the library does not have it. A problem with an active task has no **Add to homework** button.
 
-For the student, the Worker adds a short script at the end of each chapter lesson. In the frame, the script shows **Explain with AI** below the selected text. Ctrl+Enter or Cmd+Enter does the same. The AI tutor then explains the selected text. When an answer quotes the lesson, **Show in the lesson** marks the passage in the frame. In full-page display, the script does nothing. The display for the parent does not contain the script.
+For the student, a chapter page shows **Explain with AI** below the text that is selected in the lesson. Ctrl+Enter or Cmd+Enter does the same. The AI tutor then explains the selected text. When an answer quotes the lesson, **Show in the lesson** marks the passage. The parent does not see these controls.
 
 The parent can also link a set to a problem or to homework. Choose the set in **Materials**. The link opens the set page.
 
@@ -69,10 +69,10 @@ To add a set:
 
 1. Create the folder `src/leetcode/sets/<slug>/`. Use lowercase letters, digits, and dashes in the slug.
 2. Write `chapter<N>.ts` for each chapter. Export the chapter data as the default export. Type it with `satisfies Chapter`. Give the chapter a title, a summary, its tasks and its cards. For each task, use the problem slug from its LeetCode URL.
-3. Write `chapter<N>.html` for each chapter. Use one self-contained UTF-8 file. Embed CSS, JavaScript, images, and fonts in the file. External scripts, relative files, network APIs, and persistent browser storage are unavailable.
+3. Write `chapter<N>.html` for each chapter as an HTML fragment. The chapter page inserts it without changes. Start with `<p class="lead">` and one sentence. Then write sections that start with `<h2 id="sN">`. Use only these elements: `h2 h3 p ul ol li table caption thead tbody tr th td pre code strong em sup blockquote details summary a br`, and `<div class="rule">` for a rule. Do not use scripts, styles, `style` attributes or event attributes. Write code blocks as `<pre><code class="language-python">`. Write a hint as `<details><summary>Подсказка 1</summary>...</details>`. Give external links `target="_blank" rel="noopener noreferrer"`.
 4. Write `set.ts`. Export the set data as the default export. Type it with `satisfies LearningSet`. Import the chapters into `chapters` in reading order.
 5. In `src/leetcode/sets/index.ts`, import the set and its chapter lessons. Add them to `sets` with `lessons: [...]` in chapter order. The order of `sets` is the display order.
-6. Run `bun run test`. `test/sets.test.ts` checks each set: unique set and task slugs, the slug format, a title, a summary and at least one task for each chapter, https links, one lesson for each chapter, the lesson size, and the card ids, options and answers.
+6. Run `bun run test`. `test/sets.test.ts` checks each set: unique set and task slugs, the slug format, a title, a summary and at least one task for each chapter, https links, one lesson for each chapter, the lesson size and format, and the card ids, options and answers.
 
 ## AI tutor
 

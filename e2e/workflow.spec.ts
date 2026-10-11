@@ -142,9 +142,8 @@ test('explains a lesson selection with a touch tap', async ({ browser, baseURL }
 			return route.fulfill({ contentType: 'text/event-stream', body: 'data: {"done":true}\n\n' });
 		});
 		await page.goto('/leetcode/sets/permutations-and-combinations/2');
-		const frame = page.frameLocator('iframe.lesson-frame');
-		await frame.locator('p', { hasText: 'которая вызывает сама себя' }).selectText();
-		await frame.getByRole('button', { name: 'Объяснить с ИИ', exact: true }).tap();
+		await page.locator('article.lesson').locator('p', { hasText: 'которая вызывает сама себя' }).selectText();
+		await page.getByRole('button', { name: 'Объяснить с ИИ', exact: true }).tap();
 		await expect(page.getByRole('dialog', { name: 'ИИ-репетитор' })).toBeVisible();
 		await expect.poll(() => body).toEqual({ kind: 'set', id: 'permutations-and-combinations', message: 'Объясните эту часть.', quote: 'Рекурсия это функция, которая вызывает сама себя. Для дерева это удобно. Функция делает один шаг вниз, а дальше просит саму себя сделать остальное. Функцию, которая идёт по дереву, назовём dfs.' });
 	} finally { await context.close(); }

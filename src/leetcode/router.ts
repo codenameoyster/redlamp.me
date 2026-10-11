@@ -27,7 +27,7 @@ async function route(request: Request, env: Env, path: string): Promise<Response
 	}
 	if (!read && request.headers.get('origin') !== url.origin) throw new HttpError(403, 'forbidden', 'Отправляйте изменения со страницы тетради.');
 	if (path === '/leetcode/api/session') return handleSession(request, env);
-	if (path === '/leetcode/login') { methods(request, ['GET', 'HEAD']); return renderShell(url.origin); }
+	if (path === '/leetcode/login') { methods(request, ['GET', 'HEAD']); return renderShell(); }
 	const user = await readSession(request, env);
 	if (path.startsWith('/leetcode/api/')) {
 		if (!user) throw new HttpError(401, 'unauthorized', 'Войдите, чтобы продолжить.');
@@ -40,7 +40,7 @@ async function route(request: Request, env: Env, path: string): Promise<Response
 	if (!user) return new Response(null, { status: 302, headers: { Location: `/leetcode/login?return=${encodeURIComponent(canonical + url.search)}` } });
 	if (!NOTEBOOK_PAGE.test(canonical)) throw new HttpError(404, 'not_found', 'Такой страницы тетради нет.');
 	if (canonical !== path) return new Response(null, { status: 302, headers: { Location: canonical + url.search } });
-	return renderShell(url.origin, user);
+	return renderShell(user);
 }
 
 export async function handleNotebook(request: Request, env: Env, path: string): Promise<Response> {
