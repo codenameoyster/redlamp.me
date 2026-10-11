@@ -6,6 +6,7 @@ import { useDraft, type LeaveGuard, type RegisterGuard } from './useDraft';
 import { ProblemForm } from './Problems';
 import { Discussion, homeworkLabels } from './Homework';
 import { LessonLinks } from './Lessons';
+import { CodeField } from './Code';
 import { Tutor } from './Tutor';
 import { addCalendarDays, localDate } from '../shared/dates';
 
@@ -24,7 +25,7 @@ export function AttemptContent({ value, change }: { value: DraftValue; change?: 
 			<div className="row spread"><h2>Approach {index + 1}</h2>{change && value.document.approaches.length > 1 && <button type="button" onClick={() => { if (confirm('Remove this approach from the draft?')) change({ ...value, document: { ...value.document, approaches: value.document.approaches.filter(a => a.id !== approach.id) } }); }}>Remove approach</button>}</div>
 			<label>Approach name<input value={approach.label} maxLength={200} readOnly={!change} onChange={event => update(approach.id, { label: event.target.value })} /></label>
 			<div className="editor-grid"><div className="card card-pad stack">{fields.map(field => <label key={field.key}>{field.label}<textarea aria-label={field.label} value={approach[field.key]} readOnly={!change} onChange={event => update(approach.id, { [field.key]: event.target.value })} /></label>)}<div className="editor-grid"><label>Time complexity<input value={approach.timeComplexity} readOnly={!change} onChange={event => update(approach.id, { timeComplexity: event.target.value })} /></label><label>Space complexity<input value={approach.spaceComplexity} readOnly={!change} onChange={event => update(approach.id, { spaceComplexity: event.target.value })} /></label></div></div>
-				<div className="card card-pad stack"><label>Code language<input value={approach.language} maxLength={40} readOnly={!change} onChange={event => update(approach.id, { language: event.target.value })} /></label><label>Solution code<textarea aria-label="Solution code" className="code" spellCheck={false} value={approach.code} readOnly={!change} onChange={event => update(approach.id, { code: event.target.value })} /></label><button type="button" onClick={async () => { try { await navigator.clipboard.writeText(approach.code); setCopyState('Code copied.'); } catch { setCopyState('Select and copy the code field.'); } }}>Copy code</button></div>
+				<div className="card card-pad stack"><label>Code language<input value={approach.language} maxLength={40} readOnly={!change} onChange={event => update(approach.id, { language: event.target.value })} /></label><label>Solution code<CodeField language={approach.language} value={approach.code} readOnly={!change} onChange={code => update(approach.id, { code })} /></label><button type="button" onClick={async () => { try { await navigator.clipboard.writeText(approach.code); setCopyState('Code copied.'); } catch { setCopyState('Select and copy the code field.'); } }}>Copy code</button></div>
 			</div>
 		</section>)}
 		{copyState && <p role="status">{copyState}</p>}

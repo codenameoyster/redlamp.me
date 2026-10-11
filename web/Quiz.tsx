@@ -1,8 +1,9 @@
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import type { Card, QuizCard, QuizDeck, QuizResult, QuizRound, SessionUser } from '../shared/leetcode';
 import { localDate } from '../shared/dates';
 import { api, message } from './api';
 import { useResource } from './useResource';
+import { Code } from './Code';
 import { Tutor } from './Tutor';
 
 const again = (days: number) => days === 1 ? 'Again tomorrow.' : `Again in ${days} days.`;
@@ -25,7 +26,7 @@ function CardList({ slug }: { slug: string }) {
 	const round = useResource<QuizRound>(`/quiz/${slug}?today=${localDate()}`), cards = useResource<Card[]>(`/quiz/${slug}/cards`);
 	if (!round.data || !cards.data) return <p role="status">{round.error || cards.error || 'Opening deck...'}</p>;
 	return <div className="stack"><div className="heading"><div><h1>{round.data.title}</h1><p>{cards.data.length} cards. The student answers up to 10 per round.</p></div><a className="button" href="/leetcode/quiz">Back</a></div>
-		<section className="card">{cards.data.map(card => <article className="list-row" key={card.id}><div className="grow stack"><h3>{card.prompt}</h3>{card.type === 'code' && <pre>{card.code}</pre>}<p className="small">Answer: {shown(card)}</p><p className="small">{card.explain}</p></div><span className="tag">{card.type}</span></article>)}</section>
+		<section className="card">{cards.data.map(card => <article className="list-row" key={card.id}><div className="grow stack"><h3>{card.prompt}</h3>{card.type === 'code' && <Code language={card.language} text={card.code} blank />}<p className="small">Answer: {shown(card)}</p><p className="small">{card.explain}</p></div><span className="tag">{card.type}</span></article>)}</section>
 	</div>;
 }
 
@@ -45,7 +46,7 @@ function Round({ slug, user }: { slug: string; user: SessionUser }) {
 	return <div className="stack"><div className="heading"><div><p className="small">{card ? `Card ${index + 1} of ${cards.length}` : 'Round done'}</p><h1>{round.data.title}</h1></div><div className="row"><Tutor context={{ kind: 'set', id: slug }} title={round.data.title} user={user} quote={quote} /><a className="button" href="/leetcode/quiz">Stop</a></div></div>
 		<progress aria-label="Round progress" value={index} max={cards.length} />
 		{card ? <section className="card card-pad stack quiz-card"><p className="prose">{card.prompt}</p>
-			{card.type === 'code' && <pre>{card.code.split('___').map((part, i) => i === 0 ? part : <Fragment key={i}><mark>___</mark>{part}</Fragment>)}</pre>}
+			{card.type === 'code' && <Code language={card.language} text={card.code} blank />}
 			{!result && card.type === 'flip' && (revealed ? <><p className="prose">{card.back}</p><div className="row"><button disabled={busy} onClick={() => void send('not_yet')}>Not yet</button><button className="primary" disabled={busy} onClick={() => void send('got_it')}>Got it</button></div></> : <button onClick={() => setRevealed(true)}>Show answer</button>)}
 			{!result && (card.type === 'choice' || card.type === 'code') && <div className="stack">{card.options.map((option, i) => <button key={i} disabled={busy} onClick={() => void send(i)}>{option}</button>)}</div>}
 			{!result && card.type === 'short' && <form className="row" onSubmit={event => { event.preventDefault(); void send(typed); }}><label className="grow">Your answer<input value={typed} onChange={event => setTyped(event.target.value)} maxLength={200} required /></label><button className="primary" disabled={busy}>Check</button></form>}
