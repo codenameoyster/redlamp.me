@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { BookOpen, Bot, CalendarCheck, ClipboardCheck, CodeXml, Layers, LogOut, Moon, Search, Sun } from 'lucide-react';
+import { BookOpen, Bot, Brain, CalendarCheck, ClipboardCheck, CodeXml, Layers, LogOut, Moon, Search, Sun } from 'lucide-react';
 import type { Game, SessionUser } from '../shared/leetcode';
 import { api, ApiError, message } from './api';
 import { Login } from './Login';
@@ -9,6 +9,7 @@ import type { LeaveGuard } from './useDraft';
 import { Homework, Task } from './Homework';
 import { Lessons } from './Lessons';
 import { Sets } from './Sets';
+import { Quiz } from './Quiz';
 import { Today } from './Today';
 import { Review } from './Review';
 import { TutorPage } from './TutorPage';
@@ -24,7 +25,7 @@ export function Layout({ user, children, logout }: { user: SessionUser; children
 		setDark(!dark);
 		try { localStorage.setItem('leetcode:appearance', dark ? 'light' : 'dark'); } catch { /* Appearance remains available in this page. */ }
 	}
-	const navigation = [{ path: '', label: 'Today', Icon: CalendarCheck }, { path: '/problems', label: 'Problems', Icon: CodeXml }, { path: '/homework', label: 'Homework', Icon: ClipboardCheck }, { path: '/lessons', label: 'Lessons', Icon: BookOpen }, { path: '/sets', label: 'Sets', Icon: Layers }, ...(user.role === 'parent' ? [{ path: '/tutor', label: 'AI tutor', Icon: Bot }] : [])];
+	const navigation = [{ path: '', label: 'Today', Icon: CalendarCheck }, { path: '/problems', label: 'Problems', Icon: CodeXml }, { path: '/homework', label: 'Homework', Icon: ClipboardCheck }, { path: '/lessons', label: 'Lessons', Icon: BookOpen }, { path: '/sets', label: 'Sets', Icon: Layers }, { path: '/quiz', label: 'Quiz', Icon: Brain }, ...(user.role === 'parent' ? [{ path: '/tutor', label: 'AI tutor', Icon: Bot }] : [])];
 	return <div className="app">
 		<a className="skip-link" href="#main">Skip to content</a>
 		<aside className="sidebar">
@@ -83,7 +84,8 @@ export function App() {
 	const task = /^\/leetcode\/tasks\/([a-f0-9-]{36})$/.exec(path);
 	const lessons = /^\/leetcode\/lessons(?:\/([a-f0-9-]{36}))?$/.exec(path);
 	const sets = /^\/leetcode\/sets(?:\/([a-z0-9-]+))?$/.exec(path);
+	const quiz = /^\/leetcode\/quiz(?:\/([a-z0-9-]+))?$/.exec(path);
 	const review = /^\/leetcode\/problems\/([a-f0-9-]{36})\/review$/.exec(path);
-	const screen = path === '/leetcode/problems' ? <Problems /> : match ? <Problem id={match[1]} user={user} registerGuard={registerGuard} /> : homework ? <Homework id={homework[1]} user={user} /> : task ? <Task id={task[1]} user={user} /> : lessons ? <Lessons id={lessons[1]} user={user} /> : sets ? <Sets slug={sets[1]} user={user} /> : review ? <Review id={review[1]} user={user} /> : path === '/leetcode/tutor' ? <TutorPage user={user} /> : <Today user={user} />;
+	const screen = path === '/leetcode/problems' ? <Problems /> : match ? <Problem id={match[1]} user={user} registerGuard={registerGuard} /> : homework ? <Homework id={homework[1]} user={user} /> : task ? <Task id={task[1]} user={user} /> : lessons ? <Lessons id={lessons[1]} user={user} /> : sets ? <Sets slug={sets[1]} user={user} /> : quiz ? <Quiz slug={quiz[1]} user={user} /> : review ? <Review id={review[1]} user={user} /> : path === '/leetcode/tutor' ? <TutorPage user={user} /> : <Today user={user} />;
 	return <Layout user={user} logout={logout}>{error && <p className="error" role="alert">{error}</p>}{screen}</Layout>;
 }
