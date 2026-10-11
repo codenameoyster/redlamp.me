@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
 import type { Acceptance, BadgeId, Difficulty, Role, TaskState, Understanding } from '../shared/leetcode';
-import { sets } from '../src/leetcode/sets';
+import { sets, taskSlug } from '../src/leetcode/sets';
 
 interface Spec { difficulty: Difficulty; slug?: string; archived?: boolean; attempts?: { state?: 'saved' | 'draft'; acceptance: Acceptance; understanding?: Understanding; savedAt?: string }[]; reviews?: { result: Understanding; on: string }[]; task?: TaskState }
 const insertProblem = env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,archived_at,created_at,updated_at) VALUES (?,?,'Problem',?,'[]','','',?,'now','now')");
@@ -41,8 +41,8 @@ it.each<{ name: string; role?: Role; problems: Spec[]; cards?: { correct: boolea
 	{ name: 'five independent', problems: Array<Spec>(5).fill(accepted('easy', 'independent')), xp: 100, level: 2, levelXp: 100, nextLevelXp: 300, earned: ['first-accept', 'independent-five'] },
 	{ name: 'three save days in a row', problems: [{ difficulty: 'medium', attempts: [{ acceptance: 'not_accepted', savedAt: '2026-10-01T23:59:00.000Z' }, { acceptance: 'not_accepted', savedAt: '2026-10-02T00:01:00.000Z' }, { acceptance: 'not_accepted', savedAt: '2026-10-03T12:00:00.000Z' }] }], xp: 0, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['three-day-streak'] },
 	{ name: 'gap day', problems: [{ difficulty: 'medium', attempts: [{ acceptance: 'not_accepted', savedAt: '2026-10-01T12:00:00.000Z' }, { acceptance: 'not_accepted', savedAt: '2026-10-02T12:00:00.000Z' }, { acceptance: 'not_accepted', savedAt: '2026-10-04T12:00:00.000Z' }] }], xp: 0, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
-	{ name: 'set cleared', problems: setTasks.map(task => ({ ...accepted(task.difficulty), slug: task.slug })), xp: 350, level: 3, levelXp: 300, nextLevelXp: 600, earned: ['first-accept', 'first-hard', 'ten-accepted', 'set-cleared'] },
-	{ name: 'set one short', problems: setTasks.filter(task => task.slug !== 'next-permutation').map(task => ({ ...accepted(task.difficulty), slug: task.slug })), xp: 330, level: 3, levelXp: 300, nextLevelXp: 600, earned: ['first-accept', 'first-hard', 'ten-accepted'] },
+	{ name: 'set cleared', problems: setTasks.map(task => ({ ...accepted(task.difficulty), slug: taskSlug(task) })), xp: 350, level: 3, levelXp: 300, nextLevelXp: 600, earned: ['first-accept', 'first-hard', 'ten-accepted', 'set-cleared'] },
+	{ name: 'set one short', problems: setTasks.filter(task => taskSlug(task) !== 'next-permutation').map(task => ({ ...accepted(task.difficulty), slug: taskSlug(task) })), xp: 330, level: 3, levelXp: 300, nextLevelXp: 600, earned: ['first-accept', 'first-hard', 'ten-accepted'] },
 	{ name: 'correct card', problems: [], cards: [{ correct: true, on: '2026-10-01' }], xp: 2, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
 	{ name: 'wrong card', problems: [], cards: [{ correct: false, on: '2026-10-01' }], xp: 0, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
 	{ name: 'same card on two days', problems: [], cards: [{ correct: true, on: '2026-10-01' }, { correct: true, on: '2026-10-02' }], xp: 4, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },

@@ -6,7 +6,7 @@ import { accessToken, disconnected, unavailable, type Token } from './chatgpt';
 import { choice, HttpError, methods, object, page, pagination, readJson, text, uuid } from './http';
 import { getLesson } from './lessons';
 import { getProblem, question } from './problems';
-import { sets } from './sets';
+import { sets, taskLabel } from './sets';
 import prompt from './tutor-prompt.txt';
 
 const RESPONSES = 'https://api.openai.com/v1/responses';
@@ -52,7 +52,7 @@ function lessonText(html: string, quote: string | null): string {
 async function context(env: Env, kind: TutorKind, id: string, quote: string | null): Promise<string> {
 	if (kind === 'set') {
 		const set = findSet(id);
-		return `${clip(`Learning set: ${set.title}\nSummary: ${set.summary}\nTopics: ${set.topics.join(', ')}\nTasks:\n${set.tasks.map(task => `${task.stage}: ${task.number}. ${task.title} (${task.difficulty}). ${task.note}`).join('\n')}`, 4000)}\n\n${lessonText(set.lesson, quote)}`;
+		return `${clip(`Learning set: ${set.title}\nSummary: ${set.summary}\nTopics: ${set.topics.join(', ')}\nTasks:\n${set.tasks.map(task => `${task.stage}: ${task.title} (${taskLabel(task)}, ${task.difficulty}). ${task.note}`).join('\n')}`, 4000)}\n\n${lessonText(set.lesson, quote)}`;
 	}
 	if (kind === 'lesson') {
 		const lesson = await getLesson(env, id), row = await env.DB.prepare('SELECT html FROM lesson_content WHERE lesson_id=?').bind(id).first<{ html: string }>();
@@ -60,7 +60,7 @@ async function context(env: Env, kind: TutorKind, id: string, quote: string | nu
 	}
 	const problem = await getProblem(env, id);
 	const [statement, task, attempt] = await Promise.all([
-		question<{ content: string | null }>(problem.slug, 'content').then(value => value?.content, () => null), // Paid-only problems have no content.
+		problem.slug.startsWith('cf-') ? null : question<{ content: string | null }>(problem.slug, 'content').then(value => value?.content, () => null), // Paid-only problems have no content.
 		env.DB.prepare("SELECT h.title,h.instructions,h.due_date AS dueDate,t.state FROM homework_tasks t JOIN homework h ON h.id=t.homework_id WHERE t.problem_id=? AND t.state NOT IN ('completed','cancelled')").bind(id).first<{ title: string; instructions: string; dueDate: string | null; state: string }>(),
 		env.DB.prepare('SELECT state,document FROM attempts WHERE problem_id=? ORDER BY state,saved_at DESC LIMIT 1').bind(id).first<{ state: string; document: string }>(),
 	]);

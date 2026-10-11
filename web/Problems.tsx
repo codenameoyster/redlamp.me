@@ -6,6 +6,8 @@ import { useResource } from './useResource';
 
 export const difficultyLabels = { easy: 'Легко', medium: 'Средне', hard: 'Сложно' };
 
+// Auto-fill works for LeetCode only.
+const leetcode = (url: string) => { try { return new URL(url.trim()).hostname === 'leetcode.com'; } catch { return false; } };
 export function ProblemForm({ problem, close, saved }: { problem?: Problem; close: () => void; saved: (problem: Problem) => void }) {
 	const dialog = useRef<HTMLDialogElement>(null);
 	const [error, setError] = useState(''), [busy, setBusy] = useState(false), [lookup, setLookup] = useState(''), looked = useRef('');
@@ -34,7 +36,7 @@ export function ProblemForm({ problem, close, saved }: { problem?: Problem; clos
 	}
 	return <dialog ref={dialog} onCancel={close} aria-labelledby="problem-form-title"><form onSubmit={submit} className="stack">
 		<h2 id="problem-form-title">{problem ? 'Изменить задачу' : 'Добавить задачу'}</h2>
-		<label>Ссылка на LeetCode<input name="url" type="url" required maxLength={2000} defaultValue={problem?.url} onChange={event => { if (!problem && (event.nativeEvent as InputEvent).inputType === 'insertFromPaste') void fill(event.currentTarget); }} /></label>
+		<label>Ссылка на задачу (LeetCode или Codeforces)<input name="url" type="url" required maxLength={2000} defaultValue={problem?.url} onChange={event => { if (!problem && (event.nativeEvent as InputEvent).inputType === 'insertFromPaste' && leetcode(event.currentTarget.value)) void fill(event.currentTarget); }} /></label>
 		{lookup && <p className="small lookup" role="status">{lookup === 'loading' ? <><LoaderCircle size={16} className="spin" />Заполняем данные из LeetCode</> : lookup}</p>}
 		<label>Название<input name="title" required maxLength={200} defaultValue={problem?.title} /></label>
 		<div className="editor-grid"><label>Номер задачи<input name="number" type="number" min="1" defaultValue={problem?.number ?? ''} /></label><label>Сложность<select name="difficulty" defaultValue={problem?.difficulty ?? 'medium'}>{Object.entries(difficultyLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></div>

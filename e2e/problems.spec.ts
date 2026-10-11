@@ -4,7 +4,7 @@ test('adds metadata and finds the problem by its summary', async ({ page }) => {
 	await signIn(page);
 	await page.getByRole('link', { name: 'Задачи', exact: true }).click();
 	await page.getByRole('button', { name: 'Добавить задачу', exact: true }).click();
-	await page.getByLabel('Ссылка на LeetCode').fill('https://leetcode.com/problems/minimum-window-substring/description/');
+	await page.getByLabel('Ссылка на задачу').fill('https://leetcode.com/problems/minimum-window-substring/description/');
 	await page.getByLabel('Название', { exact: true }).fill('Minimum Window Substring');
 	await page.getByRole('dialog').getByLabel('Сложность').selectOption('hard');
 	await page.getByLabel('Темы', { exact: true }).fill('Sliding window, Hash map');
@@ -32,7 +32,7 @@ test('restores an archived problem to the active library', async ({ page, notebo
 	await expect(page.getByRole('link', { name: notebook.problem.title, exact: true })).toBeVisible();
 });
 
-test.describe('LeetCode details', () => {
+test.describe('problem details', () => {
 	const url = 'https://leetcode.com/problems/minimum-window-substring/description/';
 	test.beforeEach(async ({ page, context }) => {
 		await context.grantPermissions(['clipboard-read', 'clipboard-write']);
@@ -51,7 +51,7 @@ test.describe('LeetCode details', () => {
 			await route.fulfill({ json: { number: 76, title: 'Minimum Window Substring', difficulty: 'hard', topics: ['Hash Table', 'String', 'Sliding Window'] } });
 		});
 		const dialog = page.getByRole('dialog');
-		await dialog.getByLabel('Ссылка на LeetCode').focus();
+		await dialog.getByLabel('Ссылка на задачу').focus();
 		await page.keyboard.press('ControlOrMeta+V');
 		await expect(dialog.getByRole('status')).toHaveText('Заполняем данные из LeetCode');
 		release();
@@ -66,11 +66,28 @@ test.describe('LeetCode details', () => {
 	test('keeps the fields for manual entry when the LeetCode details are unavailable', async ({ page }) => {
 		await page.route('**/leetcode/api/problem-details?*', route => route.fulfill({ status: 502, json: { error: { code: 'lookup_failed', message: 'LeetCode details are unavailable. Enter them yourself.' } } }));
 		const dialog = page.getByRole('dialog');
-		await dialog.getByLabel('Ссылка на LeetCode').focus();
+		await dialog.getByLabel('Ссылка на задачу').focus();
 		await page.keyboard.press('ControlOrMeta+V');
 		await expect(dialog.getByRole('status')).toHaveText('LeetCode details are unavailable. Enter them yourself.');
 		await expect(dialog.getByLabel('Название', { exact: true })).toHaveValue('');
-		await expect(dialog.getByLabel('Ссылка на LeetCode')).toHaveValue(url);
+		await expect(dialog.getByLabel('Ссылка на задачу')).toHaveValue(url);
+	});
+
+	test('adds a Codeforces problem without the LeetCode auto-fill', async ({ page }) => {
+		let looked = false;
+		await page.route('**/leetcode/api/problem-details?*', route => { looked = true; return route.fulfill({ status: 500 }); });
+		await page.evaluate(text => navigator.clipboard.writeText(text), 'https://codeforces.com/problemset/problem/1/A');
+		const dialog = page.getByRole('dialog');
+		await dialog.getByLabel('Ссылка на задачу').focus();
+		await page.keyboard.press('ControlOrMeta+V');
+		await dialog.getByLabel('Название', { exact: true }).fill('Theatre Square');
+		await dialog.getByLabel('Сложность').selectOption('easy');
+		await dialog.getByLabel('Темы', { exact: true }).fill('Математика');
+		await expect(dialog.getByRole('status')).toHaveCount(0);
+		await dialog.getByRole('button', { name: 'Сохранить задачу', exact: true }).click();
+		await expect(page.getByRole('heading', { name: 'Theatre Square', exact: true })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'Открыть задачу', exact: true })).toHaveAttribute('href', 'https://codeforces.com/problemset/problem/1/A');
+		expect(looked).toBe(false);
 	});
 });
 

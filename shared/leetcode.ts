@@ -65,10 +65,10 @@ export interface TaskDetails { homework: Homework; task: HomeworkTask; submissio
 export interface Lesson { id: string; title: string; description: string; topics: string[]; filename: string; byteCount: number; archivedAt: string | null; version: number; createdAt: string; updatedAt: string }
 export const MAX_LESSON_BYTES = 1_000_000;
 export const MAX_UPLOAD_BYTES = 1_032_768;
-export interface SetTask { slug: string; number: number; title: string; difficulty: Difficulty; topics: string[]; stage: string; note: string }
+export interface SetTask { url: string; number?: number; title: string; difficulty: Difficulty; topics: string[]; stage: string; note: string }
 export interface LearningSet { slug: string; title: string; summary: string; topics: string[]; links: { title: string; url: string; source: string }[]; tasks: SetTask[] }
 export interface LearningSetSummary extends Omit<LearningSet, 'links' | 'tasks'> { taskCount: number; acceptedCount: number }
-export interface LearningSetDetails extends Omit<LearningSet, 'tasks'> { tasks: (SetTask & { problemId: string | null; accepted: boolean; activeTask: Pick<HomeworkTask, 'id' | 'homeworkId' | 'homeworkTitle' | 'state'> | null })[] }
+export interface LearningSetDetails extends Omit<LearningSet, 'tasks'> { tasks: (SetTask & { slug: string; label: string; problemId: string | null; accepted: boolean; activeTask: Pick<HomeworkTask, 'id' | 'homeworkId' | 'homeworkTitle' | 'state'> | null })[] }
 export type Card = { id: string; prompt: string; explain: string } & (
 	{ type: 'flip'; back: string }
 	| { type: 'choice'; options: string[]; answer: number }
