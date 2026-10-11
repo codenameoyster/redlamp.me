@@ -2,11 +2,11 @@ import { test, expect, signIn } from './fixtures';
 
 test('logout blocks browser history', async ({ page, notebook }) => {
 	await expect(page.getByRole('heading', { name: notebook.problem.title, exact: true })).toBeVisible();
-	await page.getByRole('button', { name: 'Log out' }).click();
-	await expect(page.getByLabel('Password')).toBeVisible();
+	await page.getByRole('button', { name: 'Выйти' }).click();
+	await expect(page.getByLabel('Пароль')).toBeVisible();
 	await page.goBack();
-	await expect(page.getByLabel('Password')).toBeVisible();
-	await expect(page.getByLabel('Key idea', { exact: true })).toHaveCount(0);
+	await expect(page.getByLabel('Пароль')).toBeVisible();
+	await expect(page.getByLabel('Основная идея', { exact: true })).toHaveCount(0);
 });
 
 test('reads the signed-in user from the page without a session request', async ({ page }) => {
@@ -27,9 +27,9 @@ const returns = [
 for (const row of returns) {
 	test(row.name, async ({ page }) => {
 		await page.goto(row.path);
-		await page.getByLabel('Username').fill('student-test');
-		await page.getByLabel('Password').fill('student-test-password-01');
-		await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+		await page.getByLabel('Имя пользователя').fill('student-test');
+		await page.getByLabel('Пароль').fill('student-test-password-01');
+		await page.getByRole('button', { name: 'Войти', exact: true }).click();
 		await expect(page).toHaveURL(row.url);
 	});
 }
@@ -63,26 +63,26 @@ for (const { name, path } of aliases) {
 test.describe('blocked notebook link', () => {
 	test.beforeEach(async ({ page, notebook }) => {
 		await page.route(`**/attempts/${notebook.attempt.id}`, route => route.request().method() === 'PUT' ? route.abort() : route.continue());
-		await page.getByLabel('Key idea', { exact: true }).fill('Unsaved explanation');
-		await expect(page.getByRole('button', { name: 'Retry save' })).toBeVisible();
+		await page.getByLabel('Основная идея', { exact: true }).fill('Unsaved explanation');
+		await expect(page.getByRole('button', { name: 'Повторить сохранение' })).toBeVisible();
 		page.once('dialog', dialog => dialog.accept());
 		await page.reload();
-		await expect(page.getByRole('region', { name: 'Recovery copy' })).toBeVisible();
+		await expect(page.getByRole('region', { name: 'Копия для восстановления' })).toBeVisible();
 	});
 
 	test('leaves a blocked notebook when the discard is accepted', async ({ page, notebook }) => {
 		const question = new Promise<string>(resolve => page.once('dialog', dialog => { resolve(dialog.message()); void dialog.accept(); }));
-		await page.getByRole('link', { name: 'Problems', exact: true }).click();
-		expect(await question).toBe('Discard unsaved work and leave this page?');
-		await expect(page.getByRole('heading', { name: 'Problems', exact: true })).toBeVisible();
+		await page.getByRole('link', { name: 'Задачи', exact: true }).click();
+		expect(await question).toBe('Удалить несохранённую работу и уйти с этой страницы?');
+		await expect(page.getByRole('heading', { name: 'Задачи', exact: true })).toBeVisible();
 		expect(await page.evaluate(id => sessionStorage.getItem(`leetcode:draft:student-test:${id}`), notebook.problem.id)).toBeNull();
 	});
 
 	test('stays on a blocked notebook when the discard is dismissed', async ({ page }) => {
 		const question = new Promise<string>(resolve => page.once('dialog', dialog => { resolve(dialog.message()); void dialog.dismiss(); }));
-		await page.getByRole('link', { name: 'Problems', exact: true }).click();
-		expect(await question).toBe('Discard unsaved work and leave this page?');
-		await page.getByRole('button', { name: 'Restore unsaved work' }).click();
-		await expect(page.getByLabel('Key idea', { exact: true })).toHaveValue('Unsaved explanation');
+		await page.getByRole('link', { name: 'Задачи', exact: true }).click();
+		expect(await question).toBe('Удалить несохранённую работу и уйти с этой страницы?');
+		await page.getByRole('button', { name: 'Восстановить несохранённую работу' }).click();
+		await expect(page.getByLabel('Основная идея', { exact: true })).toHaveValue('Unsaved explanation');
 	});
 });

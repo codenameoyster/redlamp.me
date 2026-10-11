@@ -83,9 +83,9 @@ it.each([
 	{ name: 'parent adds a task', role: 'parent', problem: 'other', bundle: 'other', archived: false, expected: 201, error: null },
 	{ name: 'task after the earlier task completes', role: 'parent', problem: 'first', bundle: 'other', completeFirst: true, archived: false, expected: 201, error: null },
 	{ name: 'student cannot add a task', role: 'student', problem: 'other', bundle: 'other', archived: false, expected: 403, error: { code: 'forbidden' } },
-	{ name: 'problem with an active task in another bundle', role: 'parent', problem: 'first', bundle: 'other', archived: false, expected: 409, error: { code: 'active_homework', message: 'This problem already has an active task. Complete or cancel that task first.' } },
+	{ name: 'problem with an active task in another bundle', role: 'parent', problem: 'first', bundle: 'other', archived: false, expected: 409, error: { code: 'active_homework', message: 'У этой задачи уже есть активное задание. Сначала завершите или отмените его.' } },
 	{ name: 'problem with an active task in the same bundle', role: 'parent', problem: 'first', bundle: 'first', archived: false, expected: 409, error: { code: 'active_homework' } },
-	{ name: 'task for an archived problem', role: 'parent', problem: 'other', bundle: 'other', archived: true, expected: 409, error: { code: 'archived', message: 'Restore this problem before you assign homework.' } },
+	{ name: 'task for an archived problem', role: 'parent', problem: 'other', bundle: 'other', archived: true, expected: 409, error: { code: 'archived', message: 'Верните задачу из архива, прежде чем назначать домашнюю работу.' } },
 	{ name: 'task for an unknown problem', role: 'parent', problem: 'unknown', bundle: 'other', archived: false, expected: 404, error: { code: 'not_found' } },
 	{ name: 'task in an unknown bundle', role: 'parent', problem: 'other', bundle: 'unknown', archived: false, expected: 404, error: { code: 'not_found' } },
 ])('$name', async ({ role, problem, bundle, completeFirst, archived, expected, error }) => {

@@ -21,10 +21,10 @@ interface AccountRow {
 type TokenBody = Partial<{ access_token: string; refresh_token: string; token_type: string; expires_in: number; scope: string; earliest_refresh_at: string | number; error: string }>;
 export interface Token { access: string; version: number; model: string }
 
-export const disconnected = () => new HttpError(409, 'ai_disconnected', 'The AI tutor is not connected. Ask your parent to connect ChatGPT.');
-export const unavailable = () => new HttpError(503, 'ai_unavailable', 'ChatGPT is not available now. Try again in a few minutes.');
-const notEligible = () => new HttpError(403, 'ai_not_eligible', 'This ChatGPT account does not allow plan use for this app.');
-const signInFailed = () => new HttpError(400, 'sign_in_failed', 'ChatGPT sign-in failed. Start again.');
+export const disconnected = () => new HttpError(409, 'ai_disconnected', 'ИИ-репетитор не подключён. Попросите родителя подключить ChatGPT.');
+export const unavailable = () => new HttpError(503, 'ai_unavailable', 'ChatGPT сейчас недоступен. Попробуйте снова через несколько минут.');
+const notEligible = () => new HttpError(403, 'ai_not_eligible', 'Этот аккаунт ChatGPT не разрешает использовать подписку в этом приложении.');
+const signInFailed = () => new HttpError(400, 'sign_in_failed', 'Вход в ChatGPT не удался. Начните заново.');
 const readAccount = (env: Env) => env.DB.prepare('SELECT * FROM tutor_account WHERE id=1').first<AccountRow>();
 const bytes = (value: string) => Uint8Array.from(atob(value), c => c.charCodeAt(0));
 const base64 = (value: Uint8Array) => btoa(String.fromCharCode(...value));
@@ -36,7 +36,7 @@ async function key(env: Env): Promise<CryptoKey> {
 		const raw = bytes(env.TUTOR_TOKEN_KEY ?? '');
 		if (raw.length === 32) return await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
 	} catch { /* Not base64. */ }
-	throw new HttpError(503, 'setup_required', 'The AI tutor needs configuration.');
+	throw new HttpError(503, 'setup_required', 'ИИ-репетитор не настроен.');
 }
 async function seal(secret: CryptoKey, value: string): Promise<string> {
 	const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -121,11 +121,11 @@ async function finish(request: Request, env: Env): Promise<Response> {
 	const address = text(object(await readJson(request), ['address']).address, 4000);
 	const secret = await key(env);
 	const callback = URL.parse(address);
-	if (!callback || callback.origin + callback.pathname !== REDIRECT_URI) throw new HttpError(400, 'invalid_address', 'Paste the full address that starts with http://127.0.0.1:47319/auth/callback.');
+	if (!callback || callback.origin + callback.pathname !== REDIRECT_URI) throw new HttpError(400, 'invalid_address', 'Вставьте полный адрес, который начинается с http://127.0.0.1:47319/auth/callback.');
 	const params = callback.searchParams, states = params.getAll('state'), row = await readAccount(env);
-	if (!row?.pending_state || row.pending_expires_at! <= Date.now() || states.length !== 1 || states[0] !== row.pending_state) throw new HttpError(400, 'sign_in_expired', 'This sign-in is out of date. Start again.');
+	if (!row?.pending_state || row.pending_expires_at! <= Date.now() || states.length !== 1 || states[0] !== row.pending_state) throw new HttpError(400, 'sign_in_expired', 'Этот вход устарел. Начните заново.');
 	const clear = env.DB.prepare('UPDATE tutor_account SET client_id=?,pending_state=NULL,pending_verifier=NULL,pending_expires_at=NULL WHERE id=1');
-	if (params.has('error')) { await clear.bind(row.client_id).run(); throw new HttpError(400, 'not_approved', 'ChatGPT access was not approved.'); }
+	if (params.has('error')) { await clear.bind(row.client_id).run(); throw new HttpError(400, 'not_approved', 'Доступ к ChatGPT не подтверждён.'); }
 	const ids = params.getAll('client_id'), codes = params.getAll('code');
 	if (row.client_id ? ids.some(id => id !== row.client_id) : ids.length !== 1 || !/^[A-Za-z0-9_-]{1,200}$/.test(ids[0]) || ids[0] === 'dynamic_agent_client') throw signInFailed();
 	const clientId = row.client_id ?? ids[0];

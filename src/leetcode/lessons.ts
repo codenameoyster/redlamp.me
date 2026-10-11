@@ -11,7 +11,7 @@ type LessonRow = Omit<Lesson, 'topics'> & { topics: string };
 function lessonValue(row: LessonRow): Lesson { return { ...row, topics: JSON.parse(row.topics) }; }
 export async function getLesson(env: Env, id: string): Promise<Lesson> {
 	const row = await env.DB.prepare(`SELECT ${lessonColumns} FROM lessons l WHERE id=?`).bind(uuid(id)).first<LessonRow>();
-	if (!row) throw new HttpError(404, 'not_found', 'This lesson does not exist.');
+	if (!row) throw new HttpError(404, 'not_found', 'Такого урока нет.');
 	return lessonValue(row);
 }
 function metadata(value: unknown, version = false) {
@@ -35,7 +35,7 @@ export async function handleLessons(request: Request, env: Env, user: SessionUse
 		}
 		requireRole(user, 'parent');
 		const lesson = await getLesson(env, lessonId), adding = request.method === 'PUT';
-		if (adding && lesson.archivedAt) throw new HttpError(409, 'archived', 'Choose an active lesson.');
+		if (adding && lesson.archivedAt) throw new HttpError(409, 'archived', 'Выберите урок не из архива.');
 		if (homework) {
 			const data = object(await readJson(request), ['version']);
 			const result = await env.DB.batch([
@@ -76,17 +76,17 @@ export async function handleLessons(request: Request, env: Env, user: SessionUse
 		}
 		return Response.json(await getLesson(env, id));
 	}
-	if (!request.headers.get('content-type')?.startsWith('multipart/form-data;')) throw new HttpError(400, 'invalid_upload', 'Choose an HTML file.');
+	if (!request.headers.get('content-type')?.startsWith('multipart/form-data;')) throw new HttpError(400, 'invalid_upload', 'Выберите HTML-файл.');
 	const bytes = await readBody(request, MAX_UPLOAD_BYTES);
 	let form: FormData;
 	try { form = await new Response(bytes, { headers: { 'Content-Type': request.headers.get('content-type')! } }).formData(); }
-	catch { throw new HttpError(400, 'invalid_upload', 'The upload is invalid.'); }
+	catch { throw new HttpError(400, 'invalid_upload', 'Неверная загрузка.'); }
 	const file = form.get('file');
-	if (!(file instanceof File) || !/\.html?$/i.test(file.name) || file.name.length > 200 || file.size === 0) throw new HttpError(400, 'invalid_upload', 'Choose a nonempty .html or .htm file.');
-	if (file.size > MAX_LESSON_BYTES) throw new HttpError(413, 'too_large', 'Keep HTML files within 1,000,000 bytes.');
+	if (!(file instanceof File) || !/\.html?$/i.test(file.name) || file.name.length > 200 || file.size === 0) throw new HttpError(400, 'invalid_upload', 'Выберите непустой файл .html или .htm.');
+	if (file.size > MAX_LESSON_BYTES) throw new HttpError(413, 'too_large', 'HTML-файл должен быть не больше 1 000 000 байт.');
 	let html: string, raw: unknown;
 	try { html = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(await file.arrayBuffer()); raw = JSON.parse(text(form.get('metadata'), 32_768)); }
-	catch { throw new HttpError(400, 'invalid_upload', 'Use UTF-8 HTML and valid lesson details.'); }
+	catch { throw new HttpError(400, 'invalid_upload', 'Используйте HTML в кодировке UTF-8 и правильные данные урока.'); }
 	const data = metadata(raw), newId = crypto.randomUUID();
 	await env.DB.batch([
 		env.DB.prepare('INSERT INTO lessons (id,title,description,topics,filename,byte_count,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)').bind(newId, data.title, data.description, JSON.stringify(data.topics), file.name, file.size, now, now),

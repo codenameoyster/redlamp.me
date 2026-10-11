@@ -11,15 +11,15 @@ export function searchText(value: string): string { return value.normalize('NFC'
 
 export async function getProblem(env: Env, id: string): Promise<Problem> {
 	const row = await env.DB.prepare(`SELECT ${problemColumns} FROM problems p WHERE p.id=?`).bind(uuid(id)).first<ProblemRow>();
-	if (!row) throw new HttpError(404, 'not_found', 'This problem does not exist.');
+	if (!row) throw new HttpError(404, 'not_found', 'Такой задачи нет.');
 	return problemValue(row);
 }
 
 function slug(value: unknown): string {
 	let url: URL;
-	try { url = new URL(text(value, 2000, true)); } catch { throw new HttpError(400, 'invalid_url', 'Use a LeetCode problem URL.'); }
+	try { url = new URL(text(value, 2000, true)); } catch { throw new HttpError(400, 'invalid_url', 'Укажите ссылку на задачу LeetCode.'); }
 	const match = /^\/problems\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\/|$)/.exec(url.pathname);
-	if (url.protocol !== 'https:' || url.hostname !== 'leetcode.com' || url.port || url.username || url.password || !match) throw new HttpError(400, 'invalid_url', 'Use a LeetCode problem URL.');
+	if (url.protocol !== 'https:' || url.hostname !== 'leetcode.com' || url.port || url.username || url.password || !match) throw new HttpError(400, 'invalid_url', 'Укажите ссылку на задачу LeetCode.');
 	return match[1];
 }
 
@@ -36,8 +36,8 @@ export async function question<T>(titleSlug: string, fields: string): Promise<T 
 async function details(titleSlug: string): Promise<ProblemDetails> {
 	let value: { questionFrontendId: string; title: string; difficulty: string; topicTags: { name: string }[] } | null;
 	try { value = await question(titleSlug, 'questionFrontendId title difficulty topicTags { name }'); }
-	catch { throw new HttpError(502, 'lookup_failed', 'LeetCode details are unavailable. Enter them yourself.'); }
-	if (!value) throw new HttpError(404, 'not_found', 'LeetCode has no problem at this URL.');
+	catch { throw new HttpError(502, 'lookup_failed', 'Данные с LeetCode недоступны. Заполните их сами.'); }
+	if (!value) throw new HttpError(404, 'not_found', 'На LeetCode нет задачи по этой ссылке.');
 	return { number: /^\d+$/.test(value.questionFrontendId) ? Number(value.questionFrontendId) : null, title: value.title, difficulty: value.difficulty.toLowerCase() as Difficulty, topics: value.topicTags.slice(0, 12).map(tag => tag.name) };
 }
 
@@ -73,7 +73,7 @@ export async function handleProblems(request: Request, env: Env): Promise<Respon
 	}
 	if (match[2]) {
 		const result = await env.DB.prepare("UPDATE problems SET archived_at=?,version=version+1,updated_at=? WHERE id=? AND version=? AND NOT EXISTS(SELECT 1 FROM homework_tasks WHERE problem_id=? AND state NOT IN ('completed','cancelled'))").bind(now, now, id, integer(data.version), id).run();
-		if (!result.meta.changes && await env.DB.prepare("SELECT 1 FROM homework_tasks WHERE problem_id=? AND state NOT IN ('completed','cancelled')").bind(id).first()) throw new HttpError(409, 'active_homework', 'Complete or cancel the active task before you archive this problem.');
+		if (!result.meta.changes && await env.DB.prepare("SELECT 1 FROM homework_tasks WHERE problem_id=? AND state NOT IN ('completed','cancelled')").bind(id).first()) throw new HttpError(409, 'active_homework', 'Завершите или отмените активное задание, прежде чем отправлять задачу в архив.');
 		changed(result);
 		return Response.json(await getProblem(env, id!));
 	}
@@ -81,7 +81,7 @@ export async function handleProblems(request: Request, env: Env): Promise<Respon
 	const search = searchText([value.title, value.number, ...value.topics, value.summary].join(' '));
 	if (id) {
 		const duplicate = await env.DB.prepare('SELECT id FROM problems WHERE slug=? AND id<>?').bind(value.slug, id).first();
-		if (duplicate) throw new HttpError(409, 'duplicate_problem', 'That problem already has a notebook.');
+		if (duplicate) throw new HttpError(409, 'duplicate_problem', 'Эта задача уже есть в тетради.');
 		changed(await env.DB.prepare('UPDATE problems SET slug=?,number=?,title=?,difficulty=?,topics=?,summary=?,search_text=?,version=version+1,updated_at=? WHERE id=? AND version=?').bind(value.slug, value.number, value.title, value.difficulty, JSON.stringify(value.topics), value.summary, search, now, id, integer(data.version)).run());
 		return Response.json(await getProblem(env, id));
 	}

@@ -41,12 +41,12 @@ export function Tutor({ context, title, user, flush, quote }: { context: { kind:
 	// The bridge in the lesson frame posts these messages: src/leetcode/lesson-bridge.html
 	const onLesson = useEffectEvent((event: MessageEvent) => {
 		if (event.source !== lessonFrame()?.contentWindow) return;
-		if (event.data?.type === 'highlighted') setMarked(event.data.found ? 'The passage is marked in the lesson.' : 'This passage is not in the lesson text.');
+		if (event.data?.type === 'highlighted') setMarked(event.data.found ? 'Отрывок выделен в уроке.' : 'Этого отрывка нет в тексте урока.');
 		if (event.data?.type !== 'explain' || typeof event.data.text !== 'string' || busy.current) return;
 		const quote = event.data.text.replace(/\s+/g, ' ').trim().slice(0, 2000);
 		if (!quote) return;
 		if (!dialog.current!.open) show();
-		void ask('Explain this part.', quote);
+		void ask('Объясните эту часть.', quote);
 	});
 	useEffect(() => {
 		if (!bridge) return;
@@ -66,7 +66,7 @@ export function Tutor({ context, title, user, flush, quote }: { context: { kind:
 	async function ask(body: string, quote: string | null) {
 		if (busy.current) return;
 		busy.current = true;
-		setPending({ body, quote, answer: '' }); setError(''); setStatus('The tutor is writing.');
+		setPending({ body, quote, answer: '' }); setError(''); setStatus('Репетитор пишет.');
 		try {
 			await flush?.(); // A failed flush still sends. The context then has the last saved draft, and the page shows the draft error.
 			const response = await fetch('/leetcode/api/tutor/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: context.kind, id: context.id, message: body, quote }), cache: 'no-store' });
@@ -84,31 +84,31 @@ export function Tutor({ context, title, user, flush, quote }: { context: { kind:
 					if ('delta' in event) setPending({ body, quote, answer: answer += event.delta }); else end = event;
 				}
 			}
-			if (!end) throw new Error('The answer stopped. Send your message again.');
+			if (!end) throw new Error('Ответ прервался. Отправьте сообщение ещё раз.');
 			if ('error' in end) throw new Error(end.error.message);
 			messages.setData(await api<Page<TutorMessage>>(path)); setOlder([]); setNext(undefined);
-			setText(value => value === body ? '' : value); setStatus('The tutor answered.');
+			setText(value => value === body ? '' : value); setStatus('Репетитор ответил.');
 		} catch (error) { setError(message(error)); setStatus(''); } finally { busy.current = false; setPending(null); }
 	}
 	return <>
-		<button ref={trigger} aria-expanded={open} aria-controls="tutor" onClick={() => open ? dialog.current!.close() : show()}><Bot size={18} />{student ? 'Ask AI' : 'Read AI chat'}</button>
+		<button ref={trigger} aria-expanded={open} aria-controls="tutor" onClick={() => open ? dialog.current!.close() : show()}><Bot size={18} />{student ? 'Спросить ИИ' : 'Читать чат с ИИ'}</button>
 		<dialog id="tutor" ref={dialog} aria-labelledby="tutor-title" onClose={() => { setOpen(false); remember(false); trigger.current?.focus(); }} onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); dialog.current!.close(); } }}>
-			<header className="tutor-head"><div><h2 id="tutor-title" ref={heading} tabIndex={-1}>AI tutor</h2><p>{title}</p>{!student && <p>The chat of the student. Read only.</p>}</div><button className="icon-button" onClick={() => dialog.current!.close()} aria-label="Close" title="Close"><X size={18} /></button></header>
+			<header className="tutor-head"><div><h2 id="tutor-title" ref={heading} tabIndex={-1}>ИИ-репетитор</h2><p>{title}</p>{!student && <p>Чат ученика. Только чтение.</p>}</div><button className="icon-button" onClick={() => dialog.current!.close()} aria-label="Закрыть" title="Закрыть"><X size={18} /></button></header>
 			<div className="tutor-log" ref={log}>
-				{nextOffset != null && <button onClick={() => void loadOlder()}>Older messages</button>}
-				<ol className="messages" aria-label="Messages">
-					{items.map(m => <li key={m.id} className={m.author === 'student' ? 'feedback student' : undefined}><small>{m.author === 'assistant' ? 'Tutor' : student ? 'You' : 'Student'} - {new Date(m.createdAt).toLocaleString()}</small>{m.author === 'student' ? said(m.body, m.quote) : <Answer text={m.body} streaming={false} highlight={bridge ? highlight : undefined} />}</li>)}
-					{pending && <><li className="feedback student"><small>You</small>{said(pending.body, pending.quote)}</li><li aria-busy="true"><small>Tutor</small><Answer text={pending.answer} streaming /></li></>}
+				{nextOffset != null && <button onClick={() => void loadOlder()}>Более ранние сообщения</button>}
+				<ol className="messages" aria-label="Сообщения">
+					{items.map(m => <li key={m.id} className={m.author === 'student' ? 'feedback student' : undefined}><small>{m.author === 'assistant' ? 'Репетитор' : student ? 'Вы' : 'Ученик'} - {new Date(m.createdAt).toLocaleString('ru-RU')}</small>{m.author === 'student' ? said(m.body, m.quote) : <Answer text={m.body} streaming={false} highlight={bridge ? highlight : undefined} />}</li>)}
+					{pending && <><li className="feedback student"><small>Вы</small>{said(pending.body, pending.quote)}</li><li aria-busy="true"><small>Репетитор</small><Answer text={pending.answer} streaming /></li></>}
 				</ol>
-				{messages.data && !items.length && !pending && <p className="empty">{student ? 'Ask about this page. The tutor gives hints, not full solutions.' : 'No messages yet.'}</p>}
+				{messages.data && !items.length && !pending && <p className="empty">{student ? 'Спросите об этой странице. Репетитор даёт подсказки, а не полные решения.' : 'Сообщений пока нет.'}</p>}
 				{(error || messages.error) && <p className="error" role="alert">{error || messages.error}</p>}
 			</div>
 			{student && <form className="tutor-compose" onSubmit={event => { event.preventDefault(); input.current!.focus(); void ask(text, quote ?? null); }}>
-				<label>Message<textarea ref={input} value={text} onChange={event => setText(event.target.value)} maxLength={4000} required onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form!.requestSubmit(); } }} /></label>
-				<div className="row spread"><small>Using ChatGPT plan. Your parent can read this chat.</small><button className="primary" disabled={Boolean(pending)}>Send</button></div>
+				<label>Сообщение<textarea ref={input} value={text} onChange={event => setText(event.target.value)} maxLength={4000} required onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form!.requestSubmit(); } }} /></label>
+				<div className="row spread"><small>Работает через подписку ChatGPT. Родитель может читать этот чат.</small><button className="primary" disabled={Boolean(pending)}>Отправить</button></div>
 			</form>}
 			<p role="status" className="visually-hidden">{status}</p>
 		</dialog>
-		{bridge && <p role="status" aria-label="Lesson highlight" className="visually-hidden">{marked}</p>}
+		{bridge && <p role="status" aria-label="Выделение в уроке" className="visually-hidden">{marked}</p>}
 	</>;
 }

@@ -65,7 +65,7 @@ it('archives a problem after its active homework completes', async () => {
 });
 
 it.each([
-	{ name: 'archive with active homework', action: 'archive', archivedAt: null, homework: 'assigned', stored: 1, error: { code: 'active_homework', message: 'Complete or cancel the active task before you archive this problem.' } },
+	{ name: 'archive with active homework', action: 'archive', archivedAt: null, homework: 'assigned', stored: 1, error: { code: 'active_homework', message: 'Завершите или отмените активное задание, прежде чем отправлять задачу в архив.' } },
 	{ name: 'stale archive', action: 'archive', archivedAt: null, homework: 'completed', stored: 2, error: { code: 'conflict' } },
 	{ name: 'stale restore', action: 'restore', archivedAt: 'now', homework: 'completed', stored: 2, error: { code: 'conflict' } },
 ])('$name', async ({ action, archivedAt, homework, stored, error }) => {
