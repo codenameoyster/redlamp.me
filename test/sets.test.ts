@@ -109,3 +109,10 @@ it.each([
 	expect(await (await request(`/${owner}/${ownerId}/sets`, 'GET', undefined, student)).json()).toEqual(linked);
 	expect(await env.DB.prepare('SELECT version FROM homework WHERE id=?').bind(homeworkId).first()).toEqual({ version: homeworkVersion });
 });
+
+it.each(sets.filter(item => item.cards.length).map(item => ({ name: `${item.slug} deck`, cards: item.cards })))('$name has consistent cards', ({ cards }) => {
+	expect(new Set(cards.map(card => card.id)).size).toBe(cards.length);
+	expect(cards.filter(card => !card.explain.trim())).toEqual([]);
+	expect(cards.filter(card => (card.type === 'choice' || card.type === 'code') && !(card.answer >= 0 && card.answer < card.options.length))).toEqual([]);
+	expect(cards.filter(card => card.type === 'code' && card.code.split('___').length !== 2)).toEqual([]);
+});

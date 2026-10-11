@@ -10,6 +10,7 @@ const insertAttempt = env.DB.prepare("INSERT INTO attempts (id,problem_id,state,
 const insertReview = env.DB.prepare("INSERT INTO reviews (id,problem_id,result,note,reviewed_on,created_at) VALUES (?,?,?,'',?,'now')");
 const insertBundle = env.DB.prepare("INSERT INTO homework (id,title,instructions,created_at,updated_at) VALUES (?,'Week 41','','now','now')");
 const insertTask = env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) VALUES (?,?,?,?,'now','now')");
+const insertCard = env.DB.prepare("INSERT INTO card_answers VALUES (?,'pc-factorial',?,3,?,?,'now')");
 const accepted = (difficulty: Difficulty, understanding: Understanding = 'with_help'): Spec => ({ difficulty, attempts: [{ acceptance: 'accepted', understanding }] });
 const setTasks = sets.find(set => set.slug === 'permutations-and-combinations')!.tasks;
 const order: BadgeId[] = ['first-accept', 'three-day-streak', 'first-hard', 'ten-accepted', 'independent-five', 'set-cleared'];
@@ -17,7 +18,7 @@ const order: BadgeId[] = ['first-accept', 'three-day-streak', 'first-hard', 'ten
 let student: string;
 beforeEach(async () => { student = await login(); });
 
-it.each<{ name: string; role?: Role; problems: Spec[]; xp: number; level: number; levelXp: number; nextLevelXp: number; earned: BadgeId[] }>([
+it.each<{ name: string; role?: Role; problems: Spec[]; cards?: { correct: boolean; on: string }[]; xp: number; level: number; levelXp: number; nextLevelXp: number; earned: BadgeId[] }>([
 	{ name: 'empty notebook', problems: [], xp: 0, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
 	{ name: 'accepted easy', problems: [accepted('easy')], xp: 10, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
 	{ name: 'two accepted attempts count once', problems: [{ difficulty: 'easy', attempts: [{ acceptance: 'accepted' }, { acceptance: 'accepted' }] }], xp: 10, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
@@ -42,7 +43,10 @@ it.each<{ name: string; role?: Role; problems: Spec[]; xp: number; level: number
 	{ name: 'gap day', problems: [{ difficulty: 'medium', attempts: [{ acceptance: 'not_accepted', savedAt: '2026-10-01T12:00:00.000Z' }, { acceptance: 'not_accepted', savedAt: '2026-10-02T12:00:00.000Z' }, { acceptance: 'not_accepted', savedAt: '2026-10-04T12:00:00.000Z' }] }], xp: 0, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
 	{ name: 'set cleared', problems: setTasks.map(task => ({ ...accepted(task.difficulty), slug: task.slug })), xp: 350, level: 3, levelXp: 300, nextLevelXp: 600, earned: ['first-accept', 'first-hard', 'ten-accepted', 'set-cleared'] },
 	{ name: 'set one short', problems: setTasks.filter(task => task.slug !== 'next-permutation').map(task => ({ ...accepted(task.difficulty), slug: task.slug })), xp: 330, level: 3, levelXp: 300, nextLevelXp: 600, earned: ['first-accept', 'first-hard', 'ten-accepted'] },
-])('$name', async ({ role, problems, xp, level, levelXp, nextLevelXp, earned }) => {
+	{ name: 'correct card', problems: [], cards: [{ correct: true, on: '2026-10-01' }], xp: 2, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
+	{ name: 'wrong card', problems: [], cards: [{ correct: false, on: '2026-10-01' }], xp: 0, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
+	{ name: 'same card on two days', problems: [], cards: [{ correct: true, on: '2026-10-01' }, { correct: true, on: '2026-10-02' }], xp: 4, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
+])('$name', async ({ role, problems, cards = [], xp, level, levelXp, nextLevelXp, earned }) => {
 	const statements = problems.flatMap(problem => {
 		const id = crypto.randomUUID(), homeworkId = crypto.randomUUID();
 		return [
@@ -51,7 +55,7 @@ it.each<{ name: string; role?: Role; problems: Spec[]; xp: number; level: number
 			...(problem.reviews ?? []).map(review => insertReview.bind(crypto.randomUUID(), id, review.result, review.on)),
 			...(problem.task ? [insertBundle.bind(homeworkId), insertTask.bind(crypto.randomUUID(), homeworkId, id, problem.task)] : []),
 		];
-	});
+	}).concat(cards.map(card => insertCard.bind(crypto.randomUUID(), Number(card.correct), card.on, card.on)));
 	if (statements.length) await env.DB.batch(statements);
 	const response = await request('/game', 'GET', undefined, role ? await login(role) : student);
 	expect(response.status).toBe(200);
