@@ -9,9 +9,15 @@ import permutationsAndCombinations1 from './permutations-and-combinations/chapte
 import permutationsAndCombinations2 from './permutations-and-combinations/chapter2.html';
 import permutationsAndCombinations3 from './permutations-and-combinations/chapter3.html';
 import permutationsAndCombinations4 from './permutations-and-combinations/chapter4.html';
+import twoPointers from './two-pointers/set';
+import twoPointers1 from './two-pointers/chapter1.html';
+import twoPointers2 from './two-pointers/chapter2.html';
+import twoPointers3 from './two-pointers/chapter3.html';
+import twoPointers4 from './two-pointers/chapter4.html';
 
 export const sets: (LearningSet & { lessons: string[] })[] = [
 	{ ...permutationsAndCombinations, lessons: [permutationsAndCombinations1, permutationsAndCombinations2, permutationsAndCombinations3, permutationsAndCombinations4] },
+	{ ...twoPointers, lessons: [twoPointers1, twoPointers2, twoPointers3, twoPointers4] },
 ];
 
 export const tasksOf = (set: LearningSet): SetTask[] => set.chapters.flatMap(chapter => chapter.tasks);
