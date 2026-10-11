@@ -157,7 +157,7 @@ test('explains a lesson selection with a touch tap', async ({ browser, baseURL }
 			body = route.request().postDataJSON();
 			return route.fulfill({ contentType: 'text/event-stream', body: 'data: {"done":true}\n\n' });
 		});
-		await page.goto('/leetcode/sets/permutations-and-combinations');
+		await page.goto('/leetcode/sets/permutations-and-combinations/2');
 		const frame = page.frameLocator('iframe.lesson-frame');
 		await frame.locator('p', { hasText: 'Each circle is one call of' }).selectText();
 		await frame.getByRole('button', { name: 'Объяснить с ИИ', exact: true }).tap();

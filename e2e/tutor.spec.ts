@@ -3,7 +3,7 @@ import type { Page, Route } from '@playwright/test';
 import type { D1Database } from '@cloudflare/workers-types';
 import type { Problem, TutorEvent } from '../shared/leetcode';
 
-const setPath = '/leetcode/sets/permutations-and-combinations';
+const setPath = '/leetcode/sets/permutations-and-combinations', chapterPath = `${setPath}/2`;
 const sse = (...events: TutorEvent[]) => events.map(event => `data: ${JSON.stringify(event)}\n\n`).join('');
 const fence = (diagram: object) => `\`\`\`diagram\n${JSON.stringify(diagram)}\n\`\`\``;
 const answer = [
@@ -340,7 +340,7 @@ for (const row of explains) {
 			await addMessages(DB, 'set', 'permutations-and-combinations', [{ author: 'student', body: 'Объясните эту часть.', quote: body.quote }, { author: 'assistant', body: 'Each call adds one value.' }]);
 			await route.fulfill({ contentType: 'text/event-stream', body: sse({ done: true }) });
 		});
-		await page.goto(setPath);
+		await page.goto(chapterPath);
 		await lesson(page).locator('p', { hasText: 'Each circle is one call of' }).scrollIntoViewIfNeeded();
 		await row.select(page);
 		const panel = page.getByRole('dialog', { name: 'ИИ-репетитор' });
@@ -356,7 +356,7 @@ test('shows no lesson bridge to the parent', async ({ page, server }) => {
 	const { DB } = await server.getWorker<TestEnv>().getEnv();
 	await addMessages(DB, 'set', 'permutations-and-combinations', [{ author: 'student', body: 'What is a circle?' }, { author: 'assistant', body: '```lesson\nEach circle is one call of backtrack.\n```' }]);
 	await signIn(page, 'parent');
-	await page.goto(setPath);
+	await page.goto(chapterPath);
 	await page.getByRole('button', { name: 'Читать чат с ИИ', exact: true }).click();
 	await expect(messages(page).nth(1).locator('blockquote')).toHaveText('Each circle is one call of backtrack.');
 	await expect(page.getByRole('button', { name: 'Показать в уроке' })).toHaveCount(0);
@@ -367,7 +367,7 @@ test('shows no lesson bridge to the parent', async ({ page, server }) => {
 
 test('shows no lesson bridge in the full-page display', async ({ page }) => {
 	await signIn(page);
-	const response = await page.goto('/leetcode/api/sets/permutations-and-combinations/lesson');
+	const response = await page.goto('/leetcode/api/sets/permutations-and-combinations/lesson/2');
 	expect(await response!.text()).toContain("document.createElement('lesson-ai')");
 	await page.locator('p', { hasText: 'Each circle is one call of' }).selectText();
 	await expect(page.locator('lesson-ai')).toHaveCount(0);
@@ -384,7 +384,7 @@ const highlights = [
 for (const row of highlights) {
 	test(row.name, async ({ page }) => {
 		await signIn(page);
-		await page.goto(setPath);
+		await page.goto(chapterPath);
 		await expect(lesson(page).locator('lesson-ai')).toHaveCount(1);
 		for (const quote of row.quotes) {
 			if (row.from === 'notebook') await page.evaluate(quote => document.querySelector<HTMLIFrameElement>('iframe.lesson-frame')!.contentWindow!.postMessage({ type: 'highlight', quote }, '*'), quote);
@@ -406,7 +406,7 @@ for (const row of shows) {
 		await addMessages(DB, 'set', 'permutations-and-combinations', [{ author: 'student', body: 'What is a circle?' }, { author: 'assistant', body: 'Read this part:\n\n```lesson\nEach circle is one call of backtrack.\n```' }]);
 		await page.setViewportSize({ width: row.width, height: 900 });
 		await signIn(page);
-		await page.goto(setPath);
+		await page.goto(chapterPath);
 		await page.getByRole('button', { name: 'Спросить ИИ', exact: true }).click();
 		const panel = page.getByRole('dialog', { name: 'ИИ-репетитор' });
 		await panel.getByRole('button', { name: 'Показать в уроке', exact: true }).click();

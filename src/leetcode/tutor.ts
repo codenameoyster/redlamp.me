@@ -52,7 +52,8 @@ function lessonText(html: string, quote: string | null): string {
 async function context(env: Env, kind: TutorKind, id: string, quote: string | null): Promise<string> {
 	if (kind === 'set') {
 		const set = findSet(id);
-		return `${clip(`Learning set: ${set.title}\nSummary: ${set.summary}\nTopics: ${set.topics.join(', ')}\nTasks:\n${set.tasks.map(task => `${task.stage}: ${task.title} (${taskLabel(task)}, ${task.difficulty}). ${task.note}`).join('\n')}`, 4000)}\n\n${lessonText(set.lesson, quote)}`;
+		const chapters = set.chapters.map((chapter, index) => [`${index + 1}. ${chapter.title}: ${chapter.summary}`, ...chapter.tasks.map(task => `${task.title} (${taskLabel(task)}, ${task.difficulty}). ${task.note}`)].join('\n'));
+		return `${clip(`Learning set: ${set.title}\nSummary: ${set.summary}\nTopics: ${set.topics.join(', ')}\nChapters:\n${chapters.join('\n')}`, 4000)}\n\n${lessonText(set.lessons.join('\n'), quote)}`;
 	}
 	if (kind === 'lesson') {
 		const lesson = await getLesson(env, id), row = await env.DB.prepare('SELECT html FROM lesson_content WHERE lesson_id=?').bind(id).first<{ html: string }>();

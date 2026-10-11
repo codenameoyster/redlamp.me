@@ -2,7 +2,7 @@ import { test, expect, signIn } from './fixtures';
 import type { Page } from '@playwright/test';
 import type { Homework, Problem } from '../shared/leetcode';
 
-const setPath = '/leetcode/sets/permutations-and-combinations';
+const setPath = '/leetcode/sets/permutations-and-combinations', chapterPath = `${setPath}/2`;
 function row(page: Page, title: string) { return page.getByRole('article').filter({ has: page.getByRole('heading', { name: title, exact: true }) }); }
 
 test('assigns set tasks to new and existing homework', async ({ page, context }) => {
@@ -10,13 +10,22 @@ test('assigns set tasks to new and existing homework', async ({ page, context })
 	await page.getByRole('link', { name: 'Наборы', exact: true }).click();
 	await page.getByRole('link', { name: 'Permutations and combinations', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'Permutations and combinations', level: 1 })).toBeVisible();
-	await expect(page.frameLocator('iframe').getByRole('heading', { level: 1 })).toHaveText('Permutations and combinations');
+	await expect(page.getByRole('link', { name: 'Открыть главу', exact: true })).toHaveCount(4);
+	await expect(row(page, 'The backtracking template')).toContainText('Задач принято 0 из 4');
+	await expect(row(page, 'The backtracking template')).toContainText('Карточек: 0 к повторению, 8 новых');
 	await context.route('https://www.techinterviewhandbook.org/**', route => route.fulfill({ contentType: 'text/html', body: '<p>Reading</p>' }));
 	const reading = page.getByRole('link', { name: 'Recursion cheatsheet', exact: true });
 	await expect(reading).toHaveAttribute('rel', 'noopener noreferrer');
 	const [tab] = await Promise.all([context.waitForEvent('page'), reading.click()]);
 	await expect(tab).toHaveURL('https://www.techinterviewhandbook.org/algorithms/recursion/');
 	await tab.close();
+	await page.getByRole('link', { name: 'The backtracking template', exact: true }).click();
+	await expect(page).toHaveURL(chapterPath);
+	await expect(page.getByRole('heading', { name: 'Глава 2. The backtracking template', level: 1 })).toBeVisible();
+	await expect(page.frameLocator('iframe').getByRole('heading', { name: '3 The decision tree', level: 2 })).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Пройти квиз', exact: true })).toHaveAttribute('href', '/leetcode/quiz/permutations-and-combinations-2');
+	await expect(page.getByRole('link', { name: 'Предыдущая глава', exact: true })).toHaveAttribute('href', `${setPath}/1`);
+	await expect(page.getByRole('link', { name: 'Следующая глава', exact: true })).toHaveAttribute('href', `${setPath}/3`);
 	const subsets = row(page, 'Subsets');
 	await subsets.getByRole('button', { name: 'Добавить в домашнюю работу', exact: true }).click();
 	const first = page.getByRole('dialog', { name: 'Добавить «Subsets» в домашнюю работу' });
@@ -60,6 +69,9 @@ test('assigns set tasks to new and existing homework', async ({ page, context })
 	await expect(page.getByText('0 из 2 завершено', { exact: true })).toBeVisible();
 	await signIn(page);
 	await page.goto(setPath);
+	await expect(row(page, 'The backtracking template')).toContainText('Задач принято 0 из 4');
+	await page.getByRole('link', { name: 'Открыть главу', exact: true }).nth(1).click();
+	await expect(page).toHaveURL(chapterPath);
 	await expect(row(page, 'Subsets').getByRole('link', { name: 'Назначено', exact: true })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Добавить в домашнюю работу' })).toHaveCount(0);
 });
@@ -67,7 +79,7 @@ test('assigns set tasks to new and existing homework', async ({ page, context })
 test('shows a task conflict in the dialog', async ({ page, baseURL }) => {
 	const headers = { Origin: new URL(baseURL!).origin };
 	await signIn(page, 'parent');
-	await page.goto(setPath);
+	await page.goto(chapterPath);
 	const add = row(page, 'Subsets').getByRole('button', { name: 'Добавить в домашнюю работу', exact: true });
 	await expect(add).toBeVisible();
 	const homework = await (await page.request.post('/leetcode/api/homework', { headers, data: { title: 'Week 41', instructions: '', dueDate: null } })).json() as Homework;
@@ -88,7 +100,7 @@ test('does not create homework for an archived problem', async ({ page, baseURL 
 	await signIn(page, 'parent');
 	const problem = await (await page.request.post('/leetcode/api/problems', { headers, data: { url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
 	expect((await page.request.post(`/leetcode/api/problems/${problem.id}/archive`, { headers, data: { version: problem.version } })).status()).toBe(200);
-	await page.goto(setPath);
+	await page.goto(chapterPath);
 	await row(page, 'Subsets').getByRole('button', { name: 'Добавить в домашнюю работу', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Добавить «Subsets» в домашнюю работу' });
 	await dialog.getByRole('button', { name: 'Создать и назначить', exact: true }).click();
@@ -103,6 +115,9 @@ test('fits the set pages at the mobile width', async ({ page }, testInfo) => {
 	await expect(page.getByRole('link', { name: 'Permutations and combinations', exact: true })).toBeVisible();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 	await page.goto(setPath);
+	await expect(page.getByRole('link', { name: 'Открыть главу', exact: true })).toHaveCount(4);
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+	await page.goto(chapterPath);
 	await row(page, 'Subsets').getByRole('button', { name: 'Добавить в домашнюю работу', exact: true }).click();
 	await expect(page.getByRole('dialog')).toBeVisible();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
