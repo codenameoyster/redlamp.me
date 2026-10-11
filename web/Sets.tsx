@@ -28,7 +28,7 @@ function SetView({ slug, user }: { slug: string; user: SessionUser }) {
 		{details.error && <p className="error" role="alert">{details.error}</p>}
 		<iframe title={set.title} src={lesson} sandbox="allow-scripts" className="lesson-frame" />
 		<section className="card card-pad stack"><h2>Материалы</h2><ul>{set.links.map(link => <li key={link.url}><a href={link.url} target="_blank" rel="noopener noreferrer">{link.title}</a> <small>{link.source}</small></li>)}</ul></section>
-		{[...new Set(set.tasks.map(t => t.stage))].map(stage => <section className="card" key={stage}><header className="card-head"><h2>{stage}</h2></header>{set.tasks.filter(t => t.stage === stage).map(t => <article className="list-row" key={t.slug}><span className="small">#{t.number}</span><div className="grow"><h3>{t.problemId ? <a href={`/leetcode/problems/${t.problemId}`}>{t.title}</a> : <a href={`https://leetcode.com/problems/${t.slug}/`} target="_blank" rel="noopener noreferrer">{t.title}</a>}</h3><p className="small">{t.note}</p></div><span className={`tag ${t.difficulty}`}>{difficultyLabels[t.difficulty]}</span>{t.accepted && <span className="tag good">Принято</span>}{t.activeTask && <a className="tag" href={`/leetcode/tasks/${t.activeTask.id}`}>{homeworkLabels[t.activeTask.state]}</a>}{user.role === 'parent' && !t.activeTask && <button onClick={() => setAdding(t)}>Добавить в домашнюю работу</button>}</article>)}</section>)}
+		{[...new Set(set.tasks.map(t => t.stage))].map(stage => <section className="card" key={stage}><header className="card-head"><h2>{stage}</h2></header>{set.tasks.filter(t => t.stage === stage).map(t => <article className="list-row" key={t.slug}><span className="small">{t.label}</span><div className="grow"><h3>{t.problemId ? <a href={`/leetcode/problems/${t.problemId}`}>{t.title}</a> : <a href={t.url} target="_blank" rel="noopener noreferrer">{t.title}</a>}</h3><p className="small">{t.note}</p></div><span className={`tag ${t.difficulty}`}>{difficultyLabels[t.difficulty]}</span>{t.accepted && <span className="tag good">Принято</span>}{t.activeTask && <a className="tag" href={`/leetcode/tasks/${t.activeTask.id}`}>{homeworkLabels[t.activeTask.state]}</a>}{user.role === 'parent' && !t.activeTask && <button onClick={() => setAdding(t)}>Добавить в домашнюю работу</button>}</article>)}</section>)}
 		{adding && <AddToHomework task={adding} title={set.title} close={() => setAdding(null)} added={() => { setAdding(null); details.reload(); }} />}
 	</div>;
 }
@@ -46,7 +46,7 @@ function AddToHomework({ task, title, close, added }: { task: SetTask; title: st
 	async function assign(homeworkId: () => Promise<string>) {
 		setBusy(true); setError('');
 		try {
-			const problem = await api<Problem>('/problems', { method: 'POST', body: JSON.stringify({ url: `https://leetcode.com/problems/${task.slug}/`, number: task.number, title: task.title, difficulty: task.difficulty, topics: task.topics, summary: task.note }) });
+			const problem = await api<Problem>('/problems', { method: 'POST', body: JSON.stringify({ url: task.url, number: task.number ?? null, title: task.title, difficulty: task.difficulty, topics: task.topics, summary: task.note }) });
 			if (problem.archivedAt) throw new Error('Верните задачу из архива, прежде чем назначать её.');
 			await api('/tasks', { method: 'POST', body: JSON.stringify({ homeworkId: await homeworkId(), problemId: problem.id }) });
 			added();

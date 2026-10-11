@@ -1,8 +1,8 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
-import { MAX_LESSON_BYTES, type LearningSetDetails, type LearningSetSummary } from '../shared/leetcode';
-import { sets } from '../src/leetcode/sets';
+import { MAX_LESSON_BYTES, type LearningSetDetails, type LearningSetSummary, type SetTask } from '../shared/leetcode';
+import { sets, taskLabel, taskSlug } from '../src/leetcode/sets';
 import { LESSON_CSP } from '../src/leetcode/lessons';
 import LESSON_BRIDGE from '../src/leetcode/lesson-bridge.html';
 
@@ -52,8 +52,8 @@ it.each([
 	expect(response.status).toBe(200);
 	const details = await response.json() as LearningSetDetails;
 	expect(details).toMatchObject({ slug: set.slug, title: set.title, summary: set.summary, topics: set.topics, links: set.links });
-	expect(details.tasks.map(task => task.slug)).toEqual(set.tasks.map(task => task.slug));
-	expect(details.tasks.find(task => task.slug === 'subsets')).toEqual({ ...set.tasks.find(task => task.slug === 'subsets'), problemId, accepted, activeTask: active ? { id: taskId, homeworkId, homeworkTitle: 'Week 41: backtracking', state: taskState } : null });
+	expect(details.tasks.map(task => task.slug)).toEqual(set.tasks.map(taskSlug));
+	expect(details.tasks.find(task => task.slug === 'subsets')).toEqual({ ...set.tasks.find(task => taskSlug(task) === 'subsets'), slug: 'subsets', label: 'LeetCode 78', problemId, accepted, activeTask: active ? { id: taskId, homeworkId, homeworkTitle: 'Week 41: backtracking', state: taskState } : null });
 	expect(details.tasks.filter(task => task.problemId || task.accepted || task.activeTask).map(task => task.slug)).toEqual(inLibrary ? ['subsets'] : []);
 });
 
@@ -84,11 +84,21 @@ const slugFormat = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item }) => {
 	expect(sets.filter(other => other.slug === item.slug)).toHaveLength(1);
 	expect(item.slug).toMatch(slugFormat);
-	expect(item.tasks.filter(task => !slugFormat.test(task.slug)).map(task => task.slug)).toEqual([]);
-	expect(item.tasks.filter((task, index) => item.tasks.findIndex(other => other.slug === task.slug) !== index).map(task => task.slug)).toEqual([]);
-	expect(item.tasks.filter(task => !task.stage.trim()).map(task => task.slug)).toEqual([]);
+	expect(item.tasks.filter(task => !slugFormat.test(taskSlug(task))).map(taskSlug)).toEqual([]);
+	expect(item.tasks.filter((task, index) => item.tasks.findIndex(other => taskSlug(other) === taskSlug(task)) !== index).map(taskSlug)).toEqual([]);
+	expect(item.tasks.filter(task => !task.stage.trim()).map(taskSlug)).toEqual([]);
 	expect(item.links.filter(link => new URL(link.url).protocol !== 'https:').map(link => link.url)).toEqual([]);
 	expect(new TextEncoder().encode(item.lesson).byteLength).toBeLessThanOrEqual(MAX_LESSON_BYTES);
+});
+
+const task: Omit<SetTask, 'url' | 'number'> = { title: 'Task', difficulty: 'easy', topics: [], stage: 'Core', note: '' };
+it.each([
+	{ name: 'LeetCode task with a number', url: 'https://leetcode.com/problems/subsets/', number: 78, slug: 'subsets', label: 'LeetCode 78' },
+	{ name: 'LeetCode task without a number', url: 'https://leetcode.com/problems/subsets/', number: undefined, slug: 'subsets', label: 'LeetCode' },
+	{ name: 'Codeforces task', url: 'https://codeforces.com/contest/1234/problem/B1', number: undefined, slug: 'cf-1234-b1', label: 'Codeforces 1234B1' },
+])('$name', ({ url, number, slug, label }) => {
+	expect(taskSlug({ ...task, url, number })).toBe(slug);
+	expect(taskLabel({ ...task, url, number })).toBe(label);
 });
 
 const linkedSet = { slug: 'permutations-and-combinations', title: 'Permutations and combinations' };

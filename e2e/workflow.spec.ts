@@ -8,7 +8,7 @@ test('completes learning with two accounts, two approaches, and a linked lesson'
 		await signIn(parent, 'parent');
 		await parent.getByRole('link', { name: 'Задачи', exact: true }).click();
 		await parent.getByRole('button', { name: 'Добавить задачу', exact: true }).click();
-		await parent.getByLabel('Ссылка на LeetCode').fill('https://leetcode.com/problems/minimum-window-substring/');
+		await parent.getByLabel('Ссылка на задачу').fill('https://leetcode.com/problems/minimum-window-substring/');
 		await parent.getByLabel('Название', { exact: true }).fill('Minimum Window Substring');
 		await parent.getByRole('dialog').getByRole('combobox', { name: 'Сложность' }).selectOption('hard');
 		await parent.getByLabel('Темы', { exact: true }).fill('Sliding window, Hash map');
@@ -119,7 +119,7 @@ test('opens and closes the problem dialog with the keyboard', async ({ page }) =
 	await page.goto('/leetcode/problems');
 	await page.getByRole('button', { name: 'Добавить задачу', exact: true }).focus();
 	await page.keyboard.press('Enter');
-	await expect(page.getByLabel('Ссылка на LeetCode')).toBeFocused();
+	await expect(page.getByLabel('Ссылка на задачу')).toBeFocused();
 	await page.keyboard.press('Escape');
 	await expect(page.getByRole('button', { name: 'Добавить задачу', exact: true })).toBeFocused();
 });

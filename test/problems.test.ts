@@ -11,17 +11,25 @@ const input = { url: 'https://leetcode.com/problems/two-sum/', number: 1, title:
 beforeEach(async () => { cookie = await login(); });
 afterEach(() => { vi.restoreAllMocks(); });
 
+const twoSum = { slug: 'two-sum', url: 'https://leetcode.com/problems/two-sum/' }, theatreSquare = { slug: 'cf-1-a', url: 'https://codeforces.com/problemset/problem/1/A' };
 it.each([
-	{ name: 'canonical link', url: 'https://leetcode.com/problems/two-sum/', expected: 'two-sum' },
-	{ name: 'description link', url: 'https://leetcode.com/problems/two-sum/description/?envType=daily-question#notes', expected: 'two-sum' },
+	{ name: 'canonical link', url: 'https://leetcode.com/problems/two-sum/', expected: twoSum },
+	{ name: 'description link', url: 'https://leetcode.com/problems/two-sum/description/?envType=daily-question#notes', expected: twoSum },
 	{ name: 'foreign host', url: 'https://leetcode.com.evil.example/problems/two-sum/', expected: null },
 	{ name: 'missing slug', url: 'https://leetcode.com/problems/', expected: null },
 	{ name: 'insecure URL', url: 'http://leetcode.com/problems/two-sum/', expected: null },
 	{ name: 'URL with credentials', url: 'https://user@leetcode.com/problems/two-sum/', expected: null },
+	{ name: 'problemset form', url: 'https://codeforces.com/problemset/problem/1/A', expected: theatreSquare },
+	{ name: 'contest form', url: 'https://codeforces.com/contest/1/problem/A', expected: theatreSquare },
+	{ name: 'lower case index', url: 'https://codeforces.com/problemset/problem/1/a', expected: theatreSquare },
+	{ name: 'index with digit', url: 'https://codeforces.com/contest/1234/problem/b1', expected: { slug: 'cf-1234-b1', url: 'https://codeforces.com/problemset/problem/1234/B1' } },
+	{ name: 'codeforces http', url: 'http://codeforces.com/problemset/problem/1/A', expected: null },
+	{ name: 'codeforces missing index', url: 'https://codeforces.com/problemset/problem/1', expected: null },
+	{ name: 'codeforces extra path', url: 'https://codeforces.com/problemset/problem/1/A/?locale=ru#statement', expected: theatreSquare },
 ])('$name', async ({ url, expected }) => {
 	const response = await request('/problems', 'POST', { ...input, url }, cookie);
 	expect(response.status).toBe(expected === null ? 400 : 201);
-	if (expected) expect(await response.json()).toMatchObject({ slug: expected, url: 'https://leetcode.com/problems/two-sum/' });
+	if (expected) expect(await response.json()).toMatchObject(expected);
 });
 
 it('returns the existing problem for a duplicate URL', async () => {
@@ -112,6 +120,7 @@ it.each([
 	{ name: 'LeetCode error response', url: 'https://leetcode.com/problems/two-sum/', reply: () => new Response('Busy', { status: 503 }), status: 502, body: { error: { code: 'lookup_failed' } }, slug: 'two-sum' },
 	{ name: 'unreachable LeetCode', url: 'https://leetcode.com/problems/two-sum/', reply: () => { throw new TypeError('Network connection lost.'); }, status: 502, body: { error: { code: 'lookup_failed' } }, slug: 'two-sum' },
 	{ name: 'details for a URL outside LeetCode', url: 'https://example.com/problems/two-sum/', reply: () => Response.json({}), status: 400, body: { error: { code: 'invalid_url' } }, slug: null },
+	{ name: 'details for a Codeforces URL', url: 'https://codeforces.com/problemset/problem/1/A', reply: () => Response.json({}), status: 400, body: { error: { code: 'lookup_unavailable' } }, slug: null },
 ])('$name', async ({ url, reply, status, body, slug }) => {
 	const leetcode = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => reply());
 	const response = await request(`/problem-details?url=${encodeURIComponent(url)}`, 'GET', undefined, cookie);
