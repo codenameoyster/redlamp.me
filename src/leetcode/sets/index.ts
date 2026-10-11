@@ -1,5 +1,5 @@
 import type { Env } from '../../index';
-import type { LearningSet, LearningSetDetails, LearningSetSummary, SessionUser, SetTask, TaskState } from '../../../shared/leetcode';
+import type { ChapterRef, LearningSet, LearningSetDetails, LearningSetSummary, SessionUser, SetTask, TaskState } from '../../../shared/leetcode';
 import { requireRole } from '../auth';
 import { getHomework } from '../homework';
 import { changed, HttpError, integer, methods, object, readJson, uuid } from '../http';
@@ -16,6 +16,7 @@ export const sets: (LearningSet & { lessons: string[] })[] = [
 
 export const tasksOf = (set: LearningSet): SetTask[] => set.chapters.flatMap(chapter => chapter.tasks);
 export const taskSlug = (task: SetTask): string => problemSlug(task.url);
+export const chaptersOf = (slug: string): ChapterRef[] => sets.flatMap(set => set.chapters.flatMap((chapter, index) => chapter.tasks.some(task => taskSlug(task) === slug) ? [{ set: set.slug, setTitle: set.title, number: index + 1, title: chapter.title }] : []));
 export function taskLabel(task: SetTask): string {
 	const value = taskSlug(task);
 	return value.startsWith('cf-') ? `Codeforces ${value.slice(3).replace('-', '').toUpperCase()}` : task.number ? `LeetCode ${task.number}` : 'LeetCode';
@@ -33,10 +34,12 @@ export async function handleSets(request: Request, env: Env, user: SessionUser):
 		const homework = link[1] === 'homework', ownerId = uuid(link[2]), slug = link[3];
 		const table = homework ? 'homework_sets' : 'problem_sets', field = homework ? 'homework_id' : 'problem_id';
 		methods(request, slug ? ['PUT', 'DELETE'] : ['GET']);
-		if (homework) await getHomework(env, ownerId); else await getProblem(env, ownerId);
+		const owner = homework ? await getHomework(env, ownerId) : await getProblem(env, ownerId);
 		if (!slug) {
 			const linked = new Set((await env.DB.prepare(`SELECT set_slug AS slug FROM ${table} WHERE ${field}=?`).bind(ownerId).all<{ slug: string }>()).results.map(row => row.slug));
-			return Response.json(sets.filter(set => linked.has(set.slug)).map(({ slug, title }) => ({ slug, title })));
+			const problems = 'slug' in owner ? [owner] : (await env.DB.prepare('SELECT p.slug FROM homework_tasks t JOIN problems p ON p.id=t.problem_id WHERE t.homework_id=? ORDER BY t.created_at,t.id').bind(ownerId).all<{ slug: string }>()).results;
+			const chapters = [...new Map(problems.flatMap(problem => chaptersOf(problem.slug)).map(chapter => [`${chapter.set}/${chapter.number}`, chapter])).values()];
+			return Response.json({ chapters, sets: sets.filter(set => linked.has(set.slug)).map(({ slug, title }) => ({ slug, title })) });
 		}
 		requireRole(user, 'parent');
 		if (!sets.some(set => set.slug === slug)) throw new HttpError(404, 'not_found', 'Такого набора нет.');

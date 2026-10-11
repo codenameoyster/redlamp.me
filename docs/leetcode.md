@@ -46,7 +46,7 @@ Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and wa
 - Record LeetCode acceptance and understanding separately. An accepted solution can still need practice.
 - As the parent, create homework on the **Homework** page. Give it a title, instructions, and an optional due date. Use **Edit homework** to change these details later.
 - On the homework page, use **Add a task** to add a problem from the library. Each task has its own review state. A problem can have only one active task in all homework.
-- The parent can link learning sets to problems and homework in **Materials**. A task page shows the materials of its homework.
+- The parent can link learning sets to problems and homework in **Materials**. **Materials** also shows the set chapters that contain the problem. For homework, it shows the chapters of all its problems. A task page shows the chapters of its problem and the sets of its homework.
 - As the student, open a task from **Today**, the homework page, or the problem page. Submit an exact attempt for review. The parent can request another attempt or complete the task.
 - A red dot before a homework or a task shows a message or a review decision from the other account that you did not read. Open the discussion of the task or the problem to remove the dot.
 - Use **Recall this problem** to practise before revealing saved work. Record the result. Choose the next review date.
@@ -104,7 +104,7 @@ Each problem and set has one chat. A task page shows the chat of its problem. Th
 
 Only the student can send questions. The parent can read every chat. The notebook keeps a turn only when the answer is complete. If an answer stops, the student sends the question again.
 
-Each question of the student goes to OpenAI under the ChatGPT account of the parent, with the earlier messages of the chat and the context of the open page. This context can contain the problem, the LeetCode statement, the homework instructions, the notes and code of the student, and the lesson text. The tutor uses the same plan limits as the parent's own ChatGPT and Codex use. On ChatGPT Plus, all apps share one five-hour limit. Use **Manage usage** to see the usage.
+Each question of the student goes to OpenAI under the ChatGPT account of the parent, with the earlier messages of the chat and the context of the open page. This context can contain the problem, the LeetCode statement, the homework instructions, the notes and code of the student, and the lesson text. For a problem in a set chapter, the context also has the lesson text of the first such chapter. The tutor uses the same plan limits as the parent's own ChatGPT and Codex use. On ChatGPT Plus, all apps share one five-hour limit. Use **Manage usage** to see the usage.
 
 The Worker reads each part of a streamed answer, so the CPU time of a turn increases with the length of the answer. On the deployed Worker, send a question on the page with the largest lesson and get a long answer with a diagram. Make sure that the answer arrives in parts. Then read the CPU time of the request in the Cloudflare dashboard. If long answers exceed the Workers Free limit of 10 ms CPU per request, use Workers Paid.
 

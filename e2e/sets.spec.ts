@@ -1,6 +1,6 @@
 import { test, expect, signIn } from './fixtures';
 import type { Page } from '@playwright/test';
-import type { Homework, Problem } from '../shared/leetcode';
+import type { Homework, HomeworkTask, Problem } from '../shared/leetcode';
 
 const setPath = '/leetcode/sets/permutations-and-combinations', chapterPath = `${setPath}/2`;
 function row(page: Page, title: string) { return page.getByRole('article').filter({ has: page.getByRole('heading', { name: title, exact: true }) }); }
@@ -136,4 +136,18 @@ test('links a set as material of a problem', async ({ page, notebook }) => {
 	await expect(page.getByRole('button', { name: 'Отвязать Перестановки и сочетания', exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Перестановки и сочетания', exact: true }).click();
 	await expect(page).toHaveURL(setPath);
+});
+
+test('shows the chapter of a task as its material', async ({ page, baseURL }) => {
+	const headers = { Origin: new URL(baseURL!).origin };
+	await signIn(page, 'parent');
+	const homework = await (await page.request.post('/leetcode/api/homework', { headers, data: { title: 'Week 41', instructions: '', dueDate: null } })).json() as Homework;
+	const problem = await (await page.request.post('/leetcode/api/problems', { headers, data: { url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
+	const task = await (await page.request.post('/leetcode/api/tasks', { headers, data: { homeworkId: homework.id, problemId: problem.id } })).json() as HomeworkTask;
+	await page.goto(`/leetcode/tasks/${task.id}`);
+	const materials = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Материалы', level: 2 }) });
+	await expect(materials.locator('small')).toHaveText('Перестановки и сочетания');
+	await expect(materials.getByRole('button', { name: /^Отвязать/ })).toHaveCount(0);
+	await materials.getByRole('link', { name: 'Глава 2. Перебор: подмножества, перестановки, сочетания', exact: true }).click();
+	await expect(page).toHaveURL(chapterPath);
 });

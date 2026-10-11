@@ -5,7 +5,7 @@ import { requireRole } from './auth';
 import { accessToken, disconnected, unavailable, type Token } from './chatgpt';
 import { choice, HttpError, methods, object, page, pagination, readJson, text, uuid } from './http';
 import { getProblem, question } from './problems';
-import { sets, taskLabel } from './sets';
+import { chaptersOf, sets, taskLabel } from './sets';
 import prompt from './tutor-prompt.txt';
 
 const RESPONSES = 'https://api.openai.com/v1/responses';
@@ -63,6 +63,8 @@ async function context(env: Env, kind: TutorKind, id: string, quote: string | nu
 	const parts = [clip([`Problem: ${problem.number === null ? '' : `${problem.number}. `}${problem.title} (${problem.difficulty})`, `Topics: ${problem.topics.join(', ')}`, `Summary: ${problem.summary}`, ...(task ? [`Homework: ${task.title}. State: ${task.state}. Due date: ${task.dueDate ?? 'none'}.`] : [])].join('\n'), 4000)];
 	if (statement) parts.push(`LeetCode statement:\n${clip(htmlText(statement), 6000)}`);
 	if (task) parts.push(`Homework instructions:\n${clip(task.instructions, 2000)}`);
+	const [chapter] = chaptersOf(problem.slug);
+	if (chapter) parts.push(`Chapter: ${chapter.setTitle}, глава ${chapter.number}. ${chapter.title}\n${clip(lessonText(findSet(chapter.set).lessons[chapter.number - 1], quote), 8000)}`);
 	if (attempt) {
 		const work = JSON.parse(attempt.document) as AttemptDocument;
 		parts.push(`${attempt.state === 'draft' ? 'Current draft' : 'Newest saved attempt'}:\n${clip([`Notes: ${work.notes}`, ...work.approaches.map((a, i) => `Approach ${i + 1}: ${a.label}\nIdea: ${a.idea}\nWhy it works: ${a.correctness}\nTime complexity: ${a.timeComplexity}\nSpace complexity: ${a.spaceComplexity}\nEdge cases: ${a.edgeCases}\nMistakes: ${a.mistakes}\nLanguage: ${a.language}\nCode:\n${a.code}`)].join('\n\n'), 12_000)}`);

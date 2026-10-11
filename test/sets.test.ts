@@ -133,8 +133,24 @@ it.each([
 	const ownerId = owner === 'homework' ? homeworkId : problemId;
 	if (before) await env.DB.prepare(`INSERT INTO ${owner === 'homework' ? 'homework_sets' : 'problem_sets'} VALUES (?,?)`).bind(ownerId, slug).run();
 	expect((await request(`/${owner}/${ownerId}/sets/${slug}`, method, owner === 'homework' ? { version } : {}, role === 'parent' ? parent : student)).status).toBe(expected);
-	expect(await (await request(`/${owner}/${ownerId}/sets`, 'GET', undefined, student)).json()).toEqual(linked);
+	expect((await (await request(`/${owner}/${ownerId}/sets`, 'GET', undefined, student)).json() as { sets: unknown }).sets).toEqual(linked);
 	expect(await env.DB.prepare('SELECT version FROM homework WHERE id=?').bind(homeworkId).first()).toEqual({ version: homeworkVersion });
+});
+
+const chapter2 = { set: 'permutations-and-combinations', setTitle: 'Перестановки и сочетания', number: 2, title: 'Перебор: подмножества, перестановки, сочетания' };
+const chapter3 = { ...chapter2, number: 3, title: 'Повторы и отсечения' };
+it.each([
+	{ name: 'problem in a chapter', owner: 'problems', slugs: ['subsets'], chapters: [chapter2] },
+	{ name: 'problem in no chapter', owner: 'problems', slugs: ['two-sum'], chapters: [] },
+	{ name: 'homework with tasks in two chapters', owner: 'homework', slugs: ['subsets-ii', 'two-sum', 'subsets', 'permutations'], chapters: [chapter3, chapter2] },
+])('$name', async ({ owner, slugs, chapters }) => {
+	const homeworkId = crypto.randomUUID(), problemIds: string[] = [];
+	for (const slug of slugs) problemIds.push(await addProblem(slug, null));
+	// Reverse insert order, so only created_at gives the task order.
+	await env.DB.batch([insertBundle.bind(homeworkId, 'Week 41'), ...problemIds.map((id, index) => env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) VALUES (?,?,?,'assigned',?,'now')").bind(crypto.randomUUID(), homeworkId, id, `2026-10-1${index}`)).reverse()]);
+	const response = await request(`/${owner}/${owner === 'homework' ? homeworkId : problemIds[0]}/sets`, 'GET', undefined, student);
+	expect(response.status).toBe(200);
+	expect(await response.json()).toEqual({ chapters, sets: [] });
 });
 
 it('card ids are unique across all sets', () => {

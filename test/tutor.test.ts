@@ -162,6 +162,9 @@ it.each([
 	{ name: 'statement fetch fails', kind: 'problem', statement: 500, includes: ['Problem: 1. Two Sum (easy)'], excludes: ['LeetCode statement'] },
 	{ name: 'paid-only statement', kind: 'problem', statement: null, includes: ['Problem: 1. Two Sum (easy)'], excludes: ['LeetCode statement'] },
 	{ name: 'Codeforces problem has no LeetCode statement', kind: 'problem', slug: 'cf-1-a', includes: ['Problem: 1. Two Sum (easy)'], excludes: ['LeetCode statement'] },
+	{ name: 'chapter of the problem after the homework', kind: 'problem', slug: 'subsets', task: true, work: [['draft', 'return seen', null]], statement: '<p>Text</p>', includes: [/Homework instructions:\nUse a hash map\.\n\nChapter: Перестановки и сочетания, глава 2\. Перебор: подмножества, перестановки, сочетания\nLesson outline:\n## 1\. Когда нужны сами варианты\n[\s\S]*\nLesson text \(sections 1-11 of 11\)\.\n[\s\S]*\n\nCurrent draft:\n/], excludes: ['К каждой футболке подходят 4 пары штанов.', 'Learning set', 'The rest is cut'] },
+	{ name: 'quote selects a chapter section', kind: 'problem', slug: 'subsets', statement: '<p>Text</p>', quote: 'Рекурсия это функция, которая вызывает сама себя. Для дерева это удобно.', includes: [/Lesson text \(sections 4-11 of 11\)\. The rest is cut\.\n## 3\. Рекурсия простыми словами\n/], excludes: [] },
+	{ name: 'problem in no chapter', kind: 'problem', statement: '<p>Text</p>', includes: ['Problem: 1. Two Sum (easy)'], excludes: ['Chapter:', 'Lesson'] },
 	{ name: 'field over its cap', kind: 'problem', work: [['draft', 'x'.repeat(13_000), null]], statement: null, includes: [/Current draft:\n[\s\S]{12000} \[cut\]\n<\/context>$/], excludes: [] },
 	{ name: 'quote selects a section', kind: 'set', quote: 'Рекурсия это функция, которая вызывает сама себя. Для дерева это удобно.', includes: ['Learning set: Перестановки и сочетания', /Lesson text \(sections 13-35 of 35\)\. The rest is cut\.\n## 3\. Рекурсия простыми словами\n/], excludes: ['К каждой футболке подходят 4 пары штанов.'] },
 	{ name: 'set without a quote', kind: 'set', includes: ['Lesson outline:\n# Глава 1. Считаем варианты\n## 1. Зачем считать до кода\n', '\n# Глава 2. Перебор: подмножества, перестановки, сочетания\n## 1. Когда нужны сами варианты\n', 'Lesson text (sections 1-35 of 35).\n', 'Chapters:\n1. Считаем варианты: Прежде чем писать перебор, посчитайте варианты. Правило произведения, правило суммы, факториал, выбор по порядку и без порядка, подмножества.\nMatching (Codeforces 1821A, easy). Codeforces, рейтинг 800. Каждый знак ? даёт 10 вариантов', '\n2. Перебор: подмножества, перестановки, сочетания: Один шаблон на Python выписывает все варианты: выбрать, пойти глубже, отменить. Индекс start даёт наборы без порядка, список used даёт перестановки.\nLetter Case Permutation (LeetCode 784, medium).'], excludes: ['The rest is cut'] },
@@ -173,12 +176,13 @@ it.each([
 	]);
 	for (const [state, code, savedAt] of work ?? []) await env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at,saved_at) VALUES (?,?,?,?,'','not_submitted','needs_practice','now','now',?)")
 		.bind(crypto.randomUUID(), PROBLEM, state, JSON.stringify({ notes: 'My notes', approaches: [{ ...approach, code }] }), savedAt).run();
-	const spy = upstream({ [RESPONSES]: [answer], [GRAPHQL]: kind === 'problem' && !slug ? [() => typeof statement === 'number' ? new Response('Busy', { status: statement }) : Response.json({ data: { question: { content: statement } } })] : [] });
+	const leetcode = kind === 'problem' && !slug?.startsWith('cf-');
+	const spy = upstream({ [RESPONSES]: [answer], [GRAPHQL]: leetcode ? [() => typeof statement === 'number' ? new Response('Busy', { status: statement }) : Response.json({ data: { question: { content: statement } } })] : [] });
 	const response = await request('/tutor/messages', 'POST', send({ kind, id: kind === 'set' ? SET : PROBLEM, quote: quote ?? null }), student);
 	expect(response.status).toBe(200);
 	expect(await events(response)).toEqual([{ delta: 'Hi' }, { done: true }]);
-	if (kind === 'problem' && !slug) expect(JSON.parse(String(spy.mock.calls[0][1]?.body))).toMatchObject({ variables: { titleSlug: 'two-sum' }, query: expect.stringContaining('content') });
-	if (slug) expect(spy.mock.calls.filter(([target]) => String(target) === GRAPHQL)).toEqual([]);
+	if (leetcode) expect(JSON.parse(String(spy.mock.calls[0][1]?.body))).toMatchObject({ variables: { titleSlug: slug ?? 'two-sum' }, query: expect.stringContaining('content') });
+	else expect(spy.mock.calls.filter(([target]) => String(target) === GRAPHQL)).toEqual([]);
 	const context = sent(spy)[0].input.at(-2)!.content;
 	for (const pattern of includes) expect(context).toMatch(pattern);
 	for (const text of excludes) expect(context).not.toContain(text);
