@@ -33,6 +33,7 @@ function CardList({ slug }: { slug: string }) {
 	</div>;
 }
 
+// The deck slug is the set slug plus the chapter number; the tutor gets the set context.
 function Round({ slug, user }: { slug: string; user: SessionUser }) {
 	const today = localDate();
 	const round = useResource<QuizRound>(`/quiz/${slug}?today=${today}`);
@@ -46,7 +47,7 @@ function Round({ slug, user }: { slug: string; user: SessionUser }) {
 	function next() { setIndex(index + 1); setResult(null); setRevealed(false); setTyped(''); }
 	if (!round.data) return <p role="status">{round.error || 'Открываем колоду...'}</p>;
 	const quote = card ? `${card.prompt}${result ? `\nПравильный ответ: ${result.answer}` : ''}` : undefined;
-	return <div className="stack"><div className="heading"><div><p className="small">{card ? `Карточка ${index + 1} из ${cards.length}` : 'Раунд завершён'}</p><h1>{round.data.title}</h1></div><div className="row"><Tutor context={{ kind: 'set', id: slug }} title={round.data.title} user={user} quote={quote} /><a className="button" href="/leetcode/quiz">Закончить</a></div></div>
+	return <div className="stack"><div className="heading"><div><p className="small">{card ? `Карточка ${index + 1} из ${cards.length}` : 'Раунд завершён'}</p><h1>{round.data.title}</h1></div><div className="row"><Tutor context={{ kind: 'set', id: slug.replace(/-[0-9]+$/, '') }} title={round.data.title} user={user} quote={quote} /><a className="button" href="/leetcode/quiz">Закончить</a></div></div>
 		<progress aria-label="Прогресс раунда" value={index} max={cards.length} />
 		{card ? <section className="card card-pad stack quiz-card"><p className="prose">{card.prompt}</p>
 			{card.type === 'code' && <Code language={card.language} text={card.code} blank />}

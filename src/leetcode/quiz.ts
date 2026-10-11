@@ -8,7 +8,7 @@ import { sets } from './sets';
 const LADDER = [3, 7, 14, 30], ROUND_SIZE = 10;
 export function nextInterval(previous: number, correct: boolean): number { return correct ? LADDER.find(days => days > previous) ?? 30 : 1; }
 const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
-const decks = sets.filter(set => set.cards.length > 0);
+const decks = sets.flatMap(set => set.chapters.map((chapter, index) => ({ slug: `${set.slug}-${index + 1}`, title: `${set.title}, глава ${index + 1}`, cards: chapter.cards })));
 export const cardIds = JSON.stringify(decks.flatMap(deck => deck.cards.map(card => card.id)));
 // The newest row per card. The bare next_date comes from the row with max(answered_on): https://www.sqlite.org/lang_select.html#bareagg
 const STATE = 'SELECT card_id AS cardId,next_date AS nextDate,max(answered_on) FROM card_answers WHERE card_id IN (SELECT value FROM json_each(?)) GROUP BY card_id';

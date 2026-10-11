@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
 import type { Acceptance, BadgeId, Difficulty, Role, TaskState, Understanding } from '../shared/leetcode';
-import { sets, taskSlug } from '../src/leetcode/sets';
+import { sets, taskSlug, tasksOf } from '../src/leetcode/sets';
 
 interface Spec { difficulty: Difficulty; slug?: string; archived?: boolean; attempts?: { state?: 'saved' | 'draft'; acceptance: Acceptance; understanding?: Understanding; savedAt?: string }[]; reviews?: { result: Understanding; on: string }[]; task?: TaskState }
 const insertProblem = env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,archived_at,created_at,updated_at) VALUES (?,?,'Problem',?,'[]','','',?,'now','now')");
@@ -12,7 +12,7 @@ const insertBundle = env.DB.prepare("INSERT INTO homework (id,title,instructions
 const insertTask = env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) VALUES (?,?,?,?,'now','now')");
 const insertCard = env.DB.prepare("INSERT INTO card_answers VALUES (?,'pc-factorial',?,3,?,?,'now')");
 const accepted = (difficulty: Difficulty, understanding: Understanding = 'with_help'): Spec => ({ difficulty, attempts: [{ acceptance: 'accepted', understanding }] });
-const setTasks = sets.find(set => set.slug === 'permutations-and-combinations')!.tasks;
+const setTasks = tasksOf(sets.find(set => set.slug === 'permutations-and-combinations')!);
 const order: BadgeId[] = ['first-accept', 'three-day-streak', 'first-hard', 'ten-accepted', 'independent-five', 'set-cleared'];
 
 let student: string;
