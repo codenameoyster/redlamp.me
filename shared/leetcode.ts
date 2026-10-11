@@ -73,7 +73,7 @@ export type Card = { id: string; prompt: string; explain: string } & (
 	{ type: 'flip'; back: string }
 	| { type: 'choice'; options: string[]; answer: number }
 	| { type: 'short'; answer: string }
-	| { type: 'code'; code: string; options: string[]; answer: number });
+	| { type: 'code'; language: string; code: string; options: string[]; answer: number });
 type Strip<T> = T extends unknown ? Omit<T, 'answer' | 'explain'> : never;
 export type QuizCard = Strip<Card>;
 export interface QuizDeck { slug: string; title: string; cardCount: number; dueCount: number; newCount: number }

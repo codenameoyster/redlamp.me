@@ -7,5 +7,5 @@ export default defineConfig({
 		wrangler: { configPath: './wrangler.toml' },
 		miniflare: { bindings: { LEETCODE_ACCOUNTS: testAccountSecret, TUTOR_TOKEN_KEY: btoa('t'.repeat(32)), TEST_MIGRATIONS: await readD1Migrations('./migrations') } },
 	})],
-	test: { include: ['test/**/*.test.ts'], setupFiles: ['./test/setup.ts'] },
+	test: { include: ['test/**/*.test.ts', 'web/**/*.test.ts'], setupFiles: ['./test/setup.ts'] },
 });

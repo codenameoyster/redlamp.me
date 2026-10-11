@@ -107,6 +107,14 @@ legend { margin-bottom:6px; font-size:14px; font-weight:600; color:var(--muted);
 .code,pre { background:var(--code); color:var(--code-text); font:14px/1.7 var(--mono); tab-size:4; overflow:auto; max-width:100%; border-radius:10px; }
 .code { min-height:350px; white-space:pre; padding:14px 16px; border-color:var(--code); }
 pre { margin:0; padding:20px; }
+.code-field { position:relative; }
+.code-field pre,.code-field .code { min-height:350px; padding:14px 16px; border:1px solid var(--code); white-space:pre-wrap; overflow-wrap:anywhere; overflow:hidden; }
+.code-field .code { position:absolute; inset:0; height:100%; min-height:0; resize:none; background:transparent; color:transparent; caret-color:var(--code-text); }
+.hljs-keyword,.hljs-selector-tag,.hljs-meta { color:#ff5fa2; }
+.hljs-string,.hljs-regexp { color:#4cf0a6; }
+.hljs-number,.hljs-literal { color:#ffc94d; }
+.hljs-comment { color:#8c91bb; font-style:italic; }
+.hljs-title,.hljs-built_in,.hljs-type,.hljs-attr,.hljs-variable { color:#3ce4ff; }
 .prose { white-space:pre-wrap; overflow-wrap:anywhere; color:var(--ink); }
 .quiz-card > .prose:first-child { font-size:20px; }
 .quiz-card .stack > button { text-align:left; }

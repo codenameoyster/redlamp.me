@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { BOX, CHAR, NOTE, PAD, diagramLabel, layoutTree, parseAnswer, type Diagram, type Inline } from './markdown';
+import { Code } from './Code';
 
 const inlines = (items: Inline[]): ReactNode[] => items.map((item, i) => {
 	if (typeof item === 'string') return item;
@@ -40,5 +41,5 @@ export function Answer({ text, streaming, highlight }: { text: string; streaming
 		: block.kind === 'diagram' ? <Figure key={i} d={block.diagram} />
 		: block.kind === 'quote' ? <blockquote key={i}><p>{block.text}</p>{highlight && <button type="button" onClick={() => highlight(block.text)}>Show in the lesson</button>}</blockquote>
 		: block.lang === 'diagram' && block.open && streaming ? <p key={i}>Drawing a diagram...</p>
-		: <pre key={i}><code>{block.text}</code></pre>)}</div>;
+		: <Code key={i} language={block.lang} text={block.text} />)}</div>;
 }
