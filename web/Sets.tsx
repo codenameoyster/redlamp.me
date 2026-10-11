@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type SubmitEvent } from 'react';
-import type { Homework, HomeworkSummary, LearningSetDetails, LearningSetSummary, Page, Problem, QuizDeck, SessionUser, SetTaskRow } from '../shared/leetcode';
+import type { Homework, HomeworkSummary, LearningSetDetails, LearningSetSummary, Page, Problem, QuizDeck, SessionUser, SetTask, SetTaskRow } from '../shared/leetcode';
 import { localDate } from '../shared/dates';
 import { api, message } from './api';
 import { useResource } from './useResource';
@@ -10,6 +10,7 @@ import { Tutor } from './Tutor';
 
 const taskCount = (count: number) => plural(count, ['задание', 'задания', 'заданий']);
 const cardCounts = (deck: QuizDeck | undefined) => deck ? `${deck.dueCount} к повторению, ${deck.newCount} новых` : '';
+export const addProblem = (task: SetTask) => api<Problem>('/problems', { method: 'POST', body: JSON.stringify({ url: task.url, number: task.number ?? null, title: task.title, difficulty: task.difficulty, topics: task.topics, summary: task.note }) });
 
 export function Sets({ user, slug, chapter }: { user: SessionUser; slug?: string; chapter?: number }) {
 	if (!slug) return <SetList />;
@@ -66,7 +67,7 @@ function AddToHomework({ task, title, close, added }: { task: SetTaskRow; title:
 	async function assign(homeworkId: () => Promise<string>) {
 		setBusy(true); setError('');
 		try {
-			const problem = await api<Problem>('/problems', { method: 'POST', body: JSON.stringify({ url: task.url, number: task.number ?? null, title: task.title, difficulty: task.difficulty, topics: task.topics, summary: task.note }) });
+			const problem = await addProblem(task);
 			if (problem.archivedAt) throw new Error('Верните задачу из архива, прежде чем назначать её.');
 			await api('/tasks', { method: 'POST', body: JSON.stringify({ homeworkId: await homeworkId(), problemId: problem.id }) });
 			added();
