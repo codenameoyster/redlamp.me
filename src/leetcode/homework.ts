@@ -40,7 +40,8 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		const id = bundle[1] ? uuid(bundle[1]) : null;
 		if (bundle[2]) {
 			methods(request, ['POST']); requireRole(user, 'student');
-			const data = object(await readJson(request), ['version', 'today']), today = calendarDate(text(data.today, 10, true))!, version = integer(data.version), homework = await getHomework(env, id!);
+			// The UTC date, as in the late rule of /game.
+			const today = now.slice(0, 10), version = integer(object(await readJson(request), ['version']).version), homework = await getHomework(env, id!);
 			if (homework.postponedTo) throw new HttpError(409, 'postponed', 'Сила Бомжа уже использована для этой домашней работы.');
 			if (!homework.dueDate || today > homework.dueDate) throw new HttpError(400, 'invalid_input', 'Перенести можно только срок, который ещё не прошёл.');
 			changed((await env.DB.batch([

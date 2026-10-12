@@ -58,6 +58,7 @@ beforeEach(async () => {
 	student = await login(); problemId = crypto.randomUUID();
 	await insertProblem.bind(problemId, slug).run();
 	attemptId = (await (await request(`/problems/${problemId}/attempts`, 'POST', {}, student)).json() as { id: string }).id;
+	await env.DB.prepare("INSERT INTO judge_runs VALUES (?,1,'now')").bind(problemId).run();
 });
 afterEach(() => { vi.restoreAllMocks(); });
 
@@ -91,6 +92,18 @@ it.each([
 	expect(response.status).toBe(status);
 	expect(await response.json()).toMatchObject(body);
 	expect(await env.DB.prepare('SELECT state,acceptance FROM attempts').first()).toEqual({ state: 'draft', acceptance: 'not_submitted' });
+});
+
+it.each([
+	{ name: 'seed of a started check', start: true, replay: false, status: 200, code: null },
+	{ name: 'seed that the server did not give', start: false, replay: false, status: 409, code: 'stale_seed' },
+	{ name: 'seed used for a second verdict', start: true, replay: true, status: 409, code: 'stale_seed' },
+])('$name', async ({ start, replay, status, code }) => {
+	const seed = start ? (await (await request(`/problems/${problemId}/judge/start`, 'POST', undefined, student)).json() as { seed: number }).seed : 2, outputs = generate(mulberry32(seed)).map(() => ({ value: '[9, 9]' }));
+	if (replay) await request(`/problems/${problemId}/judge`, 'POST', { seed, attemptId, outputs }, student);
+	const response = await request(`/problems/${problemId}/judge`, 'POST', { seed, attemptId, outputs }, student);
+	expect(response.status).toBe(status);
+	expect(await response.json()).toMatchObject(code ? { error: { code } } : { verdict: 'wrong', failed: { index: 0 } });
 });
 
 const insertMessage = env.DB.prepare("INSERT INTO tutor_messages (id,context_kind,context_ref,author,body,created_at) VALUES (?,?,?,?,'Hint','now')");

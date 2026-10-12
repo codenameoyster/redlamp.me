@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
+import { addCalendarDays } from '../shared/dates';
 import type { Dashboard, HomeworkBoard, HomeworkDetails, HomeworkSummary, HomeworkTask, Page, TaskDetails } from '../shared/leetcode';
 
 let student: string, parent: string, problemId: string, attemptId: string, homeworkId: string, taskId: string, submissionId: string;
@@ -44,17 +45,19 @@ it.each([
 	expect(await env.DB.prepare('SELECT title,instructions,due_date,version FROM homework').first()).toEqual(row);
 });
 
+// The server takes today from its own UTC clock.
+const today = new Date().toISOString().slice(0, 10), tomorrow = addCalendarDays(today, 1);
 it.each([
-	{ name: 'student moves the due date by one day', role: 'student', due: '2026-10-10', today: '2026-10-10', used: false, version: 1, expected: 200, code: null, dueAfter: '2026-10-11', postponedTo: '2026-10-11' },
-	{ name: 'second use of Сила Бомжа', role: 'student', due: '2026-10-10', today: '2026-10-10', used: true, version: 1, expected: 409, code: 'postponed', dueAfter: '2026-10-10', postponedTo: '2026-10-10' },
-	{ name: 'parent cannot postpone', role: 'parent', due: '2026-10-10', today: '2026-10-10', used: false, version: 1, expected: 403, code: 'forbidden', dueAfter: '2026-10-10', postponedTo: null },
-	{ name: 'postpone after the due date', role: 'student', due: '2026-10-10', today: '2026-10-11', used: false, version: 1, expected: 400, code: 'invalid_input', dueAfter: '2026-10-10', postponedTo: null },
-	{ name: 'postpone without a due date', role: 'student', due: null, today: '2026-10-10', used: false, version: 1, expected: 400, code: 'invalid_input', dueAfter: null, postponedTo: null },
-	{ name: 'stale postpone', role: 'student', due: '2026-10-10', today: '2026-10-10', used: false, version: 2, expected: 409, code: 'conflict', dueAfter: '2026-10-10', postponedTo: null },
-])('$name', async ({ role, due, today, used, version, expected, code, dueAfter, postponedTo }) => {
+	{ name: 'student moves the due date by one day', role: 'student', due: today, used: false, version: 1, expected: 200, code: null, dueAfter: tomorrow, postponedTo: tomorrow },
+	{ name: 'second use of Сила Бомжа', role: 'student', due: today, used: true, version: 1, expected: 409, code: 'postponed', dueAfter: today, postponedTo: '2026-10-10' },
+	{ name: 'parent cannot postpone', role: 'parent', due: today, used: false, version: 1, expected: 403, code: 'forbidden', dueAfter: today, postponedTo: null },
+	{ name: 'postpone after the due date', role: 'student', due: addCalendarDays(today, -1), used: false, version: 1, expected: 400, code: 'invalid_input', dueAfter: addCalendarDays(today, -1), postponedTo: null },
+	{ name: 'postpone without a due date', role: 'student', due: null, used: false, version: 1, expected: 400, code: 'invalid_input', dueAfter: null, postponedTo: null },
+	{ name: 'stale postpone', role: 'student', due: today, used: false, version: 2, expected: 409, code: 'conflict', dueAfter: today, postponedTo: null },
+])('$name', async ({ role, due, used, version, expected, code, dueAfter, postponedTo }) => {
 	await env.DB.prepare('UPDATE homework SET due_date=?').bind(due).run();
 	if (used) await env.DB.prepare("INSERT INTO postponements VALUES (?,'2026-10-09','2026-10-10','now')").bind(homeworkId).run();
-	const response = await request(`/homework/${homeworkId}/postpone`, 'POST', { version, today }, role === 'parent' ? parent : student);
+	const response = await request(`/homework/${homeworkId}/postpone`, 'POST', { version }, role === 'parent' ? parent : student);
 	expect(response.status).toBe(expected);
 	expect(await response.json()).toMatchObject(code ? { error: { code } } : { dueDate: dueAfter, postponedTo, version: 2 });
 	expect(await (await request(`/homework/${homeworkId}`, 'GET', undefined, parent)).json()).toMatchObject({ homework: { dueDate: dueAfter, postponedTo }, tasks: [{ dueDate: dueAfter, postponedTo }] });

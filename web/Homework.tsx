@@ -55,7 +55,7 @@ function BundleDetail({ id, user }: { id: string; user: SessionUser }) {
 	}
 	async function postpone() {
 		setBusy(true); setError('');
-		try { await api(`/homework/${id}/postpone`, { method: 'POST', body: JSON.stringify({ version: h!.version, today: localDate() }) }); details.reload(); }
+		try { await api(`/homework/${id}/postpone`, { method: 'POST', body: JSON.stringify({ version: h!.version }) }); details.reload(); }
 		catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
 	if (!h) return <p role="status">{details.error || 'Открываем домашнюю работу...'}</p>;

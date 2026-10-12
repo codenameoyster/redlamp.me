@@ -59,11 +59,17 @@ export async function handleJudge(request: Request, env: Env, user: SessionUser)
 		if (![document.notes, ...document.approaches.flatMap(a => [a.idea, a.correctness, a.mistakes, a.code])].some(value => value.trim())) throw new HttpError(400, 'empty_attempt', 'Добавьте объяснение, заметки или код перед отправкой.');
 	} else {
 		if (!generate) throw new HttpError(404, 'no_judge', 'У этой задачи нет скрытых тестов.');
-		if (match[2] === 'judge/start') { const seed = crypto.getRandomValues(new Uint32Array(1))[0]; return Response.json({ seed, inputs: generate(mulberry32(seed)) }); }
+		if (match[2] === 'judge/start') {
+			const seed = crypto.getRandomValues(new Uint32Array(1))[0];
+			await env.DB.prepare('INSERT OR IGNORE INTO judge_runs VALUES (?,?,?)').bind(problem.id, seed, new Date().toISOString()).run();
+			return Response.json({ seed, inputs: generate(mulberry32(seed)) });
+		}
 		// 16 outputs of 1,000,000 ASCII characters fit in 16 MiB.
-		const data = object(await readJson(request, 16_777_216), ['seed', 'attemptId', 'outputs']), inputs = generate(mulberry32(integer(data.seed, 0, 2 ** 32 - 1)));
+		const data = object(await readJson(request, 16_777_216), ['seed', 'attemptId', 'outputs']), seed = integer(data.seed, 0, 2 ** 32 - 1), inputs = generate(mulberry32(seed));
 		attemptId = uuid(data.attemptId);
 		if (!Array.isArray(data.outputs) || data.outputs.length !== inputs.length) throw new HttpError(400, 'invalid_input', 'Проверьте поля запроса.');
+		// A wrong verdict shows the answer of the failed test, so each seed gives one verdict.
+		if (!await env.DB.prepare('DELETE FROM judge_runs WHERE problem_id=? AND seed=? RETURNING seed').bind(problem.id, seed).first()) throw new HttpError(409, 'stale_seed', 'Эта проверка устарела. Нажмите «Отправить» ещё раз.');
 		result = judge(referenceOf(problem.slug)!, sets.flatMap(tasksOf).find(task => taskSlug(task) === problem.slug)!.tests!, inputs, data.outputs.map(outputOf));
 		if (result.verdict !== 'accepted') return Response.json(result);
 	}

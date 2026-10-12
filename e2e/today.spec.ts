@@ -66,7 +66,8 @@ test('student sees the level and the earned badge after an accepted attempt', as
 
 test('shows the late tasks in the level card', async ({ page, server, notebook }) => {
 	const { DB } = await server.getWorker<TestEnv>().getEnv();
-	await addTask(DB, notebook.problem.id, 'assigned', '2020-01-01');
+	const { taskId } = await addTask(DB, notebook.problem.id, 'assigned', '2020-01-01');
+	await DB.prepare("UPDATE homework_tasks SET created_at='2019-12-01T00:00:00.000Z' WHERE id=?").bind(taskId).run();
 	await page.goto('/leetcode');
 	await expect(page.getByText('Просрочено: 1 (−15 XP каждое)', { exact: true })).toBeVisible();
 });

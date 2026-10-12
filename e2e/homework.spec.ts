@@ -85,8 +85,9 @@ test('shows the tasks in three sections and spreads the accepted tasks over 30 d
 	await expect(page.getByRole('heading', { level: 3, name: notebook.problem.title }).getByRole('link')).toHaveAttribute('href', `/leetcode/problems/${notebook.problem.id}/review?pick=1`);
 });
 
+// The due date is tomorrow, so the server UTC date and the local date are not after it in any time zone.
 test('moves the due date by one day once with Сила Бомжа', async ({ page, notebook, server }) => {
-	const { DB } = await server.getWorker<TestEnv>().getEnv(), next = addCalendarDays(localDate(), 1), { homeworkId } = await addTask(DB, notebook.problem.id, 'assigned', localDate());
+	const { DB } = await server.getWorker<TestEnv>().getEnv(), due = addCalendarDays(localDate(), 1), next = addCalendarDays(due, 1), { homeworkId } = await addTask(DB, notebook.problem.id, 'assigned', due);
 	await page.goto(`/leetcode/homework/${homeworkId}`);
 	const power = page.getByRole('button', { name: 'Сила Бомжа', exact: true });
 	await power.click();
