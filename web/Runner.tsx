@@ -32,7 +32,7 @@ export function Runner({ problemId, code, tests, live, latest, record }: { probl
 	return <div className="stack">
 		{diagnostics.length > 0 && <ul className="messages" aria-label="Замечания к коду">{diagnostics.map((item, index) => <li key={index}>{item.message}</li>)}</ul>}
 		{/* The code runs with the session of the page, so only the student runs his code. */}
-		{record && (tests.spec && tests.standard.length + tests.own.length > 0 ? <button type="button" disabled={busy || !code.trim()} onClick={() => void run()}>Запустить тесты</button> : <p>Тестов для этой задачи пока нет.</p>)}
+		{record && (tests.spec && tests.standard.length + tests.own.length > 0 ? <button type="button" disabled={busy || !code.trim()} onClick={() => void run()} data-tip="Запустить ваш код на тестах в браузере.">Запустить тесты</button> : <p>Тестов для этой задачи пока нет.</p>)}
 		{latest && latest.total > 0 && latest.codeHash === hash && (latest.passed === latest.total ? <p><span className="tag good">Тесты пройдены</span></p> : !record && <p>Последний запуск: пройдено {latest.passed} из {latest.total}</p>)}
 		{error && <p className="error" role="alert">{error}</p>}
 		{results.length > 0 && <ol className="messages" aria-label="Результаты тестов">{results.map((result, index) => <li key={index} aria-label={`Тест ${index + 1}`} className={result.ok === null ? undefined : result.ok ? 'pass' : 'fail'}>
@@ -58,11 +58,11 @@ export function OwnTests({ problemId, tests, changed }: { problemId: string; tes
 		{tests.own.length > 0 ? <ol className="messages" aria-label="Мои тесты">{tests.own.map((test, index) => <li key={test.id}>
 			<strong>Тест {tests.standard.length + index + 1}</strong>
 			<span className="prose">Ввод: <code>{test.input}</code></span>
-			<button type="button" disabled={busy} aria-label={`Удалить тест ${tests.standard.length + index + 1}`} onClick={() => void send(`/${test.id}`, { method: 'DELETE' })}>Удалить</button>
+			<button type="button" disabled={busy} aria-label={`Удалить тест ${tests.standard.length + index + 1}`} onClick={() => void send(`/${test.id}`, { method: 'DELETE' })} data-tip="Удалить этот тест.">Удалить</button>
 		</li>)}</ol> : <p>Своих тестов пока нет.</p>}
 		<form className="stack" onSubmit={async event => { event.preventDefault(); if (await send('', { method: 'POST', body: JSON.stringify({ input }) })) setInput(''); }}>
 			<label>Ввод<textarea value={input} required maxLength={10_000} placeholder={call ? 'Аргументы списком, например [[2, 7, 11, 15], 9]' : 'Входные данные, как в условии'} onChange={event => setInput(event.target.value)} /></label>
-			<button disabled={busy}>Добавить тест</button>
+			<button disabled={busy} data-tip="Добавить ваш тест к этой задаче.">Добавить тест</button>
 		</form>
 	</section>;
 }

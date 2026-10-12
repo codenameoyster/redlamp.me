@@ -18,6 +18,6 @@ export function Login() {
 	return <main className="login"><div className="logo"><span className="logo-mark" aria-hidden="true">r.</span><strong>redlamp</strong></div><div><h1>Тетрадь LeetCode</h1><p>Войдите, чтобы продолжить обучение.</p></div><form className="stack" onSubmit={submit}>
 		<label>Имя пользователя<input name="username" autoComplete="username" required maxLength={40} /></label>
 		<label>Пароль<input name="password" type="password" autoComplete="current-password" required maxLength={256} /></label>
-		{error && <p className="error" role="alert">{error}</p>}<button className="primary" disabled={busy}>Войти</button>
+		{error && <p className="error" role="alert">{error}</p>}<button className="primary" disabled={busy} data-tip="Войти с этим именем пользователя и паролем.">Войти</button>
 	</form></main>;
 }

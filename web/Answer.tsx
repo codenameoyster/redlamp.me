@@ -39,7 +39,7 @@ export function Answer({ text, streaming, highlight }: { text: string; streaming
 		: block.kind === 'ul' ? <ul key={i}>{block.items.map((item, j) => <li key={j}>{inlines(item)}</li>)}</ul>
 		: block.kind === 'ol' ? <ol key={i} start={block.start}>{block.items.map((item, j) => <li key={j}>{inlines(item)}</li>)}</ol>
 		: block.kind === 'diagram' ? <Figure key={i} d={block.diagram} />
-		: block.kind === 'quote' ? <blockquote key={i}><p>{block.text}</p>{highlight && <button type="button" onClick={() => highlight(block.text)}>Показать в уроке</button>}</blockquote>
+		: block.kind === 'quote' ? <blockquote key={i}><p>{block.text}</p>{highlight && <button type="button" onClick={() => highlight(block.text)} data-tip="Найти и выделить эту цитату в уроке.">Показать в уроке</button>}</blockquote>
 		: block.lang === 'diagram' && block.open && streaming ? <p key={i}>Рисуем диаграмму...</p>
 		: <Code key={i} language={block.lang} text={block.text} />)}</div>;
 }
