@@ -91,9 +91,11 @@ test('moves the due date by one day once with Сила Бомжа', async ({ pag
 	await page.goto(`/leetcode/homework/${homeworkId}`);
 	const power = page.getByRole('button', { name: 'Сила Бомжа', exact: true });
 	await power.click();
+	await expect(page.locator('[data-poop]')).toHaveCount(1);
 	await expect(page.getByText(`Срок: ${next}`, { exact: true })).toBeVisible();
 	await expect(page.getByText(`Сила Бомжа: срок перенесён на ${next.slice(8)}.${next.slice(5, 7)}.`, { exact: true })).toBeVisible();
 	await expect(power).toHaveCount(0);
+	await expect(page.locator('[data-poop]')).toHaveCount(0);
 });
 
 test('cancels the task from the work window', async ({ page, notebook, server }) => {

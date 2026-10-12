@@ -194,7 +194,17 @@ progress::-moz-progress-bar { background:repeating-linear-gradient(90deg,var(--o
 @media (max-width:900px) { .panes { grid-template-columns:minmax(0,1fr); } .pane { max-height:none; } .divider { display:none; } }
 @media (max-width:850px) { .app { grid-template-columns:minmax(0,1fr); } .sidebar { position:static; height:auto; gap:4px; } nav { display:flex; overflow:auto; } nav a { flex-shrink:0; } .editor-grid { grid-template-columns:1fr; } }
 @media (max-width:620px) { #tutor { width:100%; } input,textarea,select { font-size:16px; } main { padding:8px; } .topbar { padding:4px 8px; } h1 { font-size:16px; } .stats { grid-template-columns:repeat(2,minmax(0,1fr)); } nav a { flex:1 1 0; flex-direction:column; gap:2px; padding:4px 2px; font-size:11px; text-align:center; } .search { flex:0 0 26px; justify-content:center; padding:0; } .search span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); } .user small { display:none; } .account { flex-shrink:1; } .xp-chip { display:none; } .lesson { padding:6px 8px; } .lesson th,.lesson td { padding:3px 4px; } }
-@media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; } .spin { animation:none; } }
+.poop { position:fixed; left:50%; top:50%; z-index:30; font-size:96px; line-height:1; pointer-events:none; animation:poop 1.5s forwards; }
+@keyframes poop {
+	0% { transform:translate(calc(var(--x) - 50%),calc(var(--y) - 50%)) scale(.3) rotate(0deg); animation-timing-function:ease-out; }
+	35% { transform:translate(calc(var(--x) / 2 - 50%),calc(var(--y) / 2 - 50% - 25vh)) scale(.7) rotate(-200deg); animation-timing-function:ease-in; }
+	65% { transform:translate(-50%,-50%) scale(1.25,.75) rotate(-360deg); }
+	75% { transform:translate(-50%,-50%) scale(.9,1.1) rotate(-360deg); }
+	85% { transform:translate(-50%,-50%) scale(1) rotate(-360deg); opacity:1; }
+	100% { transform:translate(-50%,-50%) scale(1) rotate(-360deg); opacity:0; }
+}
+@keyframes poop-fade { from { opacity:1; } to { opacity:0; } }
+@media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; } .spin { animation:none; } .poop { transform:translate(-50%,-50%); animation:poop-fade .8s forwards; } }
 .answer { display:grid; gap:6px; min-width:0; overflow-wrap:anywhere; }
 .answer p,.answer li { color:var(--ink); white-space:pre-line; }
 .answer ul,.answer ol { margin:0; padding-left:20px; }
