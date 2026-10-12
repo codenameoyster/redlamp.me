@@ -120,6 +120,7 @@ export function Workspace({ problemId, taskId, user, registerGuard }: { problemI
 	const reviews = useResource<Page<Feedback>>(task ? `/problems/${task.problemId}/feedback` : null, task?.version);
 	const chapter = useResource<{ chapters: ChapterRef[] }>(id ? `/problems/${id}/sets` : null).data?.chapters[0];
 	const lesson = useResource<{ html: string }>(chapter ? `/sets/${chapter.set}/lesson/${chapter.number}` : null);
+	const statement = useResource<{ html: string | null; text: string | null }>(id ? `/problems/${id}/statement` : null).data;
 	// A submitted or completed task shows the submitted attempt. Otherwise the student works in the draft and the parent reads the newest attempt.
 	const frozen = task && ['submitted', 'completed'].includes(task.state) ? details.data!.submissions.find(s => s.id === task.submissionId)?.attemptId : undefined;
 	const [work, setWork] = useState<string>(), latest = attempts.data?.items[0], attemptId = frozen ?? (student ? work : latest?.id);
@@ -164,7 +165,8 @@ export function Workspace({ problemId, taskId, user, registerGuard }: { problemI
 	return <div className="stack">
 		<div className="heading"><div>{task && <p className="small"><a href={`/leetcode/homework/${task.homeworkId}`}>{task.homeworkTitle}</a></p>}<h1>{record.title}</h1><div className="tags"><span className={`tag ${record.difficulty}`}>{difficultyLabels[record.difficulty]}</span>{task && <><span className="tag">{homeworkLabels[task.state]}</span><span className="small">{task.dueDate ? `Срок: ${task.dueDate}` : 'Без срока'}</span></>}{record.topics.map(topic => <span className="tag" key={topic}>{topic}</span>)}{record.archivedAt && <span className="tag">В архиве</span>}</div></div>
 			<div className="row"><a href={record.url} target="_blank" rel="noopener noreferrer">{record.slug.startsWith('cf-') ? 'Codeforces' : 'LeetCode'} ↗</a><Tutor context={{ kind: 'problem', id: record.id }} title={record.title} user={user} flush={() => guard.current?.flush()} lesson={chapterPane && current.data ? article : undefined} evaluate={student && Boolean(code.trim())} />{!task && <button onClick={() => setEditing(true)}>Изменить задачу</button>}{user.role === 'parent' && task && !['completed', 'cancelled'].includes(task.state) && <button disabled={busy} onClick={() => { if (confirm('Отменить это задание?')) void act('cancel'); }}>Отменить задание</button>}</div></div>
-		<p className="prose">{record.summary}</p>
+		{/* The statement HTML comes from the set files of the repository, not from a user. */}
+		{statement?.html ? <div className="lesson" dangerouslySetInnerHTML={{ __html: statement.html }} /> : statement && (statement.text ?? record.summary) && <p className="prose">{statement.text ?? record.summary}</p>}
 		{task?.instructions && <p className="prose">{task.instructions}</p>}
 		{review && <p className="notice">{review.kind === 'completed' ? 'Завершено' : 'Нужны правки'}{review.body && `: ${review.body}`}</p>}
 		{!task && <div className="row"><a href={`/leetcode/problems/${record.id}/review`}>Повторить задачу</a>{record.archivedAt ? <button onClick={restore}>Вернуть из архива</button> : <button onClick={archive}>В архив</button>}{tasks.data?.items.map(t => <a key={t.id} href={`/leetcode/tasks/${t.id}`}>{t.homeworkTitle}</a>)}</div>}

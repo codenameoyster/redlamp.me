@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { login, request } from './client';
 import type { ProblemTests } from '../shared/leetcode';
+import { sets, taskSlug, tasksOf } from '../src/leetcode/sets';
 
 let cookie: string;
 beforeEach(async () => { cookie = await login(); });
@@ -45,12 +46,35 @@ it.each([
 	expect(lookup.mock.calls.map(([target, init]) => { const { query, variables } = JSON.parse(String(init?.body)); return [String(target), variables.titleSlug, query.includes('codeSnippets { langSlug code }')]; })).toEqual(reply ? [['https://leetcode.com/graphql', slug, true]] : []);
 });
 
+const statement = (slug: string) => sets.flatMap(tasksOf).find(task => taskSlug(task) === slug)!.statement;
+const content = '<p>Find <code>nums[i] + nums[j] == target</code>.</p>\n<pre>\n<strong>Input:</strong> nums = [3,3], target = 6\n</pre>\n<ul><li><code>2 &lt;= nums.length</code></li></ul>';
 it.each([
-	{ name: 'unknown problem', method: 'GET', status: 404 },
-	{ name: 'own test of an unknown problem', method: 'POST', status: 404 },
-	{ name: 'change of the standard tests', method: 'PUT', status: 405 },
-])('$name', async ({ method, status }) => {
-	expect((await request(`/problems/${crypto.randomUUID()}/tests`, method, method === 'GET' ? undefined : {}, cookie)).status).toBe(status);
+	{ name: 'statement of a LeetCode task of a set', slug: 'two-sum-ii-input-array-is-sorted', reply: null, body: { html: statement('two-sum-ii-input-array-is-sorted'), text: null } },
+	{ name: 'statement of a Codeforces task of a set', slug: 'cf-1821-a', reply: null, body: { html: statement('cf-1821-a'), text: null } },
+	{ name: 'statement of a Codeforces problem outside the sets', slug: 'cf-1-a', reply: null, body: { html: null, text: null } },
+	{ name: 'statement of a LeetCode problem outside the sets', slug: 'two-sum', reply: () => Response.json({ data: { question: { content } } }), body: { html: null, text: 'Find nums[i] + nums[j] == target.\nInput: nums = [3,3], target = 6\n2 <= nums.length' } },
+	{ name: 'statement of a paid-only LeetCode problem', slug: 'meeting-rooms', reply: () => Response.json({ data: { question: { content: null } } }), body: { html: null, text: null } },
+	{ name: 'statement of an unknown LeetCode problem', slug: 'two-sum', reply: () => Response.json({ data: { question: null } }), body: { html: null, text: null } },
+	{ name: 'statement with a LeetCode error response', slug: 'two-sum', reply: () => new Response('Busy', { status: 503 }), body: { html: null, text: null } },
+	{ name: 'statement with unreachable LeetCode', slug: 'two-sum', reply: () => { throw new TypeError('Network connection lost.'); }, body: { html: null, text: null } },
+])('$name', async ({ slug, reply, body }) => {
+	const lookup = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => reply!());
+	const id = crypto.randomUUID();
+	await insertProblem.bind(id, slug).run();
+	const response = await request(`/problems/${id}/statement`, 'GET', undefined, cookie);
+	expect(response.status).toBe(200);
+	expect(await response.json()).toEqual(body);
+	expect(lookup.mock.calls.map(([target, init]) => [String(target), JSON.parse(String(init?.body)).variables.titleSlug])).toEqual(reply ? [['https://leetcode.com/graphql', slug]] : []);
+});
+
+it.each([
+	{ name: 'unknown problem', path: 'tests', method: 'GET', status: 404 },
+	{ name: 'own test of an unknown problem', path: 'tests', method: 'POST', status: 404 },
+	{ name: 'change of the standard tests', path: 'tests', method: 'PUT', status: 405 },
+	{ name: 'statement of an unknown problem', path: 'statement', method: 'GET', status: 404 },
+	{ name: 'change of the statement', path: 'statement', method: 'PUT', status: 405 },
+])('$name', async ({ path, method, status }) => {
+	expect((await request(`/problems/${crypto.randomUUID()}/${path}`, method, method === 'GET' ? undefined : {}, cookie)).status).toBe(status);
 });
 
 const ownTest = { input: '[[3, 3], 6]', expected: '[0, 1]' };

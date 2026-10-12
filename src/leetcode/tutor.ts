@@ -31,7 +31,7 @@ function thread(kind: unknown, id: unknown): [TutorKind, string] {
 	return [value, value === 'set' ? text(id, 100) : uuid(id)];
 }
 
-// Plain text for the model only, so imperfect parsing is harmless. Code indentation stays.
+// Plain text for the model and for the LeetCode statement in the work window. Code indentation stays.
 export function htmlText(html: string): string {
 	return html.replace(/<(script|style|template|svg)\b[\s\S]*?<\/\1\s*>/gi, '').replace(/<sup\b[^>]*>/gi, '^').replace(/<h([1-4])\b[^>]*>/gi, (_, level: string) => `\n${'#'.repeat(Number(level))} `)
 		.replace(/<\/?(?:address|article|aside|blockquote|br|dd|details|div|dl|dt|figcaption|figure|footer|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|summary|table|td|th|tr|ul)\b[^>]*>/gi, '\n')

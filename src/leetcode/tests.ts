@@ -5,6 +5,7 @@ import { latestRuns } from './attempts';
 import { calendarDate, HttpError, integer, methods, object, readJson, text, uuid } from './http';
 import { getProblem, question } from './problems';
 import { sets, taskSlug, tasksOf } from './sets';
+import { htmlText } from './tutor';
 
 const words: Record<string, string> = { true: 'True', false: 'False', null: 'None', '&quot;': '"', '&#39;': "'", '&lt;': '<', '&gt;': '>', '&amp;': '&', '&nbsp;': ' ' };
 // JSON values of LeetCode become Python literals: the strings stay, true, false and null change.
@@ -50,6 +51,15 @@ export async function handleTests(request: Request, env: Env): Promise<Response 
 	const own = (await env.DB.prepare('SELECT id,input,expected,created_at AS createdAt FROM problem_tests WHERE problem_id=? ORDER BY created_at,id').bind(problem.id).all<OwnTest>()).results;
 	const skeleton = codeforces ? stdin : found?.skeleton ?? ('method' in spec ? 'class Solution:\n    pass' : '');
 	return Response.json({ spec: 'mode' in spec ? spec : null, source: task ? 'set' : leetcode ? 'leetcode' : 'none', standard: cases, own, skeleton } satisfies ProblemTests);
+}
+
+export async function handleStatement(request: Request, env: Env): Promise<Response | null> {
+	const match = /^\/leetcode\/api\/problems\/([^/]+)\/statement$/.exec(new URL(request.url).pathname);
+	if (!match) return null;
+	methods(request, ['GET']);
+	const problem = await getProblem(env, uuid(match[1])), html = sets.flatMap(tasksOf).find(task => taskSlug(task) === problem.slug)?.statement ?? null;
+	const content = html !== null || problem.slug.startsWith('cf-') ? null : await question<{ content: string | null }>(problem.slug, 'content').then(value => value?.content, () => null);
+	return Response.json({ html, text: content ? htmlText(content) : null });
 }
 
 export async function handleRuns(request: Request, env: Env, user: SessionUser): Promise<Response | null> {

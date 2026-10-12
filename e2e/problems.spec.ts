@@ -13,7 +13,7 @@ test('adds metadata and finds the problem by its summary', async ({ page }) => {
 	await page.getByRole('button', { name: 'Изменить задачу', exact: true }).click();
 	await page.getByLabel('Описание', { exact: true }).fill('Explain the invariant.');
 	await page.getByRole('button', { name: 'Сохранить задачу', exact: true }).click();
-	await expect(page.getByText('Explain the invariant.', { exact: true })).toBeVisible();
+	await expect(page.getByRole('dialog')).toBeHidden();
 	await page.getByRole('link', { name: 'Задачи', exact: true }).click();
 	await page.getByLabel('Поиск по задачам и заметкам', { exact: true }).fill('invariant');
 	await page.getByRole('button', { name: 'Применить фильтры' }).click();

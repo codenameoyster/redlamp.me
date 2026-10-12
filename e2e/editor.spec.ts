@@ -103,9 +103,9 @@ test('keeps unsaved work while problem metadata refreshes', async ({ page, noteb
 	await page.getByLabel('Основная идея', { exact: true }).fill('Keep the current reasoning');
 	await page.getByRole('button', { name: 'Повторить сохранение' }).click();
 	await page.getByRole('button', { name: 'Изменить задачу', exact: true }).click();
-	await page.getByLabel('Описание', { exact: true }).fill('Updated metadata');
+	await page.getByLabel('Название', { exact: true }).fill('Updated metadata');
 	await page.getByRole('button', { name: 'Сохранить задачу', exact: true }).click();
-	await expect(page.getByText('Updated metadata', { exact: true })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Updated metadata', level: 1 })).toBeVisible();
 	await expect(page.getByLabel('Основная идея', { exact: true })).toHaveValue('Keep the current reasoning');
 });
 

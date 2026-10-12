@@ -145,6 +145,23 @@ for (const row of panes) {
 	});
 }
 
+const statements = [
+	{ name: 'shows the statement of a set task', url: 'https://leetcode.com/problems/subsets/', text: null, shown: 'Пример 1', hidden: 'Saved hint.' },
+	{ name: 'shows the LeetCode text of a problem outside the sets', url: 'https://leetcode.com/problems/two-sum/', text: 'Return the indices of the two numbers.', shown: 'Return the indices of the two numbers.', hidden: 'Saved hint.' },
+	{ name: 'shows the summary of a Codeforces problem outside the sets', url: 'https://codeforces.com/problemset/problem/1/A', text: null, shown: 'Saved hint.', hidden: 'Пример 1' },
+];
+for (const row of statements) {
+	test(row.name, async ({ page, baseURL }) => {
+		await signIn(page);
+		const problem = await (await page.request.post('/leetcode/api/problems', { headers: { Origin: new URL(baseURL!).origin }, data: { url: row.url, number: null, title: 'Task', difficulty: 'medium', topics: [], summary: 'Saved hint.' } })).json() as Problem;
+		await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: null, source: 'none', standard: [], own: [] } }));
+		if (row.text) await page.route('**/leetcode/api/problems/*/statement', route => route.fulfill({ json: { html: null, text: row.text } }));
+		await page.goto(`/leetcode/problems/${problem.id}`);
+		await expect(page.getByText(row.shown, { exact: true })).toBeVisible();
+		await expect(page.getByText(row.hidden, { exact: true })).toHaveCount(0);
+	});
+}
+
 test('moves the pane divider with the keyboard and the pointer and keeps the place', async ({ page, notebook }) => {
 	const divider = page.getByRole('separator', { name: 'Граница панелей' });
 	await expect(divider).toHaveAttribute('aria-orientation', 'vertical');
