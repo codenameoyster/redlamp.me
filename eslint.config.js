@@ -18,4 +18,9 @@ export default [
 			...tseslint.configs.recommended.rules,
 		},
 	},
+	{
+		// The set references in src/ must not get into the browser bundle, where the student can read them.
+		files: ['{web,shared}/**/*.{ts,tsx}'],
+		rules: { 'no-restricted-imports': ['error', { patterns: [{ group: ['**/src/**'], message: 'The browser code must not import the server code.' }] }] },
+	},
 ];

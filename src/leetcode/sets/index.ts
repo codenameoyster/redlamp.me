@@ -9,16 +9,24 @@ import permutationsAndCombinations1 from './permutations-and-combinations/chapte
 import permutationsAndCombinations2 from './permutations-and-combinations/chapter2.html';
 import permutationsAndCombinations3 from './permutations-and-combinations/chapter3.html';
 import permutationsAndCombinations4 from './permutations-and-combinations/chapter4.html';
+import permutationsAndCombinationsSolutions from './permutations-and-combinations/solutions';
 import twoPointers from './two-pointers/set';
 import twoPointers1 from './two-pointers/chapter1.html';
 import twoPointers2 from './two-pointers/chapter2.html';
 import twoPointers3 from './two-pointers/chapter3.html';
 import twoPointers4 from './two-pointers/chapter4.html';
+import twoPointersSolutions from './two-pointers/solutions';
 
 export const sets: (LearningSet & { lessons: string[] })[] = [
 	{ ...permutationsAndCombinations, lessons: [permutationsAndCombinations1, permutationsAndCombinations2, permutationsAndCombinations3, permutationsAndCombinations4] },
 	{ ...twoPointers, lessons: [twoPointers1, twoPointers2, twoPointers3, twoPointers4] },
 ];
+
+// A reference solution of a set task. A call input gives solve.length arguments. solve returns the value that the harness compares and throws RangeError('constraints') for an input outside the statement constraints.
+// The references stay on the server, so the student cannot read them.
+export type Reference = { mode: 'call'; solve: (...args: unknown[]) => unknown } | { mode: 'stdio'; solve: (stdin: string) => string };
+const references = new Map<string, Reference>(Object.entries({ ...permutationsAndCombinationsSolutions, ...twoPointersSolutions }));
+export const referenceOf = (slug: string): Reference | undefined => references.get(slug);
 
 export const tasksOf = (set: LearningSet): SetTask[] => set.chapters.flatMap(chapter => chapter.tasks);
 export const taskSlug = (task: SetTask): string => problemSlug(task.url);
