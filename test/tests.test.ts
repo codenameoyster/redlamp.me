@@ -1,23 +1,42 @@
 import { env } from 'cloudflare:workers';
-import { beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { login, request } from './client';
 import type { ProblemTests } from '../shared/leetcode';
 
 let cookie: string;
 beforeEach(async () => { cookie = await login(); });
+afterEach(() => { vi.restoreAllMocks(); });
 const insertProblem = env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,?,'Problem','medium','[]','','','now','now')");
 
+// The fixtures copy the shapes of the LeetCode GraphQL answers: <pre> examples (two-sum), <span class="example-io"> examples (valid-parentheses), content of null (a paid-only problem).
+const leetcode = (metaData: object, exampleTestcaseList: string[], content: string | null) => () => Response.json({ data: { question: { metaData: JSON.stringify(metaData), exampleTestcaseList, content } } });
+const pre = (output: string) => `<pre>\n<strong>Input:</strong> value\n<strong>Output:</strong> ${output}\n<strong>Explanation:</strong> Output: text.\n</pre>`;
+const span = (output: string) => `<p><strong>Input:</strong> <span class="example-io">value</span></p>\n<p><strong>Output: </strong><span class="example-io" style="font-family: Menlo,sans-serif;">${output}</span></p>`;
+const twoSum = { name: 'twoSum', params: [{ name: 'nums', type: 'integer[]' }, { name: 'target', type: 'integer' }], return: { type: 'integer[]', size: 2 }, manual: false };
+const noRunner = { spec: null, source: 'none', standard: [], own: [] };
 it.each([
-	{ name: 'LeetCode task of a set', slug: 'two-sum-ii-input-array-is-sorted', body: { spec: { mode: 'call', method: 'twoSum' }, source: 'set', standard: expect.arrayContaining([{ input: '[[2,7,11,15],9]', expected: '[1,2]' }]), own: [] } },
-	{ name: 'Codeforces task of a set', slug: 'cf-1821-a', body: { spec: { mode: 'stdio' }, source: 'set', standard: expect.arrayContaining([{ input: '8\n??\n?\n0\n9\n03\n1??7\n?5?\n9??99\n', expected: '90\n9\n0\n1\n0\n100\n90\n100\n' }]), own: [] } },
-	{ name: 'Codeforces problem outside the sets', slug: 'cf-1-a', body: { spec: { mode: 'stdio' }, source: 'none', standard: [], own: [] } },
-	{ name: 'LeetCode problem outside the sets', slug: 'two-sum', body: { spec: null, source: 'none', standard: [], own: [] } },
-])('$name', async ({ slug, body }) => {
+	{ name: 'LeetCode task of a set', slug: 'two-sum-ii-input-array-is-sorted', reply: null, body: { spec: { mode: 'call', method: 'twoSum' }, source: 'set', standard: expect.arrayContaining([{ input: '[[2,7,11,15],9]', expected: '[1,2]' }]), own: [] } },
+	{ name: 'Codeforces task of a set', slug: 'cf-1821-a', reply: null, body: { spec: { mode: 'stdio' }, source: 'set', standard: expect.arrayContaining([{ input: '8\n??\n?\n0\n9\n03\n1??7\n?5?\n9??99\n', expected: '90\n9\n0\n1\n0\n100\n90\n100\n' }]), own: [] } },
+	{ name: 'Codeforces problem outside the sets', slug: 'cf-1-a', reply: null, body: { spec: { mode: 'stdio' }, source: 'none', standard: [], own: [] } },
+	{ name: 'LeetCode examples with two outputs', slug: 'two-sum', reply: leetcode(twoSum, ['[2,7,11,15]\n9', '[3,3]\n6'], `${pre('[0,1]')}\n${pre('[0,1]')}`), body: { spec: { mode: 'call', method: 'twoSum' }, source: 'leetcode', standard: [{ input: '[[2,7,11,15],9]', expected: '[0,1]' }, { input: '[[3,3],6]', expected: '[0,1]' }], own: [] } },
+	{ name: 'LeetCode in-place examples', slug: 'rotate-array', reply: leetcode({ name: 'rotate', params: [{ name: 'nums', type: 'integer[]' }, { name: 'k', type: 'integer' }], return: { type: 'void' }, output: { paramindex: 0 } }, ['[1,2,3,4,5,6,7]\n3', '[-1,-100,3,99]\n2'], `${pre('[5,6,7,1,2,3,4]')}\n${pre('[3,99,-1,-100]')}`), body: { spec: { mode: 'call', method: 'rotate', check: 'arg0' }, source: 'leetcode', standard: [{ input: '[[1,2,3,4,5,6,7],3]', expected: '[5,6,7,1,2,3,4]' }, { input: '[[-1,-100,3,99],2]', expected: '[3,99,-1,-100]' }], own: [] } },
+	{ name: 'LeetCode boolean examples', slug: 'kids-with-the-greatest-number-of-candies', reply: leetcode({ name: 'kidsWithCandies', params: [{ name: 'candies', type: 'integer[]' }, { name: 'extraCandies', type: 'integer' }], return: { type: 'list<boolean>' } }, ['[2,3,5,1,3]\n3', '[12,1,12]\n10'], `${span('[true,true,true,false,true]')}\n${span('[true,false,true]')}`), body: { spec: { mode: 'call', method: 'kidsWithCandies' }, source: 'leetcode', standard: [{ input: '[[2,3,5,1,3],3]', expected: '[True,True,True,False,True]' }, { input: '[[12,1,12],10]', expected: '[True,False,True]' }], own: [] } },
+	{ name: 'LeetCode string examples', slug: 'longest-palindromic-substring', reply: leetcode({ name: 'longestPalindrome', params: [{ name: 's', type: 'string' }], return: { type: 'string' } }, ['"babad"', '"true"'], `${pre('&quot;bab&quot;')}\n${pre('&quot;t&quot;')}`), body: { spec: { mode: 'call', method: 'longestPalindrome' }, source: 'leetcode', standard: [{ input: '["babad"]', expected: '"bab"' }, { input: '["true"]', expected: '"t"' }], own: [] } },
+	{ name: 'LeetCode examples with a missing output', slug: 'two-sum', reply: leetcode(twoSum, ['[2,7,11,15]\n9', '[3,3]\n6'], pre('[0,1]')), body: { spec: { mode: 'call', method: 'twoSum' }, source: 'leetcode', standard: [{ input: '[[2,7,11,15],9]', expected: null }, { input: '[[3,3],6]', expected: null }], own: [] } },
+	{ name: 'paid-only LeetCode problem', slug: 'meeting-rooms', reply: leetcode({ name: 'canAttendMeetings', params: [{ name: 'intervals', type: 'integer[][]' }], return: { type: 'boolean' } }, ['[[0,30],[5,10],[15,20]]', '[[7,10],[2,4]]'], null), body: { spec: { mode: 'call', method: 'canAttendMeetings' }, source: 'leetcode', standard: [{ input: '[[[0,30],[5,10],[15,20]]]', expected: null }, { input: '[[[7,10],[2,4]]]', expected: null }], own: [] } },
+	{ name: 'LeetCode tree problem', slug: 'binary-tree-inorder-traversal', reply: leetcode({ name: 'inorderTraversal', params: [{ name: 'root', type: 'TreeNode' }], return: { type: 'list<integer>', dealloc: true } }, ['[1,null,2,3]'], span('[1,3,2]')), body: noRunner },
+	{ name: 'LeetCode design problem', slug: 'lru-cache', reply: leetcode({ classname: 'LRUCache', constructor: { params: [{ type: 'integer', name: 'capacity' }] }, methods: [{ name: 'get', params: [{ type: 'integer', name: 'key' }], return: { type: 'integer' } }], systemdesign: true }, ['["LRUCache","get"]\n[[2],[1]]'], '<pre>\n<strong>Output</strong>\n[null, -1]\n</pre>'), body: noRunner },
+	{ name: 'unknown LeetCode problem', slug: 'two-sum', reply: () => Response.json({ data: { question: null } }), body: noRunner },
+	{ name: 'LeetCode error response', slug: 'two-sum', reply: () => new Response('Busy', { status: 503 }), body: noRunner },
+	{ name: 'unreachable LeetCode', slug: 'two-sum', reply: () => { throw new TypeError('Network connection lost.'); }, body: noRunner },
+])('$name', async ({ slug, reply, body }) => {
+	const lookup = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => reply!());
 	const id = crypto.randomUUID();
 	await insertProblem.bind(id, slug).run();
 	const response = await request(`/problems/${id}/tests`, 'GET', undefined, cookie);
 	expect(response.status).toBe(200);
 	expect(await response.json()).toEqual(body);
+	expect(lookup.mock.calls.map(([target, init]) => [String(target), JSON.parse(String(init?.body)).variables.titleSlug])).toEqual(reply ? [['https://leetcode.com/graphql', slug]] : []);
 });
 
 it.each([
@@ -43,6 +62,7 @@ it.each([
 	{ name: 'expected of null', role: 'student', stored: 0, body: { input: '1', expected: null }, status: 400, count: 0, fields: { error: { code: 'invalid_input' } } },
 	{ name: 'unknown field', role: 'student', stored: 0, body: { ...ownTest, name: 'Test' }, status: 400, count: 0, fields: { error: { code: 'invalid_input' } } },
 ])('$name', async ({ role, stored, body, status, count, fields }) => {
+	vi.spyOn(globalThis, 'fetch').mockImplementation(async () => Response.json({ data: { question: null } }));
 	const id = crypto.randomUUID();
 	await insertProblem.bind(id, 'two-sum').run();
 	for (let index = 0; index < stored; index++) await insertOwn.bind(crypto.randomUUID(), id).run();
