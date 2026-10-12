@@ -9,12 +9,14 @@ import permutationsAndCombinations1 from './permutations-and-combinations/chapte
 import permutationsAndCombinations2 from './permutations-and-combinations/chapter2.html';
 import permutationsAndCombinations3 from './permutations-and-combinations/chapter3.html';
 import permutationsAndCombinations4 from './permutations-and-combinations/chapter4.html';
+import permutationsAndCombinationsGenerators from './permutations-and-combinations/generators';
 import permutationsAndCombinationsSolutions from './permutations-and-combinations/solutions';
 import twoPointers from './two-pointers/set';
 import twoPointers1 from './two-pointers/chapter1.html';
 import twoPointers2 from './two-pointers/chapter2.html';
 import twoPointers3 from './two-pointers/chapter3.html';
 import twoPointers4 from './two-pointers/chapter4.html';
+import twoPointersGenerators from './two-pointers/generators';
 import twoPointersSolutions from './two-pointers/solutions';
 
 export const sets: (LearningSet & { lessons: string[] })[] = [
@@ -29,7 +31,7 @@ const references = new Map<string, Reference>(Object.entries({ ...permutationsAn
 export const referenceOf = (slug: string): Reference | undefined => references.get(slug);
 // A generator of the hidden tests of a set task: 10 to 16 inputs in the test format of the task. random is a seeded PRNG.
 export type Generator = (random: () => number) => string[];
-const generators = new Map<string, Generator>();
+const generators = new Map<string, Generator>(Object.entries({ ...permutationsAndCombinationsGenerators, ...twoPointersGenerators }));
 export const generatorOf = (slug: string): Generator | undefined => generators.get(slug);
 
 export const tasksOf = (set: LearningSet): SetTask[] => set.chapters.flatMap(chapter => chapter.tasks);

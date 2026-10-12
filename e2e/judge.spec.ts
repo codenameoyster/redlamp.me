@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, addTask, signIn, type TestEnv } from './fixtures';
 import type { JudgeOutput, Judgement } from '../shared/leetcode';
 
 const code = "class Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n        if target == 0:\n            raise ValueError('bad')\n        while target == 10:\n            pass\n        return [1, 2]\n";
@@ -21,5 +21,31 @@ for (const row of rows) {
 		await expect(page.getByRole('alert', { name: 'Результат проверки' })).toHaveText(row.verdict, { useInnerText: true, timeout: 30_000 });
 		expect(sent).toEqual({ seed: 7, attemptId: notebook.attempt.id, outputs: row.outputs });
 		await expect(page.getByText(/^Проверяем/)).toHaveCount(0);
+	});
+}
+
+// The server judges Container With Most Water on its hidden tests: 8 edge cases, 4 random inputs, then 2 inputs of 100,000 heights.
+const container = 'class Solution:\n    def maxArea(self, height: List[int]) -> int:\n        best, l, r = 0, 0, len(height) - 1\n';
+const hidden: { name: string; code: string; verdict: string; section: string }[] = [
+	{ name: 'accepts a correct solution and completes the task', code: `${container}        while l < r:\n            best = max(best, min(height[l], height[r]) * (r - l))\n            if height[l] < height[r]:\n                l += 1\n            else:\n                r -= 1\n        return best\n`, verdict: 'Принято', section: 'Принятое' },
+	{ name: 'shows the failed hidden test of a solution without the width', code: `${container}        while l < r:\n            best = max(best, min(height[l], height[r]))\n            if height[l] < height[r]:\n                l += 1\n            else:\n                r -= 1\n        return best\n`, verdict: 'Неверный ответ на тесте 5 Ввод: [[1,2,3,4,5]] Верный ответ: 6 Ваш ответ: 4', section: 'В процессе' },
+	{ name: 'stops a quadratic solution on the maximum input', code: `${container}        for i in range(len(height)):\n            for j in range(i + 1, len(height)):\n                best = max(best, min(height[i], height[j]) * (j - i))\n        return best\n`, verdict: 'Превышено время на тесте 13', section: 'В процессе' },
+];
+for (const row of hidden) {
+	test(row.name, async ({ page, server }) => {
+		test.slow();
+		const { DB } = await server.getWorker<TestEnv>().getEnv(), problemId = crypto.randomUUID();
+		await DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,'container-with-most-water','Container With Most Water','medium','[]','','','now','now')").bind(problemId).run();
+		const { taskId } = await addTask(DB, problemId, 'in_progress');
+		// The real tests route asks leetcode.com for the starter code.
+		await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: { mode: 'call', method: 'maxArea' }, source: 'set', standard: [], own: [], skeleton: '' } }));
+		await signIn(page);
+		await page.goto(`/leetcode/tasks/${taskId}`);
+		await page.getByLabel('Код решения', { exact: true }).fill(row.code);
+		await page.getByRole('button', { name: 'Отправить', exact: true }).click();
+		const result = row.verdict === 'Принято' ? page.getByText('Принято', { exact: true }) : page.getByRole('alert', { name: 'Результат проверки' });
+		await expect(result).toHaveText(row.verdict, { useInnerText: true, timeout: 60_000 });
+		await page.getByRole('link', { name: 'Домашняя работа', exact: true }).click();
+		await expect(page.getByRole('region', { name: row.section, exact: true }).getByRole('heading', { level: 3 })).toHaveText(['Container With Most Water']);
 	});
 }
