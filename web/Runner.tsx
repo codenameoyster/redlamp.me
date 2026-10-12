@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import type { ProblemTests, TestCase } from '../shared/leetcode';
+import { sha256, type ProblemTests, type TestCase, type TestRun } from '../shared/leetcode';
 import { api, message } from './api';
 import { checkCode, runTests, type Diagnostic, type RunResult } from './python';
 
-export function Runner({ code, tests, live }: { code: string; tests: ProblemTests; live: boolean }) {
-	const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]), [results, setResults] = useState<RunResult[]>([]), [busy, setBusy] = useState(false), [error, setError] = useState('');
+export function Runner({ code, tests, live, latest, record }: { code: string; tests: ProblemTests; live: boolean; latest?: TestRun; record?: (run: Pick<TestRun, 'passed' | 'total' | 'codeHash'>) => Promise<void> }) {
+	const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]), [results, setResults] = useState<RunResult[]>([]), [busy, setBusy] = useState(false), [error, setError] = useState(''), [hash, setHash] = useState('');
 	// The results show the cases of their run. A later change of the own tests does not move them.
 	const [ran, setRan] = useState<TestCase[]>([]), cases = [...tests.standard, ...tests.own], total = ran.filter(item => item.expected !== null).length;
 	useEffect(() => {
@@ -12,13 +12,19 @@ export function Runner({ code, tests, live }: { code: string; tests: ProblemTest
 		const timer = setTimeout(() => void checkCode(code).then(setDiagnostics, () => setDiagnostics([])), 400);
 		return () => clearTimeout(timer);
 	}, [code, live]);
+	useEffect(() => { let current = true; void sha256(code).then(value => { if (current) setHash(value); }); return () => { current = false; }; }, [code]);
 	async function run() {
 		setBusy(true); setError(''); setResults([]); setRan(cases);
-		try { await runTests(code, tests.spec!, cases, result => setResults(items => [...items, result])); } catch (error) { setError(message(error)); } finally { setBusy(false); }
+		let passed = 0;
+		try {
+			await runTests(code, tests.spec!, cases, result => { passed += Number(result.ok === true); setResults(items => [...items, result]); });
+			await record?.({ passed, total: cases.filter(item => item.expected !== null).length, codeHash: await sha256(code) });
+		} catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
 	return <div className="stack">
 		{diagnostics.length > 0 && <ul className="messages" aria-label="Замечания к коду">{diagnostics.map((item, index) => <li key={index}>{item.message}</li>)}</ul>}
 		{tests.spec && cases.length > 0 ? <button type="button" disabled={busy || !code.trim()} onClick={() => void run()}>Запустить тесты</button> : <p>Тестов для этой задачи пока нет.</p>}
+		{latest && latest.total > 0 && latest.passed === latest.total && latest.codeHash === hash && <p><span className="tag good">Тесты пройдены</span></p>}
 		{error && <p className="error" role="alert">{error}</p>}
 		{results.length > 0 && <ol className="messages" aria-label="Результаты тестов">{results.map((result, index) => <li key={index} aria-label={`Тест ${index + 1}`}>
 			<strong>Тест {index + 1}: {result.ok === null ? 'без проверки' : result.ok ? '✓' : '✗'}</strong>

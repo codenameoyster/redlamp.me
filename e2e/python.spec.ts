@@ -95,3 +95,24 @@ test('runs the own tests and keeps the results after a delete', async ({ page, b
 	await page.reload();
 	await expect(page.getByRole('list', { name: 'Мои тесты' }).getByRole('listitem')).toHaveText(['Тест 1 Ввод: 2 3 Ожидается: 5 Удалить'], { useInnerText: true });
 });
+
+test('marks passed tests, keeps the mark after a reload and counts the XP', async ({ page, notebook }) => {
+	test.slow();
+	await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: { mode: 'call', method: 'twoSum' }, source: 'set', standard: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], own: [] } }));
+	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+	const code = page.getByLabel('Код решения', { exact: true }), run = page.getByRole('button', { name: 'Запустить тесты', exact: true }), mark = page.getByText('Тесты пройдены', { exact: true });
+	await code.fill(`${twoSum}        return [1, 0]\n`);
+	await run.click();
+	await expect(page.getByText(/^Пройдено/)).toHaveText('Пройдено 0 из 1', { timeout: 30_000 });
+	await code.fill(`${twoSum}        return [0, 1]\n`);
+	await run.click();
+	await expect(mark).toBeVisible({ timeout: 30_000 });
+	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
+	await page.reload();
+	await expect(mark).toBeVisible();
+	await expect(page.getByRole('option', { name: /Тесты пройдены$/ })).toHaveCount(1);
+	// +10 XP for the first pass and -2 XP for the failed run.
+	await expect(page.getByLabel('Прогресс до уровня 2')).toHaveAttribute('value', '8');
+	await code.fill(`${twoSum}        return [0, 1]  # done\n`);
+	await expect(mark).toHaveCount(0);
+});

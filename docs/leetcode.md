@@ -47,6 +47,7 @@ Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and wa
 - Below **Solution code** of a Python approach, the notebook checks the student's draft code while he types. Ruff and the Python compiler report the problems with their line numbers. **Run tests** runs the code in the browser with Pyodide against the tests of the problem. Each test has 2 seconds. The code is not sent to LeetCode or Codeforces.
 - Both roles can add up to 20 own tests to a problem in **My tests**. **Run tests** runs them after the standard tests.
 - A task of a learning set has its standard tests in the set. For another LeetCode problem, the standard tests are the examples of the statement from LeetCode. A problem with a `TreeNode`, a `ListNode` or a class to design has no runner. A Codeforces problem outside the sets has only own tests.
+- The notebook records each test run of the student. An approach shows **Tests passed** when its latest run passed all tests and its code did not change after that run. The attempt history shows the same mark for the attempt.
 - As the parent, create homework on the **Homework** page. Give it a title, instructions, and an optional due date. Use **Edit homework** to change these details later.
 - On the homework page, use **Add a task** to add a problem from the library. Each task has its own review state. A problem can have only one active task in all homework.
 - The parent can link learning sets to problems and homework in **Materials**. **Materials** also shows the set chapters that contain the problem. For homework, it shows the chapters of all its problems. A task page shows the chapters of its problem and the sets of its homework.
@@ -124,7 +125,7 @@ The notebook uses the Arcade theme. Dark is the default appearance. Use the appe
 
 The top bar shows the level and the progress to the next level. The bar is hidden on screens of 620 px or less. **Today** shows the level, the XP, and the badges.
 
-The notebook calculates XP from saved records. The XP does not decrease. Archived problems keep their XP.
+The notebook calculates XP from saved records. Only failed test runs decrease the XP. The XP is never less than 0. Archived problems keep their XP.
 
 | Source | XP |
 |---|---|
@@ -132,6 +133,8 @@ The notebook calculates XP from saved records. The XP does not decrease. Archive
 | An accepted problem with a saved attempt or a review with the understanding "independent", one time for each problem | 10 |
 | A completed homework task | 15 |
 | A review, one time for each problem and day | 5 |
+| A test run that passed all tests, one time for each problem | 10 |
+| A test run with a failed test, at most three runs for each problem and day | -2 |
 
 Level L starts at `50 * L * (L - 1)` XP: level 2 at 100 XP, level 3 at 300 XP, level 4 at 600 XP, and level 5 at 1000 XP.
 

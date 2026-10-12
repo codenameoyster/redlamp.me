@@ -1,6 +1,8 @@
 import type { Env } from '../index';
-import type { OwnTest, ProblemTests, TaskTests } from '../../shared/leetcode';
-import { HttpError, methods, object, readJson, text, uuid } from './http';
+import type { OwnTest, ProblemTests, SessionUser, TaskTests, TestRun } from '../../shared/leetcode';
+import { requireRole } from './auth';
+import { latestRuns } from './attempts';
+import { calendarDate, HttpError, integer, methods, object, readJson, text, uuid } from './http';
 import { getProblem, question } from './problems';
 import { sets, taskSlug, tasksOf } from './sets';
 
@@ -43,4 +45,20 @@ export async function handleTests(request: Request, env: Env): Promise<Response 
 	const { cases = [], ...spec } = task ?? leetcode ?? (codeforces ? { mode: 'stdio' as const } : {});
 	const own = (await env.DB.prepare('SELECT id,input,expected,created_at AS createdAt FROM problem_tests WHERE problem_id=? ORDER BY created_at,id').bind(problem.id).all<OwnTest>()).results;
 	return Response.json({ spec: 'mode' in spec ? spec : null, source: task ? 'set' : leetcode ? 'leetcode' : 'none', standard: cases, own } satisfies ProblemTests);
+}
+
+export async function handleRuns(request: Request, env: Env, user: SessionUser): Promise<Response | null> {
+	const url = new URL(request.url), match = /^\/leetcode\/api\/problems\/([^/]+)\/runs$/.exec(url.pathname);
+	if (!match) return null;
+	methods(request, ['GET', 'POST']);
+	const problemId = uuid(match[1]);
+	if (request.method === 'GET') return Response.json((await env.DB.prepare(latestRuns('?', '?')).bind(problemId, uuid(url.searchParams.get('attemptId'))).all<TestRun>()).results);
+	requireRole(user, 'student');
+	const data = object(await readJson(request), ['attemptId', 'approachId', 'codeHash', 'passed', 'total', 'runOn']);
+	const total = integer(data.total, 0, 100), value: TestRun = { approachId: uuid(data.approachId), passed: integer(data.passed, 0, total), total, codeHash: text(data.codeHash, 64), createdAt: new Date().toISOString() };
+	if (!/^[a-f0-9]{64}$/.test(value.codeHash)) throw new HttpError(400, 'invalid_input', 'Проверьте поля запроса.');
+	const result = await env.DB.prepare('INSERT INTO test_runs (id,problem_id,attempt_id,approach_id,code_hash,passed,total,run_on,created_at) SELECT ?,problem_id,id,?,?,?,?,?,? FROM attempts WHERE id=? AND problem_id=?')
+		.bind(crypto.randomUUID(), value.approachId, value.codeHash, value.passed, total, calendarDate(text(data.runOn, 10, true)), value.createdAt, uuid(data.attemptId), problemId).run();
+	if (!result.meta.changes) throw new HttpError(404, 'not_found', 'Такой попытки нет.');
+	return Response.json(value, { status: 201 });
 }

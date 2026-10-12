@@ -32,11 +32,12 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 		const [[totals, streak], accepted] = await Promise.all([env.DB.batch<Record<string, number>>([
 			env.DB.prepare(`SELECT count(*) AS accepted,coalesce(sum(p.difficulty='hard'),0) AS hard,coalesce(sum(CASE p.difficulty WHEN 'easy' THEN 10 WHEN 'medium' THEN 20 ELSE 40 END),0) AS acceptedXp,
 				coalesce(sum(EXISTS(SELECT 1 FROM attempts a WHERE a.problem_id=p.id AND a.state='saved' AND a.understanding='independent') OR EXISTS(SELECT 1 FROM reviews r WHERE r.problem_id=p.id AND r.result='independent')),0) AS independent,
-				(SELECT count(*) FROM homework_tasks WHERE state='completed') AS completed,(SELECT count(*) FROM (SELECT DISTINCT problem_id,reviewed_on FROM reviews)) AS recalls,(SELECT count(*) FROM card_answers WHERE correct=1) AS cards FROM problems p WHERE ${solvedSQL}`),
+				(SELECT count(*) FROM homework_tasks WHERE state='completed') AS completed,(SELECT count(*) FROM (SELECT DISTINCT problem_id,reviewed_on FROM reviews)) AS recalls,(SELECT count(*) FROM card_answers WHERE correct=1) AS cards,
+				(SELECT count(DISTINCT problem_id) FROM test_runs WHERE passed=total AND total>0) AS passedTests,(SELECT coalesce(sum(min(fails,3)),0) FROM (SELECT count(*) AS fails FROM test_runs WHERE passed<total GROUP BY problem_id,run_on)) AS failedRuns FROM problems p WHERE ${solvedSQL}`),
 			env.DB.prepare("WITH days AS (SELECT DISTINCT date(saved_at) AS day FROM attempts WHERE state='saved') SELECT EXISTS(SELECT 1 FROM days WHERE date(day,'+1 day') IN (SELECT day FROM days) AND date(day,'+2 day') IN (SELECT day FROM days)) AS streak"),
 		]), acceptedSetSlugs(env)]);
-		const { accepted: count, hard, acceptedXp, independent, completed, recalls, cards } = totals.results[0];
-		const xp = acceptedXp + 10 * independent + 15 * completed + 5 * recalls + 2 * cards;
+		const { accepted: count, hard, acceptedXp, independent, completed, recalls, cards, passedTests, failedRuns } = totals.results[0];
+		const xp = Math.max(0, acceptedXp + 10 * independent + 15 * completed + 5 * recalls + 2 * cards + 10 * passedTests - 2 * failedRuns);
 		let level = 1;
 		while (xp >= 50 * level * (level + 1)) level++;
 		const earned: Record<BadgeId, boolean> = { 'first-accept': count >= 1, 'three-day-streak': streak.results[0].streak === 1, 'first-hard': hard >= 1, 'ten-accepted': count >= 10, 'independent-five': independent >= 5, 'set-cleared': sets.some(set => tasksOf(set).every(task => accepted.has(taskSlug(task)))) };
