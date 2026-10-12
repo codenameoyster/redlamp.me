@@ -7,19 +7,22 @@ const bands = [[0, 2], [2, 6], [6, 20], [20, 64]];
 
 // The melody of the student in a card like the music card of omarchy.org. Layout keeps the card on page changes, so the melody plays on.
 export function Music() {
-	const audio = useRef<HTMLAudioElement>(null), seek = useRef<HTMLInputElement>(null), line = useRef<HTMLSpanElement>(null), time = useRef<HTMLSpanElement>(null), bars = useRef<(HTMLSpanElement | null)[]>([]), dragging = useRef(false);
+	const audio = useRef<HTMLAudioElement>(null), seek = useRef<HTMLInputElement>(null), line = useRef<HTMLSpanElement>(null), time = useRef<HTMLSpanElement>(null), bars = useRef<(HTMLSpanElement | null)[]>([]), dragging = useRef(false), starting = useRef(false);
 	const graph = useRef<{ context: AudioContext; analyser: AnalyserNode } | null>(null);
 	const [playing, setPlaying] = useState(false), [touched, setTouched] = useState(false), [failed, setFailed] = useState(false);
 	function show(element: HTMLAudioElement) {
 		if (!element.duration) return;
 		line.current!.style.transform = `scaleX(${element.currentTime / element.duration})`;
 		time.current!.textContent = `${clock(element.currentTime)} / ${clock(element.duration)}`;
-		if (!dragging.current) seek.current!.value = String(Math.round(element.currentTime / element.duration * 1000));
+		if (!dragging.current && seek.current) seek.current.value = String(Math.round(element.currentTime / element.duration * 1000));
 	}
 	async function toggle() {
 		const element = audio.current!;
+		// A second click while the melody starts would connect the element to a second audio graph.
+		if (starting.current) return;
 		setTouched(true);
 		if (!element.paused) { element.pause(); setPlaying(false); return; }
+		starting.current = true;
 		try {
 			if (!graph.current) {
 				// Static assets answer without byte ranges, and the browser seeks only in a resource with ranges or in a blob.
@@ -34,7 +37,7 @@ export function Music() {
 			await graph.current.context.resume();
 			await element.play();
 			setPlaying(true); setFailed(false);
-		} catch { setPlaying(false); setFailed(true); }
+		} catch { setPlaying(false); setFailed(true); } finally { starting.current = false; }
 	}
 	function jump(value: number) {
 		const element = audio.current!;
@@ -64,7 +67,7 @@ export function Music() {
 				bars.current[index]!.style.height = `${Math.max(1, Math.round(levels[index] * 6)) * 2}px`;
 			});
 		}
-		return () => { cancelAnimationFrame(frame); for (const bar of bars.current) bar!.style.height = '2px'; };
+		return () => { cancelAnimationFrame(frame); for (const bar of bars.current) if (bar) bar.style.height = '2px'; };
 	}, [playing]);
 	return <div className="music">
 		<audio ref={audio} loop />
@@ -75,6 +78,6 @@ export function Music() {
 		<span className="music-text"><strong>{failed ? 'Мелодия не включилась' : 'Бомжарня'}</strong><span className="music-artist"><span>Bibik</span><span ref={time} aria-hidden="true" /></span></span>
 		<span className="music-bars" aria-hidden="true">{bands.map((band, index) => <span key={index} ref={bar => { bars.current[index] = bar; }} />)}</span>
 		<span ref={line} className="music-line" aria-hidden="true" />
-		<input ref={seek} type="range" min={0} max={1000} step={5} defaultValue={0} aria-label="Позиция в мелодии" onPointerDown={() => { dragging.current = true; }} onPointerUp={() => { dragging.current = false; }} onPointerCancel={() => { dragging.current = false; }} onChange={event => jump(Number(event.target.value))} />
+		{graph.current && <input ref={seek} type="range" min={0} max={1000} step={5} defaultValue={0} aria-label="Позиция в мелодии" onPointerDown={() => { dragging.current = true; }} onPointerUp={() => { dragging.current = false; }} onPointerCancel={() => { dragging.current = false; }} onChange={event => jump(Number(event.target.value))} />}
 	</div>;
 }

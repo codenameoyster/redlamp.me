@@ -26,3 +26,22 @@ test('tells when the melody does not start', async ({ page }) => {
 	await expect(page.getByText('Мелодия не включилась', { exact: true })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Включить мелодию', exact: true })).toBeVisible();
 });
+
+test('starts the melody once on a double click during the load', async ({ page }) => {
+	await signIn(page);
+	await page.route('**/leetcode/assets/melody.mp3', async route => { await new Promise(resolve => setTimeout(resolve, 300)); await route.continue(); });
+	await page.getByRole('button', { name: 'Включить мелодию', exact: true }).dblclick();
+	await expect.poll(() => page.locator('audio').evaluate((element: HTMLAudioElement) => element.paused)).toBe(false);
+	await expect(page.getByText('Мелодия не включилась', { exact: true })).toHaveCount(0);
+});
+
+test('logs out while the melody plays without a page error', async ({ page }) => {
+	const errors: string[] = [];
+	page.on('pageerror', error => errors.push(error.message));
+	await signIn(page);
+	await page.getByRole('button', { name: 'Включить мелодию', exact: true }).click();
+	await expect.poll(() => page.locator('audio').evaluate((element: HTMLAudioElement) => element.paused)).toBe(false);
+	await page.getByRole('button', { name: 'Выйти', exact: true }).click();
+	await expect(page).toHaveURL(/\/leetcode\/login$/);
+	expect(errors).toEqual([]);
+});
