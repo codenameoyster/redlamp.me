@@ -7,6 +7,7 @@ import { choice, HttpError, methods, object, page, pagination, readJson, text, u
 import { getProblem, question } from './problems';
 import { chaptersOf, sets, taskLabel } from './sets';
 import prompt from './tutor-prompt.txt';
+import evaluation from './evaluate-prompt.txt';
 
 const RESPONSES = 'https://api.openai.com/v1/responses';
 const INTERRUPTED = { code: 'ai_interrupted', message: 'Ответ прервался. Отправьте сообщение ещё раз.' };
@@ -110,8 +111,9 @@ export async function pump(upstream: Response, writer: WritableStreamDefaultWrit
 }
 
 async function ask(request: Request, env: Env): Promise<Response> {
-	const data = object(await readJson(request), ['kind', 'id', 'message', 'quote']);
+	const data = object(await readJson(request), ['kind', 'id', 'message', 'quote', 'evaluate']);
 	const [kind, id] = thread(data.kind, data.id), message = text(data.message, 4000, true), quote = data.quote === null ? null : text(data.quote, 2000, true), at = new Date().toISOString();
+	if (data.evaluate !== undefined && (data.evaluate !== true || kind !== 'problem')) throw new HttpError(400, 'invalid_input', 'Проверьте поля запроса.');
 	const block = await context(env, kind, id, quote);
 	const turns = (await env.DB.prepare('SELECT author,body,quote FROM tutor_messages WHERE context_kind=? AND context_ref=? ORDER BY created_at DESC,id DESC LIMIT 20').bind(kind, id).all<Turn>()).results;
 	const history: { role: string; content: string }[] = [];
@@ -123,7 +125,7 @@ async function ask(request: Request, env: Env): Promise<Response> {
 	}
 	// The context has student and outside text, so it has the user role: the rules in instructions stay above it.
 	const input = [...history, { role: 'user', content: `<context>\n${block}\n</context>` }, { role: 'user', content: said(message, quote) }];
-	const call = (token: Token) => fetch(RESPONSES, { method: 'POST', headers: { Authorization: `Bearer ${token.access}`, 'Content-Type': 'application/json', Accept: 'text/event-stream' }, body: JSON.stringify({ model: token.model, instructions: prompt, input, stream: true, store: false }), signal: AbortSignal.timeout(180_000) }).catch(() => null);
+	const call = (token: Token) => fetch(RESPONSES, { method: 'POST', headers: { Authorization: `Bearer ${token.access}`, 'Content-Type': 'application/json', Accept: 'text/event-stream' }, body: JSON.stringify({ model: token.model, instructions: data.evaluate ? evaluation : prompt, input, stream: true, store: false }), signal: AbortSignal.timeout(180_000) }).catch(() => null);
 	let token = await accessToken(env), response = await call(token);
 	if (response?.status === 401) { token = await accessToken(env, token.version); response = await call(token); }
 	if (response?.status !== 200) {

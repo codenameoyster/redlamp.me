@@ -50,8 +50,9 @@ export function AttemptContent({ value, change, chapter, tests, skeleton, runs, 
 	return <div className="stack"><Panes left={chapter ?? notes} right={code} />{chapter && notes}</div>;
 }
 
-export function DraftEditor({ initial, user, registerGuard, saved, nextReviewDate, task, reloadTask, chapter }: { initial: Attempt; user: SessionUser; registerGuard: RegisterGuard; saved: (attempt: Attempt, action?: 'save' | 'submit') => Promise<void>; nextReviewDate: string | null; task?: HomeworkTask; reloadTask: () => void; chapter?: ReactNode }) {
-	const draft = useDraft(initial, user);
+export function DraftEditor({ initial, user, registerGuard, saved, nextReviewDate, task, reloadTask, chapter, onCode }: { initial: Attempt; user: SessionUser; registerGuard: RegisterGuard; saved: (attempt: Attempt, action?: 'save' | 'submit') => Promise<void>; nextReviewDate: string | null; task?: HomeworkTask; reloadTask: () => void; chapter?: ReactNode; onCode: (code: string) => void }) {
+	const draft = useDraft(initial, user), code = draft.value.document.approaches[0].code;
+	useEffect(() => onCode(code), [code]);
 	const tests = useResource<ProblemTests>(`/problems/${initial.problemId}/tests`);
 	const runs = useResource<TestRun[]>(`/problems/${initial.problemId}/runs?attemptId=${initial.id}`);
 	const [busy, setBusy] = useState(false), [error, setError] = useState(''), [date, setDate] = useState(nextReviewDate ?? '');
@@ -123,7 +124,7 @@ export function Workspace({ problemId, taskId, user, registerGuard }: { problemI
 	const frozen = task && ['submitted', 'completed'].includes(task.state) ? details.data!.submissions.find(s => s.id === task.submissionId)?.attemptId : undefined;
 	const [work, setWork] = useState<string>(), latest = attempts.data?.items[0], attemptId = frozen ?? (student ? work : latest?.id);
 	const current = useResource<Attempt>(id && attemptId ? `/problems/${id}/attempts/${attemptId}` : null);
-	const [editing, setEditing] = useState(false), [feedback, setFeedback] = useState(''), [notice, setNotice] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+	const [editing, setEditing] = useState(false), [code, setCode] = useState(''), [feedback, setFeedback] = useState(''), [notice, setNotice] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
 	const guard = useRef<LeaveGuard | null>(null), article = useRef<HTMLElement>(null);
 	const register = useCallback<RegisterGuard>(value => { guard.current = value; registerGuard(value); }, [registerGuard]);
 	async function open(copyAttemptId?: string) {
@@ -162,13 +163,13 @@ export function Workspace({ problemId, taskId, user, registerGuard }: { problemI
 	const chapterPane = chapter && lesson.data && <section className="stack"><h2><a href={`/leetcode/sets/${chapter.set}/${chapter.number}`}>Глава {chapter.number}. {chapter.title}</a></h2><Lesson html={lesson.data.html} ref={article} /></section>;
 	return <div className="stack">
 		<div className="heading"><div>{task && <p className="small"><a href={`/leetcode/homework/${task.homeworkId}`}>{task.homeworkTitle}</a></p>}<h1>{record.title}</h1><div className="tags"><span className={`tag ${record.difficulty}`}>{difficultyLabels[record.difficulty]}</span>{task && <><span className="tag">{homeworkLabels[task.state]}</span><span className="small">{task.dueDate ? `Срок: ${task.dueDate}` : 'Без срока'}</span></>}{record.topics.map(topic => <span className="tag" key={topic}>{topic}</span>)}{record.archivedAt && <span className="tag">В архиве</span>}</div></div>
-			<div className="row"><a href={record.url} target="_blank" rel="noopener noreferrer">{record.slug.startsWith('cf-') ? 'Codeforces' : 'LeetCode'} ↗</a><Tutor context={{ kind: 'problem', id: record.id }} title={record.title} user={user} flush={() => guard.current?.flush()} lesson={chapterPane && current.data ? article : undefined} />{!task && <button onClick={() => setEditing(true)}>Изменить задачу</button>}{user.role === 'parent' && task && !['completed', 'cancelled'].includes(task.state) && <button disabled={busy} onClick={() => { if (confirm('Отменить это задание?')) void act('cancel'); }}>Отменить задание</button>}</div></div>
+			<div className="row"><a href={record.url} target="_blank" rel="noopener noreferrer">{record.slug.startsWith('cf-') ? 'Codeforces' : 'LeetCode'} ↗</a><Tutor context={{ kind: 'problem', id: record.id }} title={record.title} user={user} flush={() => guard.current?.flush()} lesson={chapterPane && current.data ? article : undefined} evaluate={student && Boolean(code.trim())} />{!task && <button onClick={() => setEditing(true)}>Изменить задачу</button>}{user.role === 'parent' && task && !['completed', 'cancelled'].includes(task.state) && <button disabled={busy} onClick={() => { if (confirm('Отменить это задание?')) void act('cancel'); }}>Отменить задание</button>}</div></div>
 		<p className="prose">{record.summary}</p>
 		{task?.instructions && <p className="prose">{task.instructions}</p>}
 		{review && <p className="notice">{review.kind === 'completed' ? 'Завершено' : 'Нужны правки'}{review.body && `: ${review.body}`}</p>}
 		{!task && <div className="row"><a href={`/leetcode/problems/${record.id}/review`}>Повторить задачу</a>{record.archivedAt ? <button onClick={restore}>Вернуть из архива</button> : <button onClick={archive}>В архив</button>}{tasks.data?.items.map(t => <a key={t.id} href={`/leetcode/tasks/${t.id}`}>{t.homeworkTitle}</a>)}</div>}
 		{(error || attempts.error || current.error || reviews.error) && <p className="error" role="alert">{error || attempts.error || current.error || reviews.error}</p>}
-		{current.data ? <DraftEditor key={`${current.data.id}:${current.data.state}`} initial={current.data} user={user} registerGuard={register} nextReviewDate={record.nextReviewDate} task={task} reloadTask={details.reload} saved={saved} chapter={chapterPane} /> : <p className="empty">{!student && attempts.data?.items.length === 0 ? 'Ученик ещё не начал работу.' : 'Открываем работу...'}</p>}
+		{current.data ? <DraftEditor key={`${current.data.id}:${current.data.state}`} initial={current.data} user={user} registerGuard={register} nextReviewDate={record.nextReviewDate} task={task} reloadTask={details.reload} saved={saved} chapter={chapterPane} onCode={setCode} /> : <p className="empty">{!student && attempts.data?.items.length === 0 ? 'Ученик ещё не начал работу.' : 'Открываем работу...'}</p>}
 		{notice && <p role="status">{notice}</p>}
 		{user.role === 'parent' && task?.state === 'submitted' && <section className="card card-pad stack"><h2>Проверка отправки</h2><label>Отзыв<textarea aria-label="Отзыв" value={feedback} onChange={event => setFeedback(event.target.value)} maxLength={8000} /></label><div className="row"><button disabled={busy} onClick={() => void act('review', { submissionId: task.submissionId, decision: 'changes_requested', body: feedback })}>Вернуть на доработку</button><button className="primary" disabled={busy} onClick={() => void act('review', { submissionId: task.submissionId, decision: 'completed', body: feedback })}>Завершить</button></div></section>}
 		<Materials problemId={record.id} homework={details.data?.homework} user={user} changed={details.reload} />
