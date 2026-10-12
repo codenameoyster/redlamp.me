@@ -69,7 +69,12 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		const title = text(data.title, 200, true).trim(), instructions = text(data.instructions, 8000).trim(), dueDate = calendarDate(data.dueDate ?? null);
 		if (id) {
 			await getHomework(env, id);
-			changed(await env.DB.prepare('UPDATE homework SET title=?,instructions=?,due_date=?,version=version+1,updated_at=? WHERE id=? AND version=?').bind(title, instructions, dueDate, now, id, integer(data.version)).run());
+			const version = integer(data.version);
+			// A new due date gives the student Сила Бомжа again. The delete runs first, so it still reads the old due date.
+			changed((await env.DB.batch([
+				env.DB.prepare('DELETE FROM postponements WHERE homework_id=?1 AND EXISTS(SELECT 1 FROM homework WHERE id=?1 AND version=?2 AND due_date IS NOT ?3)').bind(id, version, dueDate),
+				env.DB.prepare('UPDATE homework SET title=?,instructions=?,due_date=?,version=version+1,updated_at=? WHERE id=? AND version=?').bind(title, instructions, dueDate, now, id, version),
+			]))[1]);
 			return Response.json(await getHomework(env, id));
 		}
 		const newId = crypto.randomUUID();
