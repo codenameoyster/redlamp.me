@@ -62,7 +62,16 @@ export interface Submission { id: string; taskId: string; attemptId: string; tas
 export interface Feedback { id: string; problemId: string; taskId: string | null; submissionId: string | null; author: Role; kind: 'reply' | 'changes_requested' | 'completed'; body: string; createdAt: string }
 export interface HomeworkDetails { homework: Homework; tasks: HomeworkTask[] }
 export interface TaskDetails { homework: Homework; task: HomeworkTask; submissions: Submission[] }
-export interface SetTask { url: string; number?: number; title: string; difficulty: Difficulty; topics: string[]; note: string }
+export interface TestCase { input: string; expected: string | null }
+// call: LeetCode style. input is a Python literal list of the arguments, expected a Python literal.
+// check: 'return' compares the return value, 'arg0' the first argument after the call (in-place tasks), 'prefix' the first argument cut to the returned length (Remove Duplicates).
+// order: 'exact', 'any' (sort the top-level list), 'any-nested' (sort each inner list, then the outer list).
+// stdio: Codeforces style. input is the stdin text, expected the stdout text; compared token by token.
+export type TestSpec = { mode: 'call'; method: string; check?: 'return' | 'arg0' | 'prefix'; order?: 'exact' | 'any' | 'any-nested' } | { mode: 'stdio' };
+export type TaskTests = TestSpec & { cases: TestCase[] };
+export interface OwnTest { id: string; input: string; expected: string; createdAt: string }
+export interface ProblemTests { spec: TestSpec | null; source: 'set' | 'leetcode' | 'none'; standard: TestCase[]; own: OwnTest[] }
+export interface SetTask { url: string; number?: number; title: string; difficulty: Difficulty; topics: string[]; note: string; tests?: TaskTests }
 export interface Chapter { title: string; summary: string; tasks: SetTask[]; cards: Card[]; links: { title: string; url: string; source: string }[] }
 export interface LearningSet { slug: string; title: string; summary: string; topics: string[]; chapters: Chapter[] }
 export interface ChapterRef { set: string; setTitle: string; number: number; title: string }
