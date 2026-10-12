@@ -1,5 +1,5 @@
-import { test, expect } from './fixtures';
-import type { TestCase, TestSpec } from '../shared/leetcode';
+import { test, expect, signIn } from './fixtures';
+import type { Problem, TestCase, TestSpec } from '../shared/leetcode';
 
 test('loads Python and Ruff from the notebook assets under the page CSP', async ({ page, notebook, baseURL }) => {
 	test.slow();
@@ -45,5 +45,25 @@ for (const row of runs) {
 		await expect(page.getByRole('list', { name: 'Результаты тестов' }).getByRole('listitem')).toHaveText(row.results, { useInnerText: true, timeout: 30_000 });
 		await expect(page.getByText(/^Пройдено/)).toHaveText(row.summary!);
 		await expect(page.getByRole('list', { name: 'Замечания к коду' }).getByRole('listitem')).toHaveText(row.diagnostics);
+	});
+}
+
+const setRuns = [
+	{ name: 'passes the set tests of a call task', url: 'https://leetcode.com/problems/two-sum-ii-input-array-is-sorted/', code: 'class Solution:\n    def twoSum(self, numbers: List[int], target: int) -> List[int]:\n        l, r = 0, len(numbers) - 1\n        while numbers[l] + numbers[r] != target:\n            if numbers[l] + numbers[r] < target:\n                l += 1\n            else:\n                r -= 1\n        return [l + 1, r + 1]\n', summary: 'Пройдено 6 из 6' },
+	{ name: 'passes the set tests of an in-place task', url: 'https://leetcode.com/problems/move-zeroes/', code: 'class Solution:\n    def moveZeroes(self, nums: List[int]) -> None:\n        nums.sort(key=lambda x: x == 0)\n', summary: 'Пройдено 5 из 5' },
+	{ name: 'passes the set tests of a task with any order', url: 'https://leetcode.com/problems/permutations/', code: 'class Solution:\n    def permute(self, nums: List[int]) -> List[List[int]]:\n        return [list(p) for p in itertools.permutations(nums)]\n', summary: 'Пройдено 5 из 5' },
+	{ name: 'passes the set tests of a Codeforces task', url: 'https://codeforces.com/problemset/problem/1821/A', code: "for _ in range(int(input())):\n    s = input()\n    print(0 if s[0] == '0' else (9 if s[0] == '?' else 1) * 10 ** s[1:].count('?'))\n", summary: 'Пройдено 5 из 5' },
+];
+for (const row of setRuns) {
+	test(row.name, async ({ page, baseURL }) => {
+		test.slow();
+		const headers = { Origin: new URL(baseURL!).origin };
+		await signIn(page);
+		const problem = await (await page.request.post('/leetcode/api/problems', { headers, data: { url: row.url, number: null, title: 'Task', difficulty: 'easy', topics: [], summary: '' } })).json() as Problem;
+		expect((await page.request.post(`/leetcode/api/problems/${problem.id}/attempts`, { headers, data: {} })).status()).toBe(201);
+		await page.goto(`/leetcode/problems/${problem.id}`);
+		await page.getByLabel('Код решения', { exact: true }).fill(row.code);
+		await page.getByRole('button', { name: 'Запустить тесты', exact: true }).click();
+		await expect(page.getByText(/^Пройдено/)).toHaveText(row.summary, { timeout: 30_000 });
 	});
 }

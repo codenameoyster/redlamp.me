@@ -7,8 +7,8 @@ beforeEach(async () => { cookie = await login(); });
 const insertProblem = env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,?,'Problem','medium','[]','','','now','now')");
 
 it.each([
-	{ name: 'LeetCode task of a set', slug: 'two-sum-ii-input-array-is-sorted', body: { spec: null, source: 'set', standard: [], own: [] } },
-	{ name: 'Codeforces task of a set', slug: 'cf-1821-a', body: { spec: { mode: 'stdio' }, source: 'set', standard: [], own: [] } },
+	{ name: 'LeetCode task of a set', slug: 'two-sum-ii-input-array-is-sorted', body: { spec: { mode: 'call', method: 'twoSum' }, source: 'set', standard: expect.arrayContaining([{ input: '[[2,7,11,15],9]', expected: '[1,2]' }]), own: [] } },
+	{ name: 'Codeforces task of a set', slug: 'cf-1821-a', body: { spec: { mode: 'stdio' }, source: 'set', standard: expect.arrayContaining([{ input: '8\n??\n?\n0\n9\n03\n1??7\n?5?\n9??99\n', expected: '90\n9\n0\n1\n0\n100\n90\n100\n' }]), own: [] } },
 	{ name: 'Codeforces problem outside the sets', slug: 'cf-1-a', body: { spec: { mode: 'stdio' }, source: 'none', standard: [], own: [] } },
 	{ name: 'LeetCode problem outside the sets', slug: 'two-sum', body: { spec: null, source: 'none', standard: [], own: [] } },
 ])('$name', async ({ slug, body }) => {
