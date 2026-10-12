@@ -116,6 +116,37 @@ test('runs the own tests without a reference and keeps the results after a delet
 	await expect(page.getByRole('list', { name: 'Мои тесты' }).getByRole('listitem')).toHaveText(['Тест 1 Ввод: 2 3 Удалить'], { useInnerText: true });
 });
 
+test('compares the own tests of a set task with the reference answer', async ({ page, baseURL }) => {
+	test.slow();
+	await signIn(page);
+	const headers = { Origin: new URL(baseURL!).origin };
+	const problem = await (await page.request.post('/leetcode/api/problems', { headers, data: { url: setRuns[0].url, number: null, title: 'Task', difficulty: 'easy', topics: [], summary: '' } })).json() as Problem;
+	expect((await page.request.post(`/leetcode/api/problems/${problem.id}/attempts`, { headers, data: {} })).status()).toBe(201);
+	await page.goto(`/leetcode/problems/${problem.id}`);
+	// The second input is not sorted, so it breaks the constraints of the statement.
+	for (const input of ['[[1, 3, 4], 7]', '[[3, 1], 4]']) {
+		await page.getByLabel('Ввод', { exact: true }).fill(input);
+		await page.getByRole('button', { name: 'Добавить тест', exact: true }).click();
+		await expect(page.getByLabel('Ввод', { exact: true })).toHaveValue('');
+	}
+	// The run takes the own tests of the page, so it waits for the reload of the list. The reload asks LeetCode for the starter code.
+	await expect(page.getByRole('list', { name: 'Мои тесты' }).getByRole('listitem')).toHaveText(['Тест 7 Ввод: [[1, 3, 4], 7] Удалить', 'Тест 8 Ввод: [[3, 1], 4] Удалить'], { useInnerText: true, timeout: 15_000 });
+	const code = page.getByLabel('Код решения', { exact: true }), run = page.getByRole('button', { name: 'Запустить тесты', exact: true }), rows = page.getByRole('list', { name: 'Результаты тестов' }).getByRole('listitem');
+	const constraints = 'Тест 8: без проверки Ввод: [[3, 1], 4] Ввод нарушает ограничения задачи. Ваш ответ: [1, 2]';
+	await code.fill(setRuns[0].code);
+	await run.click();
+	await expect(page.getByText(/^Пройдено/)).toHaveText('Пройдено 7 из 7', { timeout: 30_000 });
+	await expect(rows.nth(6)).toHaveText('Тест 7: ✓ Ввод: [[1, 3, 4], 7] Верный ответ: [2, 3] Ваш ответ: [2, 3]', { useInnerText: true });
+	await expect(rows.nth(7)).toHaveText(constraints, { useInnerText: true });
+	await expect(rows.nth(6)).toHaveClass('pass');
+	await expect(rows.nth(7)).toHaveClass('');
+	await code.fill('class Solution:\n    def twoSum(self, numbers: List[int], target: int) -> List[int]:\n        return [1, 2]\n');
+	await run.click();
+	await expect(rows.nth(6)).toHaveText('Тест 7: ✗ Ввод: [[1, 3, 4], 7] Верный ответ: [2, 3] Ваш ответ: [1, 2]', { useInnerText: true, timeout: 30_000 });
+	await expect(rows.nth(6)).toHaveClass('fail');
+	await expect(rows.nth(7)).toHaveText(constraints, { useInnerText: true });
+});
+
 test('compares the own tests with the expected answers', async ({ page, notebook }) => {
 	test.slow();
 	const own = ['[[3, 3], 6]', '[[1, 2], 4]', '[[1], 5]', '[[1, 2], 3'].map(input => ({ id: crypto.randomUUID(), input, createdAt: 'now' })), sent: unknown[] = [];

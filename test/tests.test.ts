@@ -111,16 +111,18 @@ it.each([
 
 // 20 inputs of 10,000 Cyrillic characters are the largest request: two bytes for each character.
 it.each([
-	{ name: 'expected answers without a reference', role: 'student', inputs: ['[[3, 3], 6]', '1'], status: 200, body: { expected: [null, null] } },
-	{ name: 'expected answers for the parent', role: 'parent', inputs: ['1'], status: 200, body: { expected: [null] } },
-	{ name: 'twenty inputs at 10,000 characters', role: 'student', inputs: Array(20).fill('ж'.repeat(10_000)), status: 200, body: { expected: Array(20).fill(null) } },
-	{ name: 'twenty-one inputs', role: 'student', inputs: Array(21).fill('1'), status: 400, body: { error: { code: 'invalid_input' } } },
-	{ name: 'input over 10,000 characters', role: 'student', inputs: ['1'.repeat(10_001)], status: 400, body: { error: { code: 'invalid_input' } } },
-	{ name: 'input of a number', role: 'student', inputs: [1], status: 400, body: { error: { code: 'invalid_input' } } },
-	{ name: 'inputs of a string', role: 'student', inputs: '1', status: 400, body: { error: { code: 'invalid_input' } } },
-])('$name', async ({ role, inputs, status, body }) => {
+	{ name: 'expected answers without a reference', slug: 'two-sum', role: 'student', inputs: ['[[3, 3], 6]', '1'], status: 200, body: { expected: [null, null] } },
+	{ name: 'expected answers for the parent', slug: 'two-sum', role: 'parent', inputs: ['1'], status: 200, body: { expected: [null] } },
+	{ name: 'expected answers of a set call task', slug: 'two-sum-ii-input-array-is-sorted', role: 'student', inputs: ['[[2, 7, 11, 15], 9]', '[[3, 1], 4]', '[[1, 2]]'], status: 200, body: { expected: [{ value: '[1, 2]' }, { error: 'constraints' }, { error: 'input' }] } },
+	{ name: 'expected answers of a set stdio task', slug: 'cf-1821-a', role: 'student', inputs: ['2\n??\n0\n', '1\n123456\n'], status: 200, body: { expected: [{ value: '90\n0\n' }, { error: 'constraints' }] } },
+	{ name: 'twenty inputs at 10,000 characters', slug: 'two-sum', role: 'student', inputs: Array(20).fill('ж'.repeat(10_000)), status: 200, body: { expected: Array(20).fill(null) } },
+	{ name: 'twenty-one inputs', slug: 'two-sum', role: 'student', inputs: Array(21).fill('1'), status: 400, body: { error: { code: 'invalid_input' } } },
+	{ name: 'input over 10,000 characters', slug: 'two-sum', role: 'student', inputs: ['1'.repeat(10_001)], status: 400, body: { error: { code: 'invalid_input' } } },
+	{ name: 'input of a number', slug: 'two-sum', role: 'student', inputs: [1], status: 400, body: { error: { code: 'invalid_input' } } },
+	{ name: 'inputs of a string', slug: 'two-sum', role: 'student', inputs: '1', status: 400, body: { error: { code: 'invalid_input' } } },
+])('$name', async ({ slug, role, inputs, status, body }) => {
 	const id = crypto.randomUUID();
-	await insertProblem.bind(id, 'two-sum').run();
+	await insertProblem.bind(id, slug).run();
 	const response = await request(`/problems/${id}/tests/expected`, 'POST', { inputs }, role === 'parent' ? await login('parent') : cookie);
 	expect(response.status).toBe(status);
 	expect(await response.json()).toMatchObject(body);

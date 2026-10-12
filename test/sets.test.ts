@@ -2,7 +2,9 @@ import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
 import type { LearningSetDetails, LearningSetSummary, SetTask } from '../shared/leetcode';
-import { sets, taskLabel, taskSlug, tasksOf } from '../src/leetcode/sets';
+import { parsePy, reprPy } from '../src/leetcode/pyliteral';
+import { referenceOf, sets, taskLabel, taskSlug, tasksOf } from '../src/leetcode/sets';
+import { expectedOf } from '../src/leetcode/tests';
 import { htmlText } from '../src/leetcode/tutor';
 
 let student: string;
@@ -112,6 +114,16 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item 
 	expect(item.lessons.map(lesson => htmlText(lesson).length).filter(length => length >= 6000)).toEqual([]);
 	expect(item.lessons.flatMap(lesson => [...lesson.matchAll(/<([a-z][a-z0-9]*)/gi)].map(match => match[1]).filter(tag => !fragmentTag.test(tag)))).toEqual([]);
 	expect(item.lessons.flatMap((lesson, index) => lesson.startsWith('<p class="lead">') && !/\s(?:style|on[a-z]+)=|<div(?! class="rule">)/i.test(lesson) ? [] : [index + 1])).toEqual([]);
+});
+
+// The harness sorts the answer for the orders 'any' and 'any-nested'. A sort by the Python text gives the same equality.
+const ordered = (value: unknown, order = 'exact'): string => order === 'exact' ? reprPy(value) : JSON.stringify((value as unknown[]).map(item => order === 'any' ? reprPy(item) : JSON.stringify((item as unknown[]).map(reprPy).sort())).sort());
+it.each(sets.flatMap(tasksOf).map(task => ({ name: taskSlug(task), task })))('$name reference passes the standard tests', ({ task }) => {
+	const tests = task.tests!, reference = referenceOf(taskSlug(task));
+	expect(reference?.mode).toBe(tests.mode);
+	// The answer goes through the expected route path: the stdout text or the Python text of the value. Stdout compares token by token.
+	const form = (text: string) => tests.mode === 'stdio' ? text.split(/\s+/).filter(Boolean).join(' ') : ordered(parsePy(text), tests.order);
+	expect(tests.cases.map(item => { const answer = expectedOf(reference!, item.input); return answer && 'value' in answer ? form(answer.value) : answer; })).toEqual(tests.cases.map(item => form(item.expected!)));
 });
 
 const task: Omit<SetTask, 'url' | 'number'> = { title: 'Task', difficulty: 'easy', topics: [], note: '' };
