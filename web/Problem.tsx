@@ -8,7 +8,7 @@ import { Discussion, homeworkLabels } from './Homework';
 import { Materials } from './Materials';
 import { CodeField } from './Code';
 import { Tutor } from './Tutor';
-import { Runner } from './Runner';
+import { OwnTests, Runner } from './Runner';
 import { addCalendarDays, localDate } from '../shared/dates';
 
 export const understandingLabels = { needs_practice: 'Нужно потренироваться', with_help: 'Решил с подсказкой', independent: 'Решил сам' };
@@ -81,6 +81,7 @@ export function DraftEditor({ initial, user, registerGuard, saved, nextReviewDat
 		{(error || failure || draft.error) && <div className="error" role="alert">{error || (failure ? message(failure.error) : draft.error)}<div className="row">{loginRequired ? <button onClick={draft.signIn}>Войти снова</button> : failure ? (failure.action === 'save' || submittable) && <button disabled={busy} onClick={() => void finalize(failure.action)}>{failure.action === 'save' ? 'Повторить сохранение попытки' : 'Повторить отправку'}</button> : !draft.conflict && <button onClick={() => void draft.flush()}>Повторить сохранение</button>}{!draft.conflict && <button onClick={copyWork}>Скопировать несохранённую работу</button>}</div></div>}
 		{draft.conflict && <section className="notice stack"><h2>Копия с сервера</h2><p>В редакторе осталась ваша локальная копия. Скопируйте её, прежде чем заменить.</p><pre>{JSON.stringify(draft.conflict.document, null, 2)}</pre><div className="row"><button onClick={copyWork}>Скопировать несохранённую работу</button><button onClick={useServerCopy}>Использовать копию с сервера</button></div></section>}
 		<fieldset disabled={busy || Boolean(draft.recovery)}><AttemptContent value={draft.value} change={editable ? draft.change : undefined} tests={tests.data ?? undefined} /></fieldset>
+		{tests.data?.spec && <OwnTests problemId={initial.problemId} tests={tests.data} changed={tests.reload} />}
 		{editable && <div className="card card-pad stack"><div className="row spread"><label>Следующее повторение<input type="date" value={date} disabled={busy} onChange={event => changeDate(event.target.value)} /></label><button className="primary" disabled={busy || Boolean(draft.recovery)} onClick={() => void finalize('save')}>Сохранить попытку</button></div>{draft.value.acceptance === 'accepted' && <div className="row"><span>Напоминание:</span><button type="button" disabled={busy} onClick={() => changeDate(addCalendarDays(localDate(), 1))}>Завтра</button><button type="button" disabled={busy} onClick={() => changeDate(addCalendarDays(localDate(), 3))}>Через три дня</button><button type="button" disabled={busy} onClick={() => changeDate(addCalendarDays(localDate(), 7))}>Через семь дней</button><button type="button" disabled={busy} onClick={() => changeDate('')}>Без напоминания</button></div>}</div>}
 		{submittable && <button className="primary" disabled={busy || Boolean(draft.recovery)} onClick={() => void finalize('submit')}>Отправить на проверку</button>}
 	</div>;

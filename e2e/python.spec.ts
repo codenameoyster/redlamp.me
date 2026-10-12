@@ -67,3 +67,31 @@ for (const row of setRuns) {
 		await expect(page.getByText(/^Пройдено/)).toHaveText(row.summary, { timeout: 30_000 });
 	});
 }
+
+test('runs the own tests and keeps the results after a delete', async ({ page, baseURL }) => {
+	test.slow();
+	await signIn(page);
+	const headers = { Origin: new URL(baseURL!).origin };
+	const problem = await (await page.request.post('/leetcode/api/problems', { headers, data: { url: 'https://codeforces.com/problemset/problem/1/A', number: null, title: 'Task', difficulty: 'easy', topics: [], summary: '' } })).json() as Problem;
+	expect((await page.request.post(`/leetcode/api/problems/${problem.id}/attempts`, { headers, data: {} })).status()).toBe(201);
+	await page.goto(`/leetcode/problems/${problem.id}`);
+	await expect(page.getByText('Тестов для этой задачи пока нет.')).toBeVisible();
+	await expect(page.getByLabel('Ввод', { exact: true })).toHaveAttribute('placeholder', 'Входные данные, как в условии');
+	for (const [input, expected] of [['2 3', '5'], ['1 1', '3']]) {
+		await page.getByLabel('Ввод', { exact: true }).fill(input);
+		await page.getByLabel('Ожидается', { exact: true }).fill(expected);
+		await page.getByRole('button', { name: 'Добавить тест', exact: true }).click();
+		await expect(page.getByLabel('Ввод', { exact: true })).toHaveValue('');
+	}
+	await expect(page.getByRole('list', { name: 'Мои тесты' }).getByRole('listitem')).toHaveText(['Тест 1 Ввод: 2 3 Ожидается: 5 Удалить', 'Тест 2 Ввод: 1 1 Ожидается: 3 Удалить'], { useInnerText: true });
+	await page.getByLabel('Код решения', { exact: true }).fill('a, b = map(int, input().split())\nprint(a + b)\n');
+	await page.getByRole('button', { name: 'Запустить тесты', exact: true }).click();
+	const results = ['Тест 1: ✓ Ввод: 2 3 Ожидается: 5 Ваш ответ: 5', 'Тест 2: ✗ Ввод: 1 1 Ожидается: 3 Ваш ответ: 2'];
+	await expect(page.getByRole('list', { name: 'Результаты тестов' }).getByRole('listitem')).toHaveText(results, { useInnerText: true, timeout: 30_000 });
+	await page.getByRole('button', { name: 'Удалить тест 2', exact: true }).click();
+	await expect(page.getByRole('list', { name: 'Мои тесты' }).getByRole('listitem')).toHaveText(['Тест 1 Ввод: 2 3 Ожидается: 5 Удалить'], { useInnerText: true });
+	await expect(page.getByRole('list', { name: 'Результаты тестов' }).getByRole('listitem')).toHaveText(results, { useInnerText: true });
+	await expect(page.getByText(/^Пройдено/)).toHaveText('Пройдено 1 из 2');
+	await page.reload();
+	await expect(page.getByRole('list', { name: 'Мои тесты' }).getByRole('listitem')).toHaveText(['Тест 1 Ввод: 2 3 Ожидается: 5 Удалить'], { useInnerText: true });
+});
