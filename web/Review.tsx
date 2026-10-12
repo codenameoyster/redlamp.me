@@ -4,6 +4,7 @@ import { addCalendarDays, localDate } from '../shared/dates';
 import { api, ApiError, message } from './api';
 import { useResource } from './useResource';
 import { AttemptContent, understandingLabels } from './Workspace';
+import { go } from './navigate';
 
 const results: { value: Understanding; label: string; days: number; tip: string }[] = [{ value: 'needs_practice', label: 'Нужно потренироваться', days: 1, tip: 'Отметить, что задачу нужно потренировать, и повторить завтра.' }, { value: 'with_help', label: 'Решил с подсказкой', days: 3, tip: 'Отметить, что вы решили с подсказкой, и повторить через 3 дня.' }, { value: 'independent', label: 'Решил сам', days: 7, tip: 'Отметить, что вы решили сами, и повторить через 7 дней.' }];
 export function Review({ id, user }: { id: string; user: SessionUser }) {
@@ -28,7 +29,7 @@ export function Review({ id, user }: { id: string; user: SessionUser }) {
 				await api(`/problems/${id}/attempts/${draft.id}/save`, { method: 'POST', body: JSON.stringify({ version: draft.version }) });
 				await start();
 			});
-			location.assign(`/leetcode/problems/${id}`);
+			go(`/leetcode/problems/${id}`);
 		} catch (error) { setError(message(error)); setBusy(false); }
 	}
 	const record = problem.data;

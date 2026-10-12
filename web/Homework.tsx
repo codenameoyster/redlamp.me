@@ -5,6 +5,7 @@ import { api, message } from './api';
 import { useResource } from './useResource';
 import { Materials } from './Materials';
 import { plural } from './text';
+import { go } from './navigate';
 
 export const homeworkLabels = { assigned: 'Назначено', in_progress: 'В работе', submitted: 'Отправлено', changes_requested: 'Нужны правки', completed: 'Завершено', cancelled: 'Отменено' };
 export const difficultyLabels = { easy: 'Легко', medium: 'Средне', hard: 'Сложно' };
@@ -22,7 +23,7 @@ function HomeworkList({ user }: { user: SessionUser }) {
 		const form = new FormData(event.currentTarget);
 		try {
 			const homework = await api<Bundle>('/homework', { method: 'POST', body: JSON.stringify({ title: form.get('title'), instructions: form.get('instructions'), dueDate: form.get('dueDate') || null }) });
-			location.assign(`/leetcode/homework/${homework.id}`);
+			go(`/leetcode/homework/${homework.id}`);
 		} catch (error) { setError(message(error)); setBusy(false); }
 	}
 	async function distribute() {

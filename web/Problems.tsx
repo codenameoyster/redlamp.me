@@ -3,6 +3,7 @@ import { LoaderCircle } from 'lucide-react';
 import type { Page, Problem, ProblemDetails } from '../shared/leetcode';
 import { api, message } from './api';
 import { useResource } from './useResource';
+import { go } from './navigate';
 
 export const difficultyLabels = { easy: 'Легко', medium: 'Средне', hard: 'Сложно' };
 
@@ -54,7 +55,7 @@ export function Problems() {
 		event.preventDefault();
 		const params = new URLSearchParams();
 		for (const [key, value] of new FormData(event.currentTarget)) if (value) params.set(key, String(value));
-		location.assign(`/leetcode/problems?${params}`);
+		go(`/leetcode/problems?${params}`);
 	}
 	return <div className="stack"><div className="heading"><div><h1>Задачи</h1><p>Записывайте ход мысли, код и выводы.</p></div><button className="primary" onClick={() => setAdding(true)} data-tip="Открыть форму для новой задачи.">Добавить задачу</button></div>
 		<form onSubmit={filter} className="card card-pad stack"><label>Поиск по задачам и заметкам<input name="q" type="search" maxLength={100} defaultValue={query.get('q') ?? ''} /></label><div className="filters">
@@ -69,6 +70,6 @@ export function Problems() {
 		{error && <p className="error" role="alert">{error} <button onClick={reload} data-tip="Загрузить список задач снова.">Попробовать снова</button></p>}
 		{data && <section className="card" aria-label="Библиотека задач">{data.items.length ? data.items.map(problem => <article className="list-row" key={problem.id}><span className="small">{problem.number ? `#${problem.number}` : ''}</span><div className="grow"><h2><a href={`/leetcode/problems/${problem.id}`}>{problem.title}</a></h2><p>{problem.topics.join(', ')}</p></div><span className={`tag ${problem.difficulty}`}>{difficultyLabels[problem.difficulty]}</span><span className="tag">{problem.solved ? 'Принято' : 'Ещё не принято'}</span></article>) : <p className="empty">Ничего не найдено. Добавьте задачу или измените фильтры.</p>}</section>}
 		{data?.nextOffset !== null && data?.nextOffset !== undefined && <a className="button" href={`?${new URLSearchParams({ ...Object.fromEntries(query), offset: String(data.nextOffset) })}`} data-tip="Показать следующую страницу задач.">Ещё задачи</a>}
-		{adding && <ProblemForm close={() => setAdding(false)} saved={problem => location.assign(`/leetcode/problems/${problem.id}`)} />}
+		{adding && <ProblemForm close={() => setAdding(false)} saved={problem => go(`/leetcode/problems/${problem.id}`)} />}
 	</div>;
 }
