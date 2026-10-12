@@ -44,6 +44,22 @@ it.each([
 	expect(await env.DB.prepare('SELECT title,instructions,due_date,version FROM homework').first()).toEqual(row);
 });
 
+it.each([
+	{ name: 'student moves the due date by one day', role: 'student', due: '2026-10-10', today: '2026-10-10', used: false, version: 1, expected: 200, code: null, dueAfter: '2026-10-11', postponedTo: '2026-10-11' },
+	{ name: 'second use of Сила Бомжа', role: 'student', due: '2026-10-10', today: '2026-10-10', used: true, version: 1, expected: 409, code: 'postponed', dueAfter: '2026-10-10', postponedTo: '2026-10-10' },
+	{ name: 'parent cannot postpone', role: 'parent', due: '2026-10-10', today: '2026-10-10', used: false, version: 1, expected: 403, code: 'forbidden', dueAfter: '2026-10-10', postponedTo: null },
+	{ name: 'postpone after the due date', role: 'student', due: '2026-10-10', today: '2026-10-11', used: false, version: 1, expected: 400, code: 'invalid_input', dueAfter: '2026-10-10', postponedTo: null },
+	{ name: 'postpone without a due date', role: 'student', due: null, today: '2026-10-10', used: false, version: 1, expected: 400, code: 'invalid_input', dueAfter: null, postponedTo: null },
+	{ name: 'stale postpone', role: 'student', due: '2026-10-10', today: '2026-10-10', used: false, version: 2, expected: 409, code: 'conflict', dueAfter: '2026-10-10', postponedTo: null },
+])('$name', async ({ role, due, today, used, version, expected, code, dueAfter, postponedTo }) => {
+	await env.DB.prepare('UPDATE homework SET due_date=?').bind(due).run();
+	if (used) await env.DB.prepare("INSERT INTO postponements VALUES (?,'2026-10-09','2026-10-10','now')").bind(homeworkId).run();
+	const response = await request(`/homework/${homeworkId}/postpone`, 'POST', { version, today }, role === 'parent' ? parent : student);
+	expect(response.status).toBe(expected);
+	expect(await response.json()).toMatchObject(code ? { error: { code } } : { dueDate: dueAfter, postponedTo, version: 2 });
+	expect(await (await request(`/homework/${homeworkId}`, 'GET', undefined, parent)).json()).toMatchObject({ homework: { dueDate: dueAfter, postponedTo }, tasks: [{ dueDate: dueAfter, postponedTo }] });
+});
+
 async function bundles() {
 	const [two, three] = [crypto.randomUUID(), crypto.randomUUID()], [arrays, backtracking, graphs] = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()];
 	await env.DB.batch([

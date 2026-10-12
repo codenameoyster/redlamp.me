@@ -1,6 +1,6 @@
 import { test, expect, signIn, addTask, type TestEnv } from './fixtures';
 import type { Homework, Problem } from '../shared/leetcode';
-import { localDate } from '../shared/dates';
+import { addCalendarDays, localDate } from '../shared/dates';
 
 test('opens, submits, returns, and completes a task in one window', async ({ page, notebook }) => {
 	test.slow();
@@ -84,6 +84,16 @@ test('shows the tasks in three sections and spreads the accepted tasks over 30 d
 	await DB.prepare('UPDATE problems SET next_review_date=? WHERE id=?').bind(localDate(), notebook.problem.id).run();
 	await page.getByRole('link', { name: 'Сегодня', exact: true }).click();
 	await expect(page.getByRole('heading', { level: 3, name: notebook.problem.title }).getByRole('link')).toHaveAttribute('href', `/leetcode/problems/${notebook.problem.id}/review?pick=1`);
+});
+
+test('moves the due date by one day once with Сила Бомжа', async ({ page, notebook, server }) => {
+	const { DB } = await server.getWorker<TestEnv>().getEnv(), next = addCalendarDays(localDate(), 1), { homeworkId } = await addTask(DB, notebook.problem.id, 'assigned', localDate());
+	await page.goto(`/leetcode/homework/${homeworkId}`);
+	const power = page.getByRole('button', { name: 'Сила Бомжа', exact: true });
+	await power.click();
+	await expect(page.getByText(`Срок: ${next}`, { exact: true })).toBeVisible();
+	await expect(page.getByText(`Сила Бомжа: срок перенесён на ${next.slice(8)}.${next.slice(5, 7)}.`, { exact: true })).toBeVisible();
+	await expect(power).toHaveCount(0);
 });
 
 test('cancels the task from the work window', async ({ page, notebook, server }) => {

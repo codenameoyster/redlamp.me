@@ -53,9 +53,15 @@ function BundleDetail({ id, user }: { id: string; user: SessionUser }) {
 		try { await api(`/homework/${id}`, { method: 'PATCH', body: JSON.stringify({ version: h!.version, title: form.get('title'), instructions: form.get('instructions'), dueDate: form.get('dueDate') || null }) }); setEditing(false); details.reload(); }
 		catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
+	async function postpone() {
+		setBusy(true); setError('');
+		try { await api(`/homework/${id}/postpone`, { method: 'POST', body: JSON.stringify({ version: h!.version, today: localDate() }) }); details.reload(); }
+		catch (error) { setError(message(error)); } finally { setBusy(false); }
+	}
 	if (!h) return <p role="status">{details.error || 'Открываем домашнюю работу...'}</p>;
 	const parent = user.role === 'parent', tasks = details.data!.tasks;
-	return <div className="stack"><div className="heading"><div><h1>{h.title}</h1><p>{h.dueDate ? `Срок: ${h.dueDate}` : 'Без срока'}</p></div>{parent && <button onClick={() => setEditing(!editing)}>Изменить домашнюю работу</button>}</div><p className="prose">{h.instructions}</p>
+	const power = !parent && h.dueDate && !h.postponedTo && localDate() <= h.dueDate && tasks.some(t => ['assigned', 'in_progress', 'changes_requested'].includes(t.state));
+	return <div className="stack"><div className="heading"><div><h1>{h.title}</h1><div className="row"><p>{h.dueDate ? `Срок: ${h.dueDate}` : 'Без срока'}</p>{power && <button disabled={busy} onClick={postpone}>Сила Бомжа</button>}</div>{h.postponedTo && <p>Сила Бомжа: срок перенесён на {dayMonth(h.postponedTo)}.</p>}</div>{parent && <button onClick={() => setEditing(!editing)}>Изменить домашнюю работу</button>}</div><p className="prose">{h.instructions}</p>
 		{(error || details.error) && <p className="error" role="alert">{error || details.error}</p>}
 		{editing && <form className="card card-pad stack" onSubmit={save}><label>Название<input name="title" defaultValue={h.title} required maxLength={200} /></label><label>Задание<textarea aria-label="Задание" name="instructions" defaultValue={h.instructions} maxLength={8000} /></label><label>Срок<input type="date" name="dueDate" defaultValue={h.dueDate ?? ''} /></label><button disabled={busy}>Сохранить домашнюю работу</button></form>}
 		<section className="card" aria-label="Задания">{tasks.map(t => <article key={t.id} className="list-row"><div className="grow"><h2>{t.unread && <span className="unread" role="img" aria-label="Новое сообщение" />}<a href={`/leetcode/tasks/${t.id}`}>{t.problemTitle}</a></h2></div><span className={`tag ${t.difficulty}`}>{difficultyLabels[t.difficulty]}</span><span className="tag">{homeworkLabels[t.state]}</span></article>)}{!tasks.length && <p className="empty">Заданий пока нет. {parent ? 'Добавьте задачу ниже.' : 'Родитель может добавить задание.'}</p>}</section>

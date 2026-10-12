@@ -64,6 +64,13 @@ test('student sees the level and the earned badge after an accepted attempt', as
 	expect((await chip.boundingBox())!.width).toBe(96);
 });
 
+test('shows the late tasks in the level card', async ({ page, server, notebook }) => {
+	const { DB } = await server.getWorker<TestEnv>().getEnv();
+	await addTask(DB, notebook.problem.id, 'assigned', '2020-01-01');
+	await page.goto('/leetcode');
+	await expect(page.getByText('Просрочено: 1 (−15 XP каждое)', { exact: true })).toBeVisible();
+});
+
 const picks = [
 	{ name: 'library pick hides the saved work and starts a new attempt', control: 'link' as const, draft: false, states: ['draft', 'saved'] },
 	{ name: 'library pick with a draft saves the draft and starts a new attempt', control: 'link' as const, draft: true, states: ['draft', 'saved', 'saved'] },

@@ -5,10 +5,11 @@ import { getAttempt, saveProgress } from './attempts';
 import { getProblem } from './problems';
 import { calendarDate, changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
 
-const homeworkColumns = 'h.id,h.title,h.instructions,h.due_date AS dueDate,h.version,h.created_at AS createdAt,h.updated_at AS updatedAt';
+const postponedSQL = '(SELECT to_date FROM postponements WHERE homework_id=h.id) AS postponedTo';
+const homeworkColumns = `h.id,h.title,h.instructions,h.due_date AS dueDate,${postponedSQL},h.version,h.created_at AS createdAt,h.updated_at AS updatedAt`;
 // ?1 is the viewer role. A later ? takes the next number. https://www.sqlite.org/lang_expr.html#varparam
 const unreadSQL = "EXISTS(SELECT 1 FROM feedback f WHERE f.problem_id=t.problem_id AND f.author<>?1 AND f.created_at>coalesce((SELECT read_at FROM discussion_reads r WHERE r.role=?1 AND r.problem_id=t.problem_id),''))";
-export const taskColumns = `t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,h.instructions,h.due_date AS dueDate,t.problem_id AS problemId,p.title AS problemTitle,p.difficulty,t.state,t.current_submission_id AS submissionId,t.version,t.created_at AS createdAt,t.updated_at AS updatedAt,${unreadSQL} AS unread`;
+export const taskColumns = `t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,h.instructions,h.due_date AS dueDate,${postponedSQL},t.problem_id AS problemId,p.title AS problemTitle,p.difficulty,t.state,t.current_submission_id AS submissionId,t.version,t.created_at AS createdAt,t.updated_at AS updatedAt,${unreadSQL} AS unread`;
 export const taskTables = 'homework_tasks t JOIN homework h ON h.id=t.homework_id JOIN problems p ON p.id=t.problem_id';
 const feedbackColumns = 'id,problem_id AS problemId,task_id AS taskId,submission_id AS submissionId,author,kind,body,created_at AS createdAt';
 const editableTask = "('assigned','in_progress','changes_requested')";
@@ -36,9 +37,20 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		const [rows] = await env.DB.batch<Feedback>(statements);
 		return Response.json(page(rows.results, limit, offset));
 	}
-	const bundle = /^\/leetcode\/api\/homework(?:\/([^/]+))?$/.exec(url.pathname);
+	const bundle = /^\/leetcode\/api\/homework(?:\/([^/]+)(\/postpone)?)?$/.exec(url.pathname);
 	if (bundle) {
 		const id = bundle[1] ? uuid(bundle[1]) : null;
+		if (bundle[2]) {
+			methods(request, ['POST']); requireRole(user, 'student');
+			const data = object(await readJson(request), ['version', 'today']), today = calendarDate(text(data.today, 10, true))!, version = integer(data.version), homework = await getHomework(env, id!);
+			if (homework.postponedTo) throw new HttpError(409, 'postponed', 'Сила Бомжа уже использована для этой домашней работы.');
+			if (!homework.dueDate || today > homework.dueDate) throw new HttpError(400, 'invalid_input', 'Перенести можно только срок, который ещё не прошёл.');
+			changed((await env.DB.batch([
+				env.DB.prepare("INSERT INTO postponements SELECT id,due_date,date(due_date,'+1 day'),? FROM homework WHERE id=? AND version=?").bind(now, id, version),
+				env.DB.prepare("UPDATE homework SET due_date=date(due_date,'+1 day'),version=version+1,updated_at=? WHERE id=? AND version=?").bind(now, id, version),
+			]))[0]);
+			return Response.json(await getHomework(env, id!));
+		}
 		methods(request, id ? ['GET', 'PATCH'] : ['GET', 'POST']);
 		if (request.method === 'GET') {
 			if (id) {

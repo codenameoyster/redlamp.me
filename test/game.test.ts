@@ -4,23 +4,25 @@ import { login, request } from './client';
 import type { Acceptance, BadgeId, Difficulty, Role, TaskState, Understanding } from '../shared/leetcode';
 import { sets, taskSlug, tasksOf } from '../src/leetcode/sets';
 
-interface Spec { difficulty: Difficulty; slug?: string; archived?: boolean; attempts?: { state?: 'saved' | 'draft'; acceptance: Acceptance; understanding?: Understanding; savedAt?: string }[]; reviews?: { result: Understanding; on: string }[]; task?: TaskState; runs?: { passed: number; total: number; on: string }[] }
+interface Spec { difficulty: Difficulty; slug?: string; archived?: boolean; attempts?: { state?: 'saved' | 'draft'; acceptance: Acceptance; understanding?: Understanding; savedAt?: string }[]; reviews?: { result: Understanding; on: string }[]; task?: TaskState; due?: string; submitted?: string; postpone?: boolean; runs?: { passed: number; total: number; on: string }[] }
 const insertProblem = env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,archived_at,created_at,updated_at) VALUES (?,?,'Problem',?,'[]','','',?,'now','now')");
 const insertAttempt = env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,saved_at,created_at,updated_at) VALUES (?,?,?,'{}','',?,?,?,'now','now')");
 const insertReview = env.DB.prepare("INSERT INTO reviews (id,problem_id,result,note,reviewed_on,created_at) VALUES (?,?,?,'',?,'now')");
-const insertBundle = env.DB.prepare("INSERT INTO homework (id,title,instructions,created_at,updated_at) VALUES (?,'Week 41','','now','now')");
+const insertBundle = env.DB.prepare("INSERT INTO homework (id,title,instructions,due_date,created_at,updated_at) VALUES (?,'Week 41','',?,'now','now')");
 const insertTask = env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) VALUES (?,?,?,?,'now','now')");
 const insertCard = env.DB.prepare("INSERT INTO card_answers VALUES (?,'pc1-factorial',?,3,?,?,'now')");
+const insertSubmission = env.DB.prepare('INSERT INTO submissions (id,task_id,attempt_id,task_version,created_at) VALUES (?,?,?,1,?)');
 const insertRun = env.DB.prepare("INSERT INTO test_runs (id,problem_id,attempt_id,approach_id,code_hash,passed,total,run_on,created_at) VALUES (?,?,?,'approach','hash',?,?,?,'now')");
 const run = (passed: number, on: string) => ({ passed, total: 5, on });
 const accepted = (difficulty: Difficulty, understanding: Understanding = 'with_help'): Spec => ({ difficulty, attempts: [{ acceptance: 'accepted', understanding }] });
 const setTasks = tasksOf(sets.find(set => set.slug === 'permutations-and-combinations')!);
+const today = new Date().toISOString().slice(0, 10);
 const order: BadgeId[] = ['first-accept', 'three-day-streak', 'first-hard', 'ten-accepted', 'independent-five', 'set-cleared'];
 
 let student: string;
 beforeEach(async () => { student = await login(); });
 
-it.each<{ name: string; role?: Role; problems: Spec[]; cards?: { correct: boolean; on: string }[]; xp: number; level: number; levelXp: number; nextLevelXp: number; earned: BadgeId[] }>([
+it.each<{ name: string; role?: Role; problems: Spec[]; cards?: { correct: boolean; on: string }[]; xp: number; late?: number; level: number; levelXp: number; nextLevelXp: number; earned: BadgeId[] }>([
 	{ name: 'empty notebook', problems: [], xp: 0, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
 	{ name: 'accepted easy', problems: [accepted('easy')], xp: 10, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
 	{ name: 'two accepted attempts count once', problems: [{ difficulty: 'easy', attempts: [{ acceptance: 'accepted' }, { acceptance: 'accepted' }] }], xp: 10, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
@@ -55,20 +57,32 @@ it.each<{ name: string; role?: Role; problems: Spec[]; cards?: { correct: boolea
 	{ name: 'four failed runs on one day', problems: [{ ...accepted('medium'), runs: Array(4).fill(run(4, '2026-10-01')) }], xp: 14, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
 	{ name: 'failed runs on two days', problems: [{ ...accepted('medium'), runs: [...Array(3).fill(run(4, '2026-10-01')), ...Array(3).fill(run(4, '2026-10-02'))] }], xp: 8, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
 	{ name: 'failed runs of two problems on one day', problems: Array<Spec>(2).fill({ ...accepted('medium'), runs: Array(3).fill(run(4, '2026-10-01')) }), xp: 28, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
+	{ name: 'submitted on the due date', problems: [{ ...accepted('medium'), task: 'submitted', due: '2026-10-01', submitted: '2026-10-01T23:59:00.000Z' }], xp: 20, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
+	{ name: 'submitted the day after the due date', problems: [{ ...accepted('medium'), task: 'submitted', due: '2026-10-01', submitted: '2026-10-02T00:01:00.000Z' }], xp: 5, late: 1, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
+	{ name: 'not submitted and overdue', problems: [{ ...accepted('medium'), task: 'assigned', due: '2026-10-01' }], xp: 5, late: 1, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
+	{ name: 'not submitted and due today', problems: [{ ...accepted('medium'), task: 'assigned', due: today }], xp: 20, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
+	{ name: 'cancelled and overdue', problems: [{ ...accepted('medium'), task: 'cancelled', due: '2026-10-01' }], xp: 20, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
+	{ name: 'postponed and submitted on the new date', problems: [{ ...accepted('medium'), task: 'submitted', due: '2026-10-01', postpone: true, submitted: '2026-10-02T12:00:00.000Z' }], xp: 20, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
+	{ name: 'late penalty below 0 XP', problems: [{ ...accepted('easy'), task: 'assigned', due: '2026-10-01' }], xp: 0, late: 1, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
 	{ name: 'failed runs below 0 XP', problems: [{ ...accepted('easy'), runs: [...Array(3).fill(run(0, '2026-10-01')), ...Array(3).fill(run(0, '2026-10-02'))] }], xp: 0, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
-])('$name', async ({ role, problems, cards = [], xp, level, levelXp, nextLevelXp, earned }) => {
+])('$name', async ({ role, problems, cards = [], xp, late = 0, level, levelXp, nextLevelXp, earned }) => {
+	const postponed: string[] = [];
 	const statements = problems.flatMap(problem => {
-		const id = crypto.randomUUID(), homeworkId = crypto.randomUUID(), attemptId = crypto.randomUUID();
+		const id = crypto.randomUUID(), homeworkId = crypto.randomUUID(), taskId = crypto.randomUUID(), attemptId = crypto.randomUUID();
+		if (problem.postpone) postponed.push(homeworkId);
 		return [
 			insertProblem.bind(id, problem.slug ?? id, problem.difficulty, problem.archived ? 'now' : null),
 			...(problem.attempts ?? []).map(attempt => insertAttempt.bind(crypto.randomUUID(), id, attempt.state ?? 'saved', attempt.acceptance, attempt.understanding ?? 'with_help', attempt.savedAt ?? null)),
 			...(problem.reviews ?? []).map(review => insertReview.bind(crypto.randomUUID(), id, review.result, review.on)),
-			...(problem.task ? [insertBundle.bind(homeworkId), insertTask.bind(crypto.randomUUID(), homeworkId, id, problem.task)] : []),
-			...(problem.runs ? [insertAttempt.bind(attemptId, id, 'draft', 'not_submitted', 'needs_practice', null), ...problem.runs.map(run => insertRun.bind(crypto.randomUUID(), id, attemptId, run.passed, run.total, run.on))] : []),
+			...(problem.task ? [insertBundle.bind(homeworkId, problem.due ?? null), insertTask.bind(taskId, homeworkId, id, problem.task)] : []),
+			...(problem.runs || problem.submitted ? [insertAttempt.bind(attemptId, id, 'draft', 'not_submitted', 'needs_practice', null)] : []),
+			...(problem.runs ?? []).map(run => insertRun.bind(crypto.randomUUID(), id, attemptId, run.passed, run.total, run.on)),
+			...(problem.submitted ? [insertSubmission.bind(crypto.randomUUID(), taskId, attemptId, problem.submitted)] : []),
 		];
 	}).concat(cards.map(card => insertCard.bind(crypto.randomUUID(), Number(card.correct), card.on, card.on)));
 	if (statements.length) await env.DB.batch(statements);
+	for (const homeworkId of postponed) expect((await request(`/homework/${homeworkId}/postpone`, 'POST', { version: 1, today: '2026-10-01' }, student)).status).toBe(200);
 	const response = await request('/game', 'GET', undefined, role ? await login(role) : student);
 	expect(response.status).toBe(200);
-	expect(await response.json()).toEqual({ xp, level, levelXp, nextLevelXp, badges: order.map(id => ({ id, earned: earned.includes(id) })) });
+	expect(await response.json()).toEqual({ xp, level, levelXp, nextLevelXp, late, badges: order.map(id => ({ id, earned: earned.includes(id) })) });
 });

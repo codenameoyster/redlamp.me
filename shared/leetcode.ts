@@ -52,10 +52,10 @@ export interface Attempt extends DraftValue {
 export type AttemptSummary = Omit<Attempt, 'document'>;
 export const MAX_DOCUMENT_BYTES = 256_000;
 export type TaskState = 'assigned' | 'in_progress' | 'submitted' | 'changes_requested' | 'completed' | 'cancelled';
-export interface Homework { id: string; title: string; instructions: string; dueDate: string | null; version: number; createdAt: string; updatedAt: string }
+export interface Homework { id: string; title: string; instructions: string; dueDate: string | null; postponedTo: string | null; version: number; createdAt: string; updatedAt: string }
 export interface HomeworkSummary extends Homework { taskCount: number; completedCount: number; submittedCount: number; requestedCount: number; unread: boolean }
 export interface HomeworkTask {
-	id: string; homeworkId: string; homeworkTitle: string; instructions: string; dueDate: string | null; problemId: string; problemTitle: string; difficulty: Difficulty;
+	id: string; homeworkId: string; homeworkTitle: string; instructions: string; dueDate: string | null; postponedTo: string | null; problemId: string; problemTitle: string; difficulty: Difficulty;
 	state: TaskState; submissionId: string | null; version: number; createdAt: string; updatedAt: string; unread: boolean;
 }
 export interface Submission { id: string; taskId: string; attemptId: string; taskVersion: number; createdAt: string }
@@ -108,7 +108,7 @@ export interface TutorThread { kind: TutorKind; id: string; title: string; count
 export type TutorEvent = { delta: string } | { done: true } | { error: { code: string; message: string } };
 export interface TutorAccount { connected: boolean; connectedAt: string | null; model: string | null; models: { slug: string; name: string }[]; pending: boolean }
 export type BadgeId = 'first-accept' | 'three-day-streak' | 'first-hard' | 'ten-accepted' | 'independent-five' | 'set-cleared';
-export interface Game { xp: number; level: number; levelXp: number; nextLevelXp: number; badges: { id: BadgeId; earned: boolean }[] }
+export interface Game { xp: number; level: number; levelXp: number; nextLevelXp: number; late: number; badges: { id: BadgeId; earned: boolean }[] }
 export function newApproach(): Approach {
 	return { id: crypto.randomUUID(), label: '', idea: '', correctness: '', timeComplexity: '', spaceComplexity: '', edgeCases: '', mistakes: '', language: '', code: '' };
 }
