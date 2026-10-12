@@ -17,7 +17,9 @@ button:focus-visible,.button:focus-visible { outline-offset:-5px; }
 .primary:focus-visible { outline-color:#000; }
 /* The fixed tip anchors to its button, so the overflow of a card does not clip it. The empty alternative text keeps the tip out of the accessible name. https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Anchor_positioning */
 [data-tip]::after { content:attr(data-tip) / ""; position:fixed; position-area:bottom span-right; position-try-fallbacks:flip-inline; width:max-content; max-width:260px; margin-top:2px; padding:2px 4px; border:1px solid #000; background:var(--tip); color:var(--ink); font:12px/1.3 var(--sans); text-align:left; pointer-events:none; z-index:20; visibility:hidden; }
-[data-tip]:hover::after,[data-tip]:focus-visible::after { visibility:visible; transition:visibility 0s .3s; }
+/* A touch screen keeps the hover after a tap, so only a device that can hover shows the tip on hover. https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@media/hover */
+[data-tip]:focus-visible::after { visibility:visible; transition:visibility 0s .3s; }
+@media (hover:hover) { [data-tip]:hover::after { visibility:visible; transition:visibility 0s .3s; } }
 a { color:var(--link); text-underline-offset:2px; }
 h1,h2,h3,p { margin:0; }
 h1 { font-size:18px; line-height:1.25; }

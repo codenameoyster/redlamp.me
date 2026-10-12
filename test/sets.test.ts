@@ -127,16 +127,17 @@ it.each(sets.flatMap(tasksOf).map(task => ({ name: taskSlug(task), task })))('$n
 	expect(tests.cases.map(item => { const answer = expectedOf(reference!, item.input); return answer && 'value' in answer ? form(answer.value) : answer; })).toEqual(tests.cases.map(item => form(item.expected!)));
 });
 
-// The hidden tests of seed 1. Each input must have the argument count of the reference and satisfy the constraints. A reference run of 100 ms or more makes the judge route slow.
+// The hidden tests of seeds 1 and 2^32 - 1. Each input must have the argument count of the reference and satisfy the constraints. A reference run of 100 ms or more makes the judge route slow.
+// The judge route refuses an output over 1,000,000 characters, so a longer answer can never pass.
 it.each(sets.flatMap(tasksOf).map(task => ({ name: taskSlug(task), task })))('$name generator gives valid hidden tests', ({ task }) => {
-	const reference = referenceOf(taskSlug(task))!, inputs = generatorOf(taskSlug(task))?.(mulberry32(1)) ?? [];
+	const reference = referenceOf(taskSlug(task))!, generate = generatorOf(taskSlug(task)), inputs = generate?.(mulberry32(1)) ?? [];
 	expect(inputs.length).toBeGreaterThanOrEqual(10);
 	expect(inputs.length).toBeLessThanOrEqual(16);
-	expect(inputs.flatMap((input, index) => {
+	expect([...inputs, ...generate?.(mulberry32(2 ** 32 - 1)) ?? []].flatMap((input, index) => {
 		const args = reference.mode === 'call' ? parsePy(input) as unknown[] : [input], start = performance.now();
 		if (args.length !== reference.solve.length) return [index];
-		if (reference.mode === 'stdio') reference.solve(input); else reference.solve(...args);
-		return performance.now() - start < 100 ? [] : [index];
+		const expected = reference.mode === 'stdio' ? reference.solve(input) : reprPy(reference.solve(...args));
+		return performance.now() - start < 100 && expected.length <= 1_000_000 ? [] : [index];
 	})).toEqual([]);
 });
 

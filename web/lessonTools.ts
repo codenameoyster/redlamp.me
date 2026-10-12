@@ -5,7 +5,8 @@ const skip = /[\s­​]/, low = (c: string) => c.toLowerCase()[0];
 // Shows "Объяснить с ИИ" below a text selection in the root element. Ctrl+Enter or Cmd+Enter does the same. Returns the cleanup.
 // The root element can change while the watch runs: the work window shows the lesson again for each new draft.
 export function watchSelection(root: RefObject<HTMLElement | null>, explain: (text: string) => void): () => void {
-	const button = Object.assign(document.createElement('button'), { type: 'button', className: 'primary lesson-ai', hidden: true, title: 'Ctrl+Enter', ariaKeyShortcuts: 'Control+Enter Meta+Enter', textContent: 'Объяснить с ИИ' });
+	const button = Object.assign(document.createElement('button'), { type: 'button', className: 'primary lesson-ai', hidden: true, ariaKeyShortcuts: 'Control+Enter Meta+Enter', textContent: 'Объяснить с ИИ' });
+	button.dataset.tip = 'Попросить ИИ объяснить выделенный текст (Ctrl+Enter).';
 	document.body.append(button);
 	let picked = '', pressing = false;
 	const hide = () => { button.hidden = true; picked = ''; };

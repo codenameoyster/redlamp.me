@@ -42,7 +42,8 @@ it.each([
 	{ name: 'first failed test gives the verdict', inputs: ['1', '2', '3'], outputs: [{ value: '2' }, { value: '5' }, { timeout: true }], judgement: { verdict: 'wrong', failed: { index: 1, input: '2', expected: '4\n', output: '5' } } },
 	{ name: 'timeout', inputs: ['1', '2', '3'], outputs: [{ timeout: true }, { value: '5' }, { value: '6' }], judgement: { verdict: 'timeout', failed: { index: 0, input: '1', expected: '2\n', output: '' } } },
 	{ name: 'runtime error', inputs: ['1', '2', '3'], outputs: [{ value: '2' }, { value: '4' }, { error: 'ZeroDivisionError: division by zero' }], judgement: { verdict: 'error', failed: { index: 2, input: '3', expected: '6\n', output: 'ZeroDivisionError: division by zero' } } },
-	{ name: 'texts over 2,000 characters', inputs: [`1${' '.repeat(2500)}`], outputs: [{ value: '3'.repeat(2500) }], judgement: { verdict: 'wrong', failed: { index: 0, input: `1${' '.repeat(1999)}`, expected: '2\n', output: '3'.repeat(2000) } } },
+	{ name: 'texts over 2,000 characters', inputs: [`1${' '.repeat(2500)}`], outputs: [{ value: '3'.repeat(2500) }], judgement: { verdict: 'wrong', failed: { index: 0, input: `1${' '.repeat(1999)}…`, expected: '2\n', output: `${'3'.repeat(2000)}…` } } },
+	{ name: 'text of 2,000 characters', inputs: ['1'], outputs: [{ value: '3'.repeat(2000) }], judgement: { verdict: 'wrong', failed: { index: 0, input: '1', expected: '2\n', output: '3'.repeat(2000) } } },
 ])('$name', ({ inputs, outputs, judgement }) => {
 	expect(judge(double, { mode: 'stdio' }, inputs, outputs as JudgeOutput[])).toEqual(judgement);
 });
@@ -79,7 +80,7 @@ const answers = [{ value: '[1, 2]' }, { value: '[1, 3]' }, { value: '[1, 2]' }];
 it.each([
 	{ name: 'wrong answer', role: 'student', outputs: [answers[0], { value: '[2, 3]' }, answers[2]], status: 200, body: { verdict: 'wrong', failed: { index: 1, input: '[[2, 3, 4], 6]', expected: '[1, 3]', output: '[2, 3]' } } },
 	{ name: 'wrong answer of the generated input', role: 'student', outputs: [answers[0], answers[1], { value: '[1, 628]' }], status: 200, body: { verdict: 'wrong', failed: { index: 2, input: '[[0, 628], 628]', expected: '[1, 2]', output: '[1, 628]' } } },
-	{ name: 'output at 1,000,000 characters', role: 'student', outputs: [answers[0], answers[1], { value: '9'.repeat(1_000_000) }], status: 200, body: { verdict: 'wrong', failed: { index: 2, input: '[[0, 628], 628]', expected: '[1, 2]', output: '9'.repeat(2000) } } },
+	{ name: 'output at 1,000,000 characters', role: 'student', outputs: [answers[0], answers[1], { value: '9'.repeat(1_000_000) }], status: 200, body: { verdict: 'wrong', failed: { index: 2, input: '[[0, 628], 628]', expected: '[1, 2]', output: `${'9'.repeat(2000)}…` } } },
 	{ name: 'output over 1,000,000 characters', role: 'student', outputs: [answers[0], answers[1], { value: '9'.repeat(1_000_001) }], status: 400, body: { error: { code: 'invalid_input' } } },
 	{ name: 'fewer outputs than inputs', role: 'student', outputs: answers.slice(1), status: 400, body: { error: { code: 'invalid_input' } } },
 	{ name: 'output with a value and an error', role: 'student', outputs: [{ ...answers[0], error: 'ValueError' }, answers[1], answers[2]], status: 400, body: { error: { code: 'invalid_input' } } },

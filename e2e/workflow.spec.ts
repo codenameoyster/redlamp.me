@@ -139,3 +139,17 @@ test('explains a lesson selection with a touch tap', async ({ browser, baseURL }
 		await expect.poll(() => body).toEqual({ kind: 'set', id: 'permutations-and-combinations', message: 'Объясните эту часть.', quote: 'Рекурсия это функция, которая вызывает сама себя. Для дерева это удобно. Функция делает один шаг вниз, а дальше просит саму себя сделать остальное. Функцию, которая идёт по дереву, назовём dfs.' });
 	} finally { await context.close(); }
 });
+
+test('hides the tip after a touch tap', async ({ browser, baseURL }, testInfo) => {
+	test.skip(testInfo.project.name !== 'mobile', 'Only the mobile project has a phone viewport.');
+	const context = await browser.newContext({ baseURL, viewport: testInfo.project.use.viewport, hasTouch: true, isMobile: true });
+	const page = await context.newPage();
+	try {
+		await signIn(page);
+		const bar = page.getByRole('banner');
+		// A phone keeps the hover on the button after a tap. A click gives this hover, and tap() does not. The tip shows 0.3 s after the hover starts.
+		await bar.getByRole('button', { name: 'Светлая тема', exact: true }).click();
+		await page.waitForTimeout(600);
+		expect(await bar.getByRole('button', { name: 'Тёмная тема', exact: true }).evaluate(button => getComputedStyle(button, '::after').visibility)).toBe('hidden');
+	} finally { await context.close(); }
+});

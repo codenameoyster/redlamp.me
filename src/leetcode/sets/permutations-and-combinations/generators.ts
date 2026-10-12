@@ -80,7 +80,8 @@ export default {
 	combinations: random => [
 		call(1, 1), call(2, 1), call(2, 2), call(20, 1), call(20, 20), call(6, 6),
 		...repeat(6, () => { const n = int(random, 3, 12); return call(n, int(random, 1, n)); }),
-		call(20, 10), call(20, int(random, 9, 11)),
+		// The answer for k from 6 to 15 is longer than the output limit of the judge (1,000,000 characters).
+		call(20, 5), call(20, 16),
 	],
 	'letter-combinations-of-a-phone-number': random => [
 		call('2'), call('7'), call('9'), call('22'), call('79'),
@@ -95,7 +96,8 @@ export default {
 	'permutations-ii': random => [
 		call([0]), call([1, 1]), call([2, 2, 2]), call([1, 1, 2]), call([-10, 10]), call(Array(8).fill(-3)),
 		...repeat(6, () => call(ints(random, int(random, 3, 6), -2, 2))),
-		call(distinct(random, 8, -10, 10)), call(ints(random, 8, -10, 10)),
+		// 8 different values give 40,320 permutations, longer than the output limit of the judge (1,000,000 characters). One repeated value halves the count. 8 values in [-3, 3] always repeat a value.
+		call(distinct(random, 7, -10, 10).flatMap((value, index) => index ? [value] : [value, value])), call(ints(random, 8, -3, 3)),
 	],
 	'combination-sum': random => {
 		// The count of combinations with the sum target (coin change). The statement allows fewer than 150.

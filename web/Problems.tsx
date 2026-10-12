@@ -60,7 +60,7 @@ export function Problems() {
 		<form onSubmit={filter} className="card card-pad stack"><label>Поиск по задачам и заметкам<input name="q" type="search" maxLength={100} defaultValue={query.get('q') ?? ''} /></label><div className="filters">
 			<label>Сложность<select name="difficulty" defaultValue={query.get('difficulty') ?? ''}><option value="">Любая сложность</option>{Object.entries(difficultyLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
 			<label>Тема<input name="topic" maxLength={40} defaultValue={query.get('topic') ?? ''} /></label>
-			<label>Статус на LeetCode<select name="solved" defaultValue={query.get('solved') ?? ''}><option value="">Все задачи</option><option value="1">Принято на LeetCode</option><option value="0">Ещё не принято</option></select></label>
+			<label>Статус<select name="solved" defaultValue={query.get('solved') ?? ''}><option value="">Все задачи</option><option value="1">Принято</option><option value="0">Ещё не принято</option></select></label>
 			<label>Понимание<select name="understanding" defaultValue={query.get('understanding') ?? ''}><option value="">Любое понимание</option><option value="needs_practice">Нужно потренироваться</option><option value="with_help">Решил с подсказкой</option><option value="independent">Решил сам</option></select></label>
 			<label>Домашняя работа<select name="homework" defaultValue={query.get('homework') ?? ''}><option value="">Все задачи</option><option value="1">Есть активное задание</option><option value="0">Нет активного задания</option></select></label>
 			<label>Повторение до<input type="date" name="due" defaultValue={query.get('due') ?? ''} /></label>

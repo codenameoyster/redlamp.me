@@ -28,7 +28,7 @@ export function same(spec: TestSpec, expected: string, output: string): boolean 
 	try { return canonical(spec, expected) === canonical(spec, output); } catch { return false; }
 }
 
-const cut = (value: string) => value.slice(0, 2000);
+const cut = (value: string) => value.length > 2000 ? `${value.slice(0, 2000)}…` : value;
 // The first failed test gives the verdict, so the reference answers only the tests up to it.
 export function judge(reference: Reference, spec: TestSpec, inputs: string[], outputs: JudgeOutput[]): Judgement {
 	for (const [index, input] of inputs.entries()) {

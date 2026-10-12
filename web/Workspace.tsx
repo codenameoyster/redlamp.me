@@ -50,7 +50,7 @@ export function AttemptContent({ value, change, chapter, problemId, tests, skele
 	return <div className="stack"><Panes left={chapter ?? notes} right={code} />{chapter && notes}</div>;
 }
 
-export function DraftEditor({ initial, user, registerGuard, saved, task, chapter, onCode }: { initial: Attempt; user: SessionUser; registerGuard: RegisterGuard; saved: (attempt: Attempt, action?: 'save' | 'submit' | 'judge') => Promise<void>; task?: HomeworkTask; chapter?: ReactNode; onCode: (code: string) => void }) {
+export function DraftEditor({ initial, user, registerGuard, saved, task, chapter, onCode, notice }: { initial: Attempt; user: SessionUser; registerGuard: RegisterGuard; saved: (attempt: Attempt, action?: 'save' | 'submit' | 'judge') => Promise<void>; task?: HomeworkTask; chapter?: ReactNode; onCode: (code: string) => void; notice?: ReactNode }) {
 	const draft = useDraft(initial, user), code = draft.value.document.approaches[0].code;
 	useEffect(() => onCode(code), [code]);
 	const tests = useResource<ProblemTests>(`/problems/${initial.problemId}/tests`);
@@ -74,6 +74,7 @@ export function DraftEditor({ initial, user, registerGuard, saved, task, chapter
 		catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
 	// The server gives the hidden inputs and compares the outputs with its reference solution. The saved code runs here, 3 seconds for each input.
+	// The first failed test gives the verdict, so the run stops at the first timeout or error. The server refuses an output over 1,000,000 characters, and a correct answer is shorter.
 	async function send() {
 		setBusy(true); setError(''); setJudgement(null);
 		const path = `/problems/${initial.problemId}`;
@@ -83,9 +84,11 @@ export function DraftEditor({ initial, user, registerGuard, saved, task, chapter
 			const { seed, inputs } = await api<{ seed: number; inputs: string[] }>(`${path}/judge/start`, { method: 'POST' }), outputs: JudgeOutput[] = [];
 			setProgress(`Проверяем: 0 из ${inputs.length}`);
 			await runTests(persisted.document.approaches[0].code, tests.data!.spec!, inputs.map(input => ({ input, expected: null })), result => {
-				outputs.push(result.timeout ? { timeout: true } : result.error ? { error: `${result.error.line ? `Строка ${result.error.line}: ` : ''}${result.error.message}` } : { value: result.output });
+				outputs.push(result.timeout ? { timeout: true } : result.error ? { error: `${result.error.line ? `Строка ${result.error.line}: ` : ''}${result.error.message}`.slice(0, 1_000_000) } : { value: result.output.slice(0, 1_000_000) });
 				setProgress(`Проверяем: ${outputs.length} из ${inputs.length}`);
+				return Boolean(result.timeout || result.error);
 			}, 3);
+			while (outputs.length < inputs.length) outputs.push({ timeout: true });
 			const value = await api<Judgement>(`${path}/judge`, { method: 'POST', body: JSON.stringify({ seed, attemptId: persisted.id, outputs }) });
 			if (value.failed) setJudgement(value); else await saved(await api<Attempt>(`${path}/attempts/${persisted.id}`), 'judge');
 		} catch (error) { setError(message(error)); } finally { setBusy(false); setProgress(''); }
@@ -94,6 +97,9 @@ export function DraftEditor({ initial, user, registerGuard, saved, task, chapter
 	async function copyWork() { try { await navigator.clipboard.writeText(JSON.stringify(draft.value, null, 2)); } catch { setError('Выделите и скопируйте текст из редактора вручную.'); } }
 	// The starter code waits for the recovery choice, so it does not replace the recovery copy in the session storage.
 	const skeleton = draft.recovery ? undefined : tests.data?.skeleton;
+	// The tip of a button shows below it, so a result line is beside its button and the failed test is above the button.
+	const finish = editable && tests.data && (tests.data.source === 'set' ? <button type="button" className="primary" onClick={() => void send()} data-tip="Проверить решение на скрытых тестах. Если всё верно, задача засчитывается.">Отправить</button> : <button type="button" className="primary" onClick={() => void solve()} data-tip={submittable ? 'Засчитать задачу и отправить задание родителю на проверку.' : 'Засчитать задачу как решённую.'}>Решено</button>);
+	const status = progress || (judgement ? '' : notice);
 	return <div className="stack">
 		{editable && <p role="status" aria-label="Состояние сохранения" aria-live="polite">{{ saved: 'Сохранено', saving: 'Сохраняем', unsaved: 'Не сохранено', conflict: 'Конфликт правок', login_required: 'Войдите, чтобы сохранить' }[draft.status]}</p>}
 		{draft.storageError && <p className="notice" role="status">{draft.storageError}</p>}
@@ -101,11 +107,9 @@ export function DraftEditor({ initial, user, registerGuard, saved, task, chapter
 		{(error || draft.error) && <div className="error" role="alert">{error || draft.error}<div className="row">{draft.status === 'login_required' ? <button onClick={draft.signIn} data-tip="Войти снова, чтобы сохранить работу.">Войти снова</button> : !draft.conflict && <button onClick={() => void draft.flush()} data-tip="Попробовать сохранить работу ещё раз.">Повторить сохранение</button>}{!draft.conflict && <button onClick={copyWork} data-tip="Скопировать работу из редактора в буфер обмена.">Скопировать несохранённую работу</button>}</div></div>}
 		{draft.conflict && <section className="notice stack"><h2>Копия с сервера</h2><p>В редакторе осталась ваша локальная копия. Скопируйте её, прежде чем заменить.</p><pre>{JSON.stringify(draft.conflict.document, null, 2)}</pre><div className="row"><button onClick={copyWork} data-tip="Скопировать работу из редактора в буфер обмена.">Скопировать несохранённую работу</button><button onClick={useServerCopy} data-tip="Заменить работу в редакторе копией с сервера.">Использовать копию с сервера</button></div></section>}
 		<fieldset disabled={busy || Boolean(draft.recovery)}><AttemptContent value={draft.value} change={editable ? draft.change : undefined} chapter={chapter} problemId={initial.problemId} tests={tests.data ?? undefined} skeleton={skeleton} runs={runs.data ?? undefined} record={user.role === 'student' ? record : undefined}>
-			{editable && tests.data && (tests.data.source === 'set' ? <button type="button" className="primary" onClick={() => void send()} data-tip="Проверить решение на скрытых тестах. Если всё верно, задача засчитывается.">Отправить</button> : <button type="button" className="primary" onClick={() => void solve()} data-tip={submittable ? 'Засчитать задачу и отправить задание родителю на проверку.' : 'Засчитать задачу как решённую.'}>Решено</button>)}
-			{progress && <p role="status">{progress}</p>}
 			{judgement?.failed && <Failure {...judgement} />}
-			<button type="button" onClick={() => void repeat()} data-tip="Отметить, что задачу нужно потренировать, и назначить повторение.">Нужно потренироваться</button>
-			{practice && <p role="status">{practice}</p>}
+			{(finish || status) && <div className="row">{finish}{status && <p role="status">{status}</p>}</div>}
+			<div className="row"><button type="button" onClick={() => void repeat()} data-tip="Отметить, что задачу нужно потренировать, и назначить повторение.">Нужно потренироваться</button>{practice && <p role="status">{practice}</p>}</div>
 			{tests.data?.spec && <OwnTests problemId={initial.problemId} tests={tests.data} changed={tests.reload} />}
 		</AttemptContent></fieldset>
 	</div>;
@@ -130,8 +134,9 @@ export function Workspace({ problemId, taskId, user, registerGuard }: { problemI
 	const [editing, setEditing] = useState(false), [code, setCode] = useState(''), [feedback, setFeedback] = useState(''), [notice, setNotice] = useState<ReactNode>(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
 	const guard = useRef<LeaveGuard | null>(null), article = useRef<HTMLElement>(null);
 	const register = useCallback<RegisterGuard>(value => { guard.current = value; registerGuard(value); }, [registerGuard]);
+	// The new attempt shows at once, so the page does not get shorter and keeps its scroll position.
 	async function open(copyAttemptId?: string) {
-		try { setWork((await api<Attempt>(`/problems/${id}/attempts`, { method: 'POST', body: JSON.stringify(copyAttemptId ? { copyAttemptId } : {}) })).id); }
+		try { const attempt = await api<Attempt>(`/problems/${id}/attempts`, { method: 'POST', body: JSON.stringify(copyAttemptId ? { copyAttemptId } : {}) }); current.setData(attempt, `/problems/${id}/attempts/${attempt.id}`); setWork(attempt.id); }
 		catch (error) { if (error instanceof ApiError && error.fields?.attemptId) setWork(error.fields.attemptId); else setError(message(error)); }
 	}
 	// Opening an assigned task starts it. A failed start keeps the task assigned, and the submit still works.
@@ -173,8 +178,7 @@ export function Workspace({ problemId, taskId, user, registerGuard }: { problemI
 		{review && <p className="notice">{review.kind === 'completed' ? 'Завершено' : 'Нужны правки'}{review.body && `: ${review.body}`}</p>}
 		{!task && <div className="row"><a href={`/leetcode/problems/${record.id}/review`}>Повторить задачу</a>{record.archivedAt ? <button onClick={restore} data-tip="Вернуть задачу в список задач.">Вернуть из архива</button> : <button onClick={archive} data-tip="Убрать задачу в архив.">В архив</button>}{tasks.data?.items.map(t => <a key={t.id} href={`/leetcode/tasks/${t.id}`}>{t.homeworkTitle}</a>)}</div>}
 		{(error || attempts.error || current.error || reviews.error) && <p className="error" role="alert">{error || attempts.error || current.error || reviews.error}</p>}
-		{current.data ? <DraftEditor key={`${current.data.id}:${current.data.state}`} initial={current.data} user={user} registerGuard={register} task={task} saved={saved} chapter={chapterPane} onCode={setCode} /> : <p className="empty">{!student && attempts.data?.items.length === 0 ? 'Ученик ещё не начал работу.' : 'Открываем работу...'}</p>}
-		{notice && <p role="status">{notice}</p>}
+		{current.data ? <DraftEditor key={`${current.data.id}:${current.data.state}`} initial={current.data} user={user} registerGuard={register} task={task} saved={saved} chapter={chapterPane} onCode={setCode} notice={notice} /> : <p className="empty">{!student && attempts.data?.items.length === 0 ? 'Ученик ещё не начал работу.' : 'Открываем работу...'}</p>}
 		{user.role === 'parent' && (task?.state === 'submitted' || task?.state === 'completed') && <section className="card card-pad stack"><h2>Проверка отправки</h2><label>Отзыв<textarea aria-label="Отзыв" value={feedback} onChange={event => setFeedback(event.target.value)} maxLength={8000} /></label><div className="row"><button disabled={busy} onClick={() => void act('review', { submissionId: task.submissionId, decision: 'changes_requested', body: feedback })} data-tip="Вернуть задание ученику с вашим отзывом.">Вернуть на доработку</button>{task.state === 'submitted' && <button className="primary" disabled={busy} onClick={() => void act('review', { submissionId: task.submissionId, decision: 'completed', body: feedback })} data-tip="Принять работу и завершить задание.">Завершить</button>}</div></section>}
 		<Materials problemId={record.id} homework={details.data?.homework} user={user} changed={details.reload} />
 		{editing && <ProblemForm problem={record} close={() => setEditing(false)} saved={() => { setEditing(false); problem.reload(); }} />}

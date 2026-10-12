@@ -26,7 +26,8 @@ function post<T>(message: object): Promise<T> {
 
 export const checkCode = (code: string) => post<{ diagnostics: Diagnostic[] }>({ type: 'check', code }).then(value => value.diagnostics);
 
-export async function runTests(code: string, spec: TestSpec, tests: TestCase[], onResult: (result: RunResult) => void, seconds = 2): Promise<void> {
+// The run stops when onResult returns true.
+export async function runTests(code: string, spec: TestSpec, tests: TestCase[], onResult: (result: RunResult) => boolean | void, seconds = 2): Promise<void> {
 	const limit = `Превышено время (${seconds} с)`;
 	for (const test of tests) {
 		// A new worker answers the check only after Python loads, so the time limit counts only the run.
@@ -35,6 +36,6 @@ export async function runTests(code: string, spec: TestSpec, tests: TestCase[], 
 		const result = await Promise.race([post<RunResult>({ type: 'run', code, spec, test }), new Promise<null>(resolve => { timer = setTimeout(resolve, seconds * 1000, null); })]);
 		clearTimeout(timer);
 		if (!result) stop(new Error(limit));
-		onResult(result ?? { ok: test.expected === null ? null : false, output: '', stdout: '', error: { message: limit, line: null }, ms: seconds * 1000, timeout: true });
+		if (onResult(result ?? { ok: test.expected === null ? null : false, output: '', stdout: '', error: { message: limit, line: null }, ms: seconds * 1000, timeout: true })) return;
 	}
 }
