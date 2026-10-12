@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
-import type { Dashboard, HomeworkDetails, HomeworkSummary, HomeworkTask, Page, TaskDetails } from '../shared/leetcode';
+import type { Dashboard, HomeworkBoard, HomeworkDetails, HomeworkSummary, HomeworkTask, Page, TaskDetails } from '../shared/leetcode';
 
 let student: string, parent: string, problemId: string, attemptId: string, homeworkId: string, taskId: string, submissionId: string;
 const insertProblem = env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,?,?,'medium','[]','','','now','now')");
@@ -233,6 +233,36 @@ it.each([
 	expect((await request(`/problems/${problemId}/feedback?offset=${offset}`, 'GET', undefined, viewer === 'parent' ? parent : student)).status).toBe(200);
 	expect((await env.DB.prepare('SELECT role,read_at FROM discussion_reads ORDER BY role').all()).results).toEqual(reads);
 	expect((await (await request(`/tasks/${taskId}`, 'GET', undefined, parent)).json() as TaskDetails).task.unread).toBe(unread);
+});
+
+it.each([
+	{ name: 'assigned task is in the future section', role: 'student', state: 'assigned', section: 'future' },
+	{ name: 'started task is in progress', role: 'student', state: 'in_progress', section: 'progress' },
+	{ name: 'submitted task is in progress', role: 'student', state: 'submitted', section: 'progress' },
+	{ name: 'task with requested changes is in progress', role: 'student', state: 'changes_requested', section: 'progress' },
+	{ name: 'completed task is accepted', role: 'student', state: 'completed', section: 'accepted' },
+	{ name: 'parent sees the same board', role: 'parent', state: 'completed', section: 'accepted' },
+	{ name: 'cancelled task is not on the board', role: 'student', state: 'cancelled', section: null },
+])('$name', async ({ role, state, section }) => {
+	await env.DB.prepare('UPDATE homework_tasks SET state=?').bind(state).run();
+	const response = await request('/tasks?view=board', 'GET', undefined, role === 'parent' ? parent : student);
+	expect(response.status).toBe(200);
+	const task = { id: taskId, homeworkId, homeworkTitle: 'Two Sum practice', dueDate: '2026-10-10', problemId, problemTitle: 'Two Sum', state, unread: false };
+	expect(await response.json()).toEqual({ progress: [], future: [], accepted: [], ...section && { [section]: [expect.objectContaining(task)] } });
+});
+
+it.each([
+	{ name: 'progress by due date with no date last', section: 'progress', tasks: [{ title: 'No date', state: 'in_progress', due: null, at: 'now' }, { title: 'Later', state: 'submitted', due: '2026-10-12', at: 'now' }, { title: 'Sooner', state: 'changes_requested', due: '2026-10-11', at: 'now' }], titles: ['Sooner', 'Later', 'No date'] },
+	{ name: 'future by due date with no date last', section: 'future', tasks: [{ title: 'No date', state: 'assigned', due: null, at: 'now' }, { title: 'Later', state: 'assigned', due: '2026-10-12', at: 'now' }, { title: 'Sooner', state: 'assigned', due: '2026-10-11', at: 'now' }], titles: ['Sooner', 'Later', 'No date'] },
+	{ name: 'accepted by completion time with the newest first', section: 'accepted', tasks: [{ title: 'First', state: 'completed', due: null, at: '2026-10-05T10:00:00.000Z' }, { title: 'Last', state: 'completed', due: null, at: '2026-10-07T10:00:00.000Z' }, { title: 'Middle', state: 'completed', due: '2026-10-01', at: '2026-10-06T10:00:00.000Z' }], titles: ['Last', 'Middle', 'First'] },
+])('$name', async ({ section, tasks, titles }) => {
+	const insertDone = env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) VALUES (?,?,?,?,'now',?)");
+	await env.DB.batch([env.DB.prepare("UPDATE homework_tasks SET state='cancelled'"), ...tasks.flatMap(task => {
+		const [id, bundle] = [crypto.randomUUID(), crypto.randomUUID()];
+		return [insertProblem.bind(id, task.title, task.title), insertBundle.bind(bundle, task.title, task.due, 'now', 'now'), insertDone.bind(crypto.randomUUID(), bundle, id, task.state, task.at)];
+	})]);
+	const board = await (await request('/tasks?view=board', 'GET', undefined, student)).json() as HomeworkBoard;
+	expect(board[section as keyof HomeworkBoard].map(task => task.problemTitle)).toEqual(titles);
 });
 
 it('marks a bundle unread when one of its tasks is unread', async () => {

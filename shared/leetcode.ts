@@ -61,6 +61,7 @@ export interface HomeworkTask {
 export interface Submission { id: string; taskId: string; attemptId: string; taskVersion: number; createdAt: string }
 export interface Feedback { id: string; problemId: string; taskId: string | null; submissionId: string | null; author: Role; kind: 'reply' | 'changes_requested' | 'completed'; body: string; createdAt: string }
 export interface HomeworkDetails { homework: Homework; tasks: HomeworkTask[] }
+export type HomeworkBoard = Record<'progress' | 'future' | 'accepted', HomeworkTask[]>;
 export interface TaskDetails { homework: Homework; task: HomeworkTask; submissions: Submission[] }
 export interface TestCase { input: string; expected: string | null }
 // call: LeetCode style. input is a Python literal list of the arguments, expected a Python literal.
@@ -91,13 +92,14 @@ export type QuizCard = Strip<Card>;
 export interface QuizDeck { slug: string; title: string; cardCount: number; dueCount: number; newCount: number }
 export interface QuizRound { title: string; cards: QuizCard[]; remaining: number }
 export interface QuizResult { correct: boolean; answer: string; explain: string; days: number }
+export interface Distribution { count: number; from: string | null; to: string | null }
 export interface Revision { id: string; problemId: string; result: Understanding; note: string; reviewedOn: string; nextReviewDate: string | null; createdAt: string }
 export interface Dashboard {
 	counts: { recorded: number; solved: number; independent: number; waitingReview: number; dueReviews: number; dueCards: number };
 	topics: { topic: string; solved: number; independent: number }[];
 	homework: HomeworkTask[];
 	drafts: (Omit<Attempt, 'document'> & { problemTitle: string })[];
-	dueReviews: Problem[];
+	dueReviews: (Problem & { fromHomework: boolean })[];
 	recallPicks: Omit<SetTaskRow, 'accepted' | 'activeTask'>[];
 }
 export type TutorKind = 'problem' | 'set';

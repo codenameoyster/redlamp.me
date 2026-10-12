@@ -1,5 +1,6 @@
 import { test, expect, signIn, addTask, type TestEnv } from './fixtures';
 import type { Homework, Problem } from '../shared/leetcode';
+import { localDate } from '../shared/dates';
 
 test('opens, submits, returns, and completes a task in one window', async ({ page, notebook }) => {
 	test.slow();
@@ -60,7 +61,29 @@ test('opens, submits, returns, and completes a task in one window', async ({ pag
 	await page.getByRole('link', { name: 'Week 41: hash maps', exact: true }).click();
 	await expect(page.getByText('Завершено', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Домашняя работа', exact: true }).click();
-	await expect(page.getByText('1 из 1 завершено', { exact: true })).toBeVisible();
+	await expect(page.getByRole('region', { name: 'Принятое', exact: true }).getByRole('link', { name: notebook.problem.title, exact: true })).toHaveAttribute('href', taskPath);
+});
+
+test('shows the tasks in three sections and spreads the accepted tasks over 30 days', async ({ page, notebook, server }) => {
+	const { DB } = await server.getWorker<TestEnv>().getEnv(), [started, waiting, dropped] = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()];
+	const insert = DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,?,?,'easy','[]','','','now','now')");
+	await DB.batch([insert.bind(started, 'started', 'Started'), insert.bind(waiting, 'waiting', 'Waiting'), insert.bind(dropped, 'dropped', 'Dropped')]);
+	for (const [id, state] of [[notebook.problem.id, 'completed'], [started, 'in_progress'], [waiting, 'assigned'], [dropped, 'cancelled']]) await addTask(DB, id, state);
+	await page.getByRole('link', { name: 'Домашняя работа', exact: true }).click();
+	const section = (name: string) => page.getByRole('region', { name, exact: true }), accepted = section('Принятое');
+	await expect(section('В процессе').getByRole('heading', { level: 3 })).toHaveText(['Started']);
+	await expect(section('Будущее').getByRole('heading', { level: 3 })).toHaveText(['Waiting']);
+	await expect(accepted.getByRole('heading', { level: 3 })).toHaveText([notebook.problem.title]);
+	await expect(accepted.getByRole('link', { name: 'Week 41', exact: true })).toHaveAttribute('href', /^\/leetcode\/homework\/[a-f0-9-]{36}$/);
+	await expect(page.getByText('Dropped', { exact: true })).toHaveCount(0);
+	const spread = accepted.getByRole('button', { name: 'Распределить повторения на 30 дней', exact: true });
+	await spread.click();
+	await expect(accepted.getByRole('status')).toHaveText(/^1 задача распределена с (\d\d\.\d\d) по \1\.$/);
+	await spread.click();
+	await expect(accepted.getByRole('status')).toHaveText('Все принятые задачи уже распределены.');
+	await DB.prepare('UPDATE problems SET next_review_date=? WHERE id=?').bind(localDate(), notebook.problem.id).run();
+	await page.getByRole('link', { name: 'Сегодня', exact: true }).click();
+	await expect(page.getByRole('heading', { level: 3, name: notebook.problem.title }).getByRole('link')).toHaveAttribute('href', `/leetcode/problems/${notebook.problem.id}/review?pick=1`);
 });
 
 test('cancels the task from the work window', async ({ page, notebook, server }) => {

@@ -1,5 +1,5 @@
 import type { Env } from '../index';
-import type { Feedback, Homework, HomeworkSummary, HomeworkTask, Role, SessionUser, Submission } from '../../shared/leetcode';
+import type { Feedback, Homework, HomeworkBoard, HomeworkSummary, HomeworkTask, Role, SessionUser, Submission } from '../../shared/leetcode';
 import { requireRole } from './auth';
 import { getAttempt, saveProgress } from './attempts';
 import { getProblem } from './problems';
@@ -74,6 +74,11 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 			const task = await getTask(env, id, user.role);
 			const submissions = await env.DB.prepare('SELECT id,task_id AS taskId,attempt_id AS attemptId,task_version AS taskVersion,created_at AS createdAt FROM submissions WHERE task_id=? ORDER BY created_at DESC,id DESC LIMIT 50').bind(id).all<Submission>();
 			return Response.json({ homework: await getHomework(env, task.homeworkId), task, submissions: submissions.results });
+		}
+		if (url.searchParams.get('view') === 'board') {
+			const section = (states: string, order: string) => env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.state IN ${states} ORDER BY ${order},t.id LIMIT 200`).bind(user.role);
+			const [progress, future, accepted] = (await env.DB.batch<HomeworkTask>([section("('in_progress','submitted','changes_requested')", 'h.due_date IS NULL,h.due_date'), section("('assigned')", 'h.due_date IS NULL,h.due_date'), section("('completed')", 't.updated_at DESC')])).map(rows => rows.results.map(unreadValue));
+			return Response.json({ progress, future, accepted } satisfies HomeworkBoard);
 		}
 		const { limit, offset } = pagination(url), where = ['1=1'], args: string[] = [];
 		if (url.searchParams.has('problemId')) { where.push('t.problem_id=?'); args.push(uuid(url.searchParams.get('problemId'))); }

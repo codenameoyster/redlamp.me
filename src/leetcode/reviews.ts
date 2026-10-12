@@ -1,5 +1,6 @@
 import type { Env } from '../index';
-import type { BadgeId, Dashboard, Game, HomeworkTask, Revision, SessionUser } from '../../shared/leetcode';
+import type { BadgeId, Dashboard, Distribution, Game, HomeworkTask, Revision, SessionUser } from '../../shared/leetcode';
+import { addCalendarDays } from '../../shared/dates';
 import { requireRole } from './auth';
 import { attemptColumns } from './attempts';
 import { taskColumns, taskTables, unreadValue } from './homework';
@@ -10,6 +11,17 @@ import { recallPicks } from './recall';
 import { calendarDate, changed, choice, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
 
 const reviewColumns = 'id,problem_id AS problemId,result,note,reviewed_on AS reviewedOn,next_review_date AS nextReviewDate,created_at AS createdAt';
+
+// The window is [today + 1, today + 30]. A date in the window stays. Each other problem gets a random day of the least used days.
+export function spreadDays(today: string, problems: { id: string; nextReviewDate: string | null }[], random: (count: number) => number): Record<string, string> {
+	const uses = new Map(Array.from({ length: 30 }, (_, i) => [addCalendarDays(today, i + 1), 0]));
+	for (const { nextReviewDate: day } of problems) if (day && uses.has(day)) uses.set(day, uses.get(day)! + 1);
+	return Object.fromEntries(problems.filter(p => !uses.has(p.nextReviewDate ?? '')).map(p => {
+		const least = Math.min(...uses.values()), free = [...uses.keys()].filter(day => uses.get(day) === least), day = free[random(free.length)];
+		uses.set(day, least + 1);
+		return [p.id, day];
+	}));
+}
 
 export async function handleReviews(request: Request, env: Env, user: SessionUser): Promise<Response | null> {
 	const url = new URL(request.url);
@@ -22,10 +34,18 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 			env.DB.prepare(`SELECT t.value AS topic,count(*) AS solved,sum(p.understanding='independent') AS independent FROM problems p,json_each(p.topics) t WHERE p.archived_at IS NULL AND ${solvedSQL} GROUP BY t.value ORDER BY t.value LIMIT 50`),
 			env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE p.archived_at IS NULL AND t.state NOT IN ('completed','cancelled') ORDER BY ${user.role === 'parent' ? "(t.state='submitted') DESC,t.updated_at ASC" : "(t.state='submitted') ASC,h.due_date IS NULL,h.due_date ASC"},t.id LIMIT 10`).bind(user.role),
 			env.DB.prepare(`SELECT ${attemptColumns},(SELECT title FROM problems p WHERE p.id=attempts.problem_id) AS problemTitle FROM attempts WHERE state='draft' AND EXISTS(SELECT 1 FROM problems p WHERE p.id=attempts.problem_id AND p.archived_at IS NULL) ORDER BY updated_at DESC,id LIMIT 5`),
-			env.DB.prepare(`SELECT ${problemColumns} FROM problems p WHERE p.archived_at IS NULL AND p.next_review_date<=? ORDER BY p.next_review_date,p.id LIMIT 10`).bind(today),
+			env.DB.prepare(`SELECT ${problemColumns},EXISTS(SELECT 1 FROM homework_tasks t WHERE t.problem_id=p.id AND t.state='completed') AS fromHomework FROM problems p WHERE p.archived_at IS NULL AND p.next_review_date<=? ORDER BY p.next_review_date,p.id LIMIT 10`).bind(today),
 			env.DB.prepare(dueCardsSQL).bind(cardIds, today),
 		]), recallPicks(env, today!)]);
-		return Response.json({ counts: { ...progress.results[0], ...assignments.results[0], ...dueCards.results[0] }, topics: topics.results, homework: (homework.results as unknown as HomeworkTask[]).map(unreadValue), drafts: drafts.results, dueReviews: dueReviews.results.map(row => problemValue(row as unknown as Parameters<typeof problemValue>[0])), recallPicks: picks } as Dashboard);
+		return Response.json({ counts: { ...progress.results[0], ...assignments.results[0], ...dueCards.results[0] }, topics: topics.results, homework: (homework.results as unknown as HomeworkTask[]).map(unreadValue), drafts: drafts.results, dueReviews: dueReviews.results.map(row => ({ ...problemValue(row as unknown as Parameters<typeof problemValue>[0]), fromHomework: Boolean(row.fromHomework) })), recallPicks: picks } as Dashboard);
+	}
+	if (url.pathname === '/leetcode/api/reviews/distribute') {
+		methods(request, ['POST']);
+		const today = calendarDate(text(object(await readJson(request), ['today']).today, 10, true))!;
+		const rows = await env.DB.prepare("SELECT id,next_review_date AS nextReviewDate FROM problems p WHERE archived_at IS NULL AND EXISTS(SELECT 1 FROM homework_tasks t WHERE t.problem_id=p.id AND t.state='completed')").all<{ id: string; nextReviewDate: string | null }>();
+		const days = spreadDays(today, rows.results, count => crypto.getRandomValues(new Uint32Array(1))[0] % count), dates = Object.values(days).sort();
+		if (dates.length) await env.DB.prepare('UPDATE problems SET next_review_date=d.value,progress_version=progress_version+1,updated_at=? FROM json_each(?) d WHERE problems.id=d.key').bind(new Date().toISOString(), JSON.stringify(days)).run();
+		return Response.json({ count: dates.length, from: dates[0] ?? null, to: dates.at(-1) ?? null } satisfies Distribution);
 	}
 	if (url.pathname === '/leetcode/api/game') {
 		methods(request, ['GET']);

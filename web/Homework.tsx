@@ -1,8 +1,10 @@
 import { useState, type SubmitEvent } from 'react';
-import type { Homework as Bundle, HomeworkDetails, HomeworkSummary, Page, Problem, SessionUser } from '../shared/leetcode';
+import type { Homework as Bundle, Distribution, HomeworkBoard, HomeworkDetails, Page, Problem, SessionUser } from '../shared/leetcode';
+import { localDate } from '../shared/dates';
 import { api, message } from './api';
 import { useResource } from './useResource';
 import { Materials } from './Materials';
+import { plural } from './text';
 
 export const homeworkLabels = { assigned: 'Назначено', in_progress: 'В работе', submitted: 'Отправлено', changes_requested: 'Нужны правки', completed: 'Завершено', cancelled: 'Отменено' };
 export const difficultyLabels = { easy: 'Легко', medium: 'Средне', hard: 'Сложно' };
@@ -10,9 +12,11 @@ export const difficultyLabels = { easy: 'Легко', medium: 'Средне', ha
 export function Homework({ user, id }: { user: SessionUser; id?: string }) {
 	return id ? <BundleDetail key={id} id={id} user={user} /> : <HomeworkList user={user} />;
 }
+const sections = [{ key: 'progress', title: 'В процессе' }, { key: 'future', title: 'Будущее' }, { key: 'accepted', title: 'Принятое' }] as const;
+const dayMonth = (date: string) => `${date.slice(8)}.${date.slice(5, 7)}`;
 function HomeworkList({ user }: { user: SessionUser }) {
-	const list = useResource<Page<HomeworkSummary>>(`/homework${location.search}`);
-	const [error, setError] = useState(''), [busy, setBusy] = useState(false);
+	const board = useResource<HomeworkBoard>('/tasks?view=board');
+	const [error, setError] = useState(''), [busy, setBusy] = useState(false), [spread, setSpread] = useState('');
 	async function create(event: SubmitEvent<HTMLFormElement>) {
 		event.preventDefault(); setBusy(true); setError('');
 		const form = new FormData(event.currentTarget);
@@ -21,12 +25,21 @@ function HomeworkList({ user }: { user: SessionUser }) {
 			location.assign(`/leetcode/homework/${homework.id}`);
 		} catch (error) { setError(message(error)); setBusy(false); }
 	}
+	async function distribute() {
+		setBusy(true); setError(''); setSpread('');
+		try {
+			const { count, from, to } = await api<Distribution>('/reviews/distribute', { method: 'POST', body: JSON.stringify({ today: localDate() }) });
+			setSpread(count ? `${plural(count, ['задача распределена', 'задачи распределены', 'задач распределены'])} с ${dayMonth(from!)} по ${dayMonth(to!)}.` : 'Все принятые задачи уже распределены.');
+		} catch (error) { setError(message(error)); } finally { setBusy(false); }
+	}
 	const parent = user.role === 'parent';
 	return <div className="stack"><div className="heading"><div><h1>Домашняя работа</h1><p>{parent ? 'Соберите задачи в домашнюю работу. Проверяйте ход решения.' : 'Выполните каждое задание, затем отправьте решение на проверку.'}</p></div></div>
-		{(error || list.error) && <p className="error" role="alert">{error || list.error}</p>}
-		<section className="card">{list.data?.items.map(h => { const waiting = parent ? h.submittedCount : h.requestedCount; return <article key={h.id} className="list-row"><div className="grow"><h2>{h.unread && <span className="unread" role="img" aria-label="Новое сообщение" />}<a href={`/leetcode/homework/${h.id}`}>{h.title}</a></h2><p>{h.dueDate ? `Срок: ${h.dueDate}` : 'Без срока'}</p></div><span className="small">{h.completedCount} из {h.taskCount} завершено</span>{waiting > 0 && <span className={`tag ${parent ? 'good' : 'medium'}`}>{parent ? 'Ждут проверки' : 'Нужны правки'}: {waiting}</span>}</article>; })}{list.data?.items.length === 0 && <p className="empty">Домашней работы пока нет. {parent ? 'Создайте её ниже.' : 'Родитель может добавить домашнюю работу.'}</p>}</section>
-		{list.data?.nextOffset != null && <a href={`?offset=${list.data.nextOffset}`}>Старее</a>}
+		{(error || board.error) && <p className="error" role="alert">{error || board.error}</p>}
 		{parent && <form className="card card-pad stack" onSubmit={create}><h2>Новая домашняя работа</h2><label>Название<input name="title" required maxLength={200} /></label><label>Задание<textarea aria-label="Задание" name="instructions" maxLength={8000} /></label><label>Срок<input type="date" name="dueDate" /></label><button className="primary" disabled={busy}>Создать домашнюю работу</button></form>}
+		{sections.map(({ key, title }) => <section className="card" aria-label={title} key={key}><header className="card-head"><h2>{title}</h2></header>
+			{key === 'accepted' && <div className="card-pad row"><button disabled={busy} onClick={distribute}>Распределить повторения на 30 дней</button>{spread && <p role="status">{spread}</p>}</div>}
+			{board.data?.[key].map(t => <article key={t.id} className="list-row"><div className="grow"><h3>{t.unread && <span className="unread" role="img" aria-label="Новое сообщение" />}<a href={`/leetcode/tasks/${t.id}`}>{t.problemTitle}</a></h3><p className="small"><a href={`/leetcode/homework/${t.homeworkId}`}>{t.homeworkTitle}</a></p></div><span className="small">{t.dueDate ? `Срок: ${t.dueDate}` : 'Без срока'}</span><span className="tag">{homeworkLabels[t.state]}</span></article>)}
+			{board.data?.[key].length === 0 && <p className="empty">Заданий нет.</p>}</section>)}
 	</div>;
 }
 
