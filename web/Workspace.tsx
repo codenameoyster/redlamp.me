@@ -23,12 +23,13 @@ function Panes({ left, right }: { left: ReactNode; right: ReactNode }) {
 		setSplit(next);
 		try { localStorage.setItem('leetcode:panes', String(next)); } catch { /* The width stays for this page. */ }
 	}
+	// The pointer holds the middle of the divider, 9px right of the left pane: the 6px gap and half of the 6px divider.
 	return <div className="panes" style={{ '--split': `${split}%` } as CSSProperties}>
 		<div className="pane">{left}</div>
 		<div className="divider" role="separator" aria-label="Граница панелей" aria-orientation="vertical" aria-valuenow={split} aria-valuemin={25} aria-valuemax={75} tabIndex={0}
 			onKeyDown={event => { const step = event.key === 'ArrowLeft' ? -5 : event.key === 'ArrowRight' ? 5 : 0; if (step) { event.preventDefault(); move(split + step); } }}
 			onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); }}
-			onPointerMove={event => { if (!event.currentTarget.hasPointerCapture(event.pointerId)) return; const box = event.currentTarget.parentElement!.getBoundingClientRect(); move((event.clientX - box.left) / box.width * 100); }} />
+			onPointerMove={event => { if (!event.currentTarget.hasPointerCapture(event.pointerId)) return; const box = event.currentTarget.parentElement!.getBoundingClientRect(); move((event.clientX - box.left - 9) / box.width * 100); }} />
 		<div className="pane">{right}</div>
 	</div>;
 }
@@ -105,7 +106,7 @@ export function DraftEditor({ initial, user, registerGuard, saved, nextReviewDat
 			{task && user.role === 'student' && <button className="primary" disabled={!submittable} onClick={() => void finalize('submit')}>Отправить на проверку</button>}
 			{tests.data?.spec && <OwnTests problemId={initial.problemId} tests={tests.data} changed={tests.reload} />}
 		</AttemptContent></fieldset>
-		{editable && <div className="card card-pad stack"><div className="row spread"><label>Следующее повторение<input type="date" value={date} disabled={busy} onChange={event => changeDate(event.target.value)} /></label><button className="primary" disabled={busy || Boolean(draft.recovery)} onClick={() => void finalize('save')}>Сохранить попытку</button></div>{draft.value.acceptance === 'accepted' && <div className="row"><span>Напоминание:</span><button type="button" disabled={busy} onClick={() => changeDate(addCalendarDays(localDate(), 1))}>Завтра</button><button type="button" disabled={busy} onClick={() => changeDate(addCalendarDays(localDate(), 3))}>Через три дня</button><button type="button" disabled={busy} onClick={() => changeDate(addCalendarDays(localDate(), 7))}>Через семь дней</button><button type="button" disabled={busy} onClick={() => changeDate('')}>Без напоминания</button></div>}</div>}
+		{editable && <div className="card card-pad stack"><div className="row spread"><label>Следующее повторение<input type="date" value={date} disabled={busy} onChange={event => changeDate(event.target.value)} /></label>{!task && <button className="primary" disabled={busy || Boolean(draft.recovery)} onClick={() => void finalize('save')}>Сохранить попытку</button>}</div>{draft.value.acceptance === 'accepted' && <div className="row"><span>Напоминание:</span><button type="button" disabled={busy} onClick={() => changeDate(addCalendarDays(localDate(), 1))}>Завтра</button><button type="button" disabled={busy} onClick={() => changeDate(addCalendarDays(localDate(), 3))}>Через три дня</button><button type="button" disabled={busy} onClick={() => changeDate(addCalendarDays(localDate(), 7))}>Через семь дней</button><button type="button" disabled={busy} onClick={() => changeDate('')}>Без напоминания</button></div>}</div>}
 	</div>;
 }
 

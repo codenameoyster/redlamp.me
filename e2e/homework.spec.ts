@@ -26,6 +26,7 @@ test('opens, submits, returns, and completes a task in one window', async ({ pag
 	await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: { mode: 'call', method: 'twoSum' }, source: 'set', standard: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], own: [] } }));
 	await page.goto(taskURL);
 	await expect(page.getByText('В работе', { exact: true })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Сохранить попытку', exact: true })).toHaveCount(0);
 	const code = page.getByLabel('Код решения', { exact: true });
 	await code.fill('class Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n        return [0, 1]\n');
 	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
@@ -175,7 +176,8 @@ test('moves the pane divider with the keyboard and the pointer and keeps the pla
 	const panes = (await divider.locator('..').boundingBox())!, box = (await divider.boundingBox())!;
 	await page.mouse.move(box.x + box.width / 2, box.y + 20);
 	await page.mouse.down();
-	await page.mouse.move(panes.x + panes.width * 0.7, box.y + 20, { steps: 5 });
+	// The middle of the divider is 9px right of the left pane: the 6px gap and half of the 6px divider.
+	await page.mouse.move(panes.x + panes.width * 0.7 + 9, box.y + 20, { steps: 5 });
 	await page.mouse.up();
 	await expect(divider).toHaveAttribute('aria-valuenow', '70');
 	await page.goto(`/leetcode/problems/${notebook.problem.id}`);

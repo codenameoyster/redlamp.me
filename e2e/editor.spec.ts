@@ -148,10 +148,10 @@ test('opens the new working copy after a conflict with a saved attempt', async (
 });
 
 const reminders = [
-	{ name: 'save keeps a newer reminder when unchanged', button: 'Сохранить попытку', done: 'Попытка сохранена.', initial: null, clear: false, expected: '2026-11-15' },
-	{ name: 'submission keeps a newer reminder when unchanged', button: 'Отправить на проверку', done: 'Отправлено', initial: null, clear: false, expected: '2026-11-15' },
-	{ name: 'save can explicitly clear a reminder', button: 'Сохранить попытку', done: 'Попытка сохранена.', initial: '2026-11-01', clear: true, expected: null },
-	{ name: 'submission can explicitly clear a reminder', button: 'Отправить на проверку', done: 'Отправлено', initial: '2026-11-01', clear: true, expected: null },
+	{ name: 'save keeps a newer reminder when unchanged', window: 'problem', button: 'Сохранить попытку', done: 'Попытка сохранена.', initial: null, clear: false, expected: '2026-11-15' },
+	{ name: 'submission keeps a newer reminder when unchanged', window: 'task', button: 'Отправить на проверку', done: 'Отправлено', initial: null, clear: false, expected: '2026-11-15' },
+	{ name: 'save can explicitly clear a reminder', window: 'problem', button: 'Сохранить попытку', done: 'Попытка сохранена.', initial: '2026-11-01', clear: true, expected: null },
+	{ name: 'submission can explicitly clear a reminder', window: 'task', button: 'Отправить на проверку', done: 'Отправлено', initial: '2026-11-01', clear: true, expected: null },
 ];
 for (const row of reminders) {
 	test(row.name, async ({ page, notebook, server }) => {
@@ -159,7 +159,7 @@ for (const row of reminders) {
 		const review = DB.prepare('UPDATE problems SET next_review_date=? WHERE id=?');
 		await review.bind(row.initial, notebook.problem.id).run();
 		const { taskId } = await addTask(DB, notebook.problem.id);
-		await page.goto(`/leetcode/tasks/${taskId}`);
+		await page.goto(row.window === 'task' ? `/leetcode/tasks/${taskId}` : `/leetcode/problems/${notebook.problem.id}`);
 		await expect(page.getByLabel('Следующее повторение', { exact: true })).toHaveValue(row.initial ?? '');
 		await review.bind('2026-11-15', notebook.problem.id).run();
 		await page.getByLabel('Основная идея', { exact: true }).fill('Keep the current reminder unless I change it.');
@@ -171,16 +171,17 @@ for (const row of reminders) {
 }
 
 const failedFinalActions = [
-	{ name: 'retries a failed attempt save', endpoint: '**/attempts/*/save', button: 'Сохранить попытку', retry: 'Повторить сохранение попытки', done: 'Попытка сохранена.', stored: false, state: 'in_progress', submissions: 0 },
-	{ name: 'retries a failed submission', endpoint: '**/tasks/*/submit', button: 'Отправить на проверку', retry: 'Повторить отправку', done: 'Отправлено', stored: false, state: 'submitted', submissions: 1 },
-	{ name: 'recognizes a finalized attempt after a lost acknowledgement', endpoint: '**/attempts/*/save', button: 'Сохранить попытку', retry: 'Повторить сохранение попытки', done: 'Попытка сохранена.', stored: true, state: 'in_progress', submissions: 0 },
-	{ name: 'recognizes a submission after a lost acknowledgement', endpoint: '**/tasks/*/submit', button: 'Отправить на проверку', retry: 'Повторить отправку', done: 'Отправлено', stored: true, state: 'submitted', submissions: 1 },
+	{ name: 'retries a failed attempt save', window: 'problem', endpoint: '**/attempts/*/save', button: 'Сохранить попытку', retry: 'Повторить сохранение попытки', done: 'Попытка сохранена.', stored: false, state: 'assigned', submissions: 0 },
+	{ name: 'retries a failed submission', window: 'task', endpoint: '**/tasks/*/submit', button: 'Отправить на проверку', retry: 'Повторить отправку', done: 'Отправлено', stored: false, state: 'submitted', submissions: 1 },
+	{ name: 'recognizes a finalized attempt after a lost acknowledgement', window: 'problem', endpoint: '**/attempts/*/save', button: 'Сохранить попытку', retry: 'Повторить сохранение попытки', done: 'Попытка сохранена.', stored: true, state: 'assigned', submissions: 0 },
+	{ name: 'recognizes a submission after a lost acknowledgement', window: 'task', endpoint: '**/tasks/*/submit', button: 'Отправить на проверку', retry: 'Повторить отправку', done: 'Отправлено', stored: true, state: 'submitted', submissions: 1 },
 ];
 for (const row of failedFinalActions) {
 	test(row.name, async ({ page, notebook, server }) => {
 		const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id);
-		await page.goto(`/leetcode/tasks/${taskId}`);
-		await expect(page.getByText('В работе', { exact: true })).toBeVisible();
+		await page.goto(row.window === 'task' ? `/leetcode/tasks/${taskId}` : `/leetcode/problems/${notebook.problem.id}`);
+		// Opening the task starts it. The submit must wait for the new task version.
+		if (row.window === 'task') await expect(page.getByText('В работе', { exact: true })).toBeVisible();
 		await page.getByLabel('Основная идея', { exact: true }).fill('A complete explanation');
 		await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
 		await page.route(row.endpoint, async route => { if (row.stored) await route.fetch(); await route.abort(); }, { times: 1 });
@@ -193,13 +194,13 @@ for (const row of failedFinalActions) {
 }
 
 const rejectedFinalActions = [
-	{ name: 'recovers login after attempt-save rejection', endpoint: '**/attempts/*/save', button: 'Сохранить попытку', done: 'Попытка сохранена.', state: 'in_progress', submissions: 0 },
-	{ name: 'recovers login after submission rejection', endpoint: '**/tasks/*/submit', button: 'Отправить на проверку', done: 'Отправлено', state: 'submitted', submissions: 1 },
+	{ name: 'recovers login after attempt-save rejection', window: 'problem', endpoint: '**/attempts/*/save', button: 'Сохранить попытку', done: 'Попытка сохранена.', state: 'assigned', submissions: 0 },
+	{ name: 'recovers login after submission rejection', window: 'task', endpoint: '**/tasks/*/submit', button: 'Отправить на проверку', done: 'Отправлено', state: 'submitted', submissions: 1 },
 ];
 for (const row of rejectedFinalActions) {
 	test(row.name, async ({ page, notebook, server }) => {
 		const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id);
-		await page.goto(`/leetcode/tasks/${taskId}`);
+		await page.goto(row.window === 'task' ? `/leetcode/tasks/${taskId}` : `/leetcode/problems/${notebook.problem.id}`);
 		await page.getByLabel('Основная идея', { exact: true }).fill('A complete explanation');
 		await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
 		await page.route(row.endpoint, route => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: { code: 'login', message: 'Sign in again.' } }) }), { times: 1 });
@@ -324,7 +325,7 @@ test('keeps the recovery base version through a restored conflict', async ({ pag
 
 test('numbers each line of the code at the top of its wrapped line', async ({ page, notebook }) => {
 	await expect(page.getByRole('heading', { name: notebook.problem.title })).toBeVisible();
-	await page.getByLabel('Код решения', { exact: true }).fill(`x = 1\n# ${'long_comment_'.repeat(30)}\n\ny = 2`);
+	await page.getByLabel('Код решения', { exact: true }).fill(`x = 1\n# ${'long_comment_'.repeat(300)}\n\ny = 2`);
 	const lines = page.locator('.code-field .lines > div');
 	await expect(lines).toHaveCount(4);
 	// The comment wraps, so the number of the last line moves down to the highlighted "2".

@@ -2,6 +2,7 @@ import { test, expect, signIn } from './fixtures';
 
 test('adds metadata and finds the problem by its summary', async ({ page }) => {
 	await signIn(page);
+	await page.route('**/leetcode/api/problems/*/statement', route => route.fulfill({ json: { html: null, text: null } }));
 	await page.getByRole('link', { name: 'Задачи', exact: true }).click();
 	await page.getByRole('button', { name: 'Добавить задачу', exact: true }).click();
 	await page.getByLabel('Ссылка на задачу').fill('https://leetcode.com/problems/minimum-window-substring/description/');
@@ -13,7 +14,7 @@ test('adds metadata and finds the problem by its summary', async ({ page }) => {
 	await page.getByRole('button', { name: 'Изменить задачу', exact: true }).click();
 	await page.getByLabel('Описание', { exact: true }).fill('Explain the invariant.');
 	await page.getByRole('button', { name: 'Сохранить задачу', exact: true }).click();
-	await expect(page.getByRole('dialog')).toBeHidden();
+	await expect(page.getByText('Explain the invariant.', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Задачи', exact: true }).click();
 	await page.getByLabel('Поиск по задачам и заметкам', { exact: true }).fill('invariant');
 	await page.getByRole('button', { name: 'Применить фильтры' }).click();

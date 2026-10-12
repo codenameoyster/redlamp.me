@@ -35,8 +35,12 @@ it.each([
 	{ name: 'unknown LeetCode problem', slug: 'two-sum', reply: () => Response.json({ data: { question: null } }), body: noRunner },
 	{ name: 'LeetCode error response', slug: 'two-sum', reply: () => new Response('Busy', { status: 503 }), body: noRunner },
 	{ name: 'unreachable LeetCode', slug: 'two-sum', reply: () => { throw new TypeError('Network connection lost.'); }, body: noRunner },
+	{ name: 'LeetCode without an answer', slug: 'two-sum', reply: (init?: RequestInit) => new Promise<Response>((_, reject) => init?.signal?.addEventListener('abort', () => reject(init.signal!.reason))), body: noRunner },
 ])('$name', async ({ slug, reply, body }) => {
-	const lookup = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => reply!());
+	// A short timeout keeps the test fast.
+	const timeout = AbortSignal.timeout.bind(AbortSignal);
+	vi.spyOn(AbortSignal, 'timeout').mockImplementation(() => timeout(10));
+	const lookup = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_, init) => reply!(init));
 	const id = crypto.randomUUID();
 	await insertProblem.bind(id, slug).run();
 	const response = await request(`/problems/${id}/tests`, 'GET', undefined, cookie);

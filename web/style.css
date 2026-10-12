@@ -10,6 +10,7 @@ button:active:not(:disabled),.button:active { box-shadow:var(--sunken); padding:
 button:disabled { color:var(--disabled); cursor:wait; }
 .primary,.primary:hover { background:var(--orange); color:#000; }
 .primary:hover { background:#faae40; }
+.primary:disabled,.primary:disabled:hover { background:var(--face); color:var(--disabled); }
 button[aria-pressed="true"] { background:var(--field); box-shadow:var(--sunken); font-weight:700; }
 :focus-visible { outline:1px dotted var(--ink); outline-offset:1px; }
 button:focus-visible,.button:focus-visible { outline-offset:-5px; }
@@ -96,13 +97,14 @@ main { padding:12px; max-width:1680px; margin:0 auto; }
 .picker .row { margin-left:auto; }
 .picker input { flex:none; width:13px; height:13px; min-height:0; margin:0; padding:0; box-shadow:none; accent-color:var(--orange); }
 legend { margin-bottom:2px; }
-.unread { display:inline-block; width:8px; height:8px; margin-right:6px; border-radius:50%; background:#e00000; vertical-align:middle; forced-color-adjust:none; }
+.unread { display:inline-block; width:8px; height:8px; margin-right:6px; border-radius:50%; background:var(--red); vertical-align:middle; forced-color-adjust:none; }
 .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
 .stat { padding:4px 8px; box-shadow:var(--sunken); }
 .stat strong { display:block; font:700 20px/1.2 var(--mono); font-variant-numeric:tabular-nums; }
 .stat span { font-size:12px; color:var(--muted); }
 .code,pre { background:var(--code); color:var(--code-text); font:12.5px/1.5 var(--mono); tab-size:4; overflow:auto; max-width:100%; box-shadow:var(--sunken); }
 pre { margin:0; padding:8px 10px; }
+pre code { font:inherit; }
 .code-field { position:relative; }
 .code-field pre,.code-field .code,.code-field .lines { min-height:300px; padding:6px 8px 6px 44px; white-space:pre-wrap; overflow-wrap:anywhere; overflow:hidden; }
 .code-field .lines { position:absolute; inset:0; min-height:0; font:12.5px/1.5 var(--mono); tab-size:4; color:transparent; counter-reset:line; pointer-events:none; }
@@ -179,7 +181,7 @@ progress::-moz-progress-bar { background:repeating-linear-gradient(90deg,var(--o
 @media (max-width:1000px) { .app { grid-template-columns:160px minmax(0,1fr); } .columns { grid-template-columns:1fr; } }
 @media (max-width:900px) { .panes { grid-template-columns:minmax(0,1fr); } .pane { max-height:none; } .divider { display:none; } }
 @media (max-width:850px) { .app { grid-template-columns:minmax(0,1fr); } .sidebar { position:static; height:auto; gap:4px; } nav { display:flex; overflow:auto; } nav a { flex-shrink:0; } .editor-grid { grid-template-columns:1fr; } }
-@media (max-width:620px) { #tutor { width:100%; } main { padding:8px; } .topbar { padding:4px 8px; } h1 { font-size:16px; } .stats { grid-template-columns:repeat(2,minmax(0,1fr)); } nav a { flex:1 1 0; flex-direction:column; gap:2px; padding:4px 2px; font-size:11px; text-align:center; } .search { flex:0 0 26px; justify-content:center; padding:0; } .search span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); } .user small { display:none; } .account { flex-shrink:1; } .xp-chip { display:none; } .lesson { padding:6px 8px; } .lesson th,.lesson td { padding:3px 4px; } }
+@media (max-width:620px) { #tutor { width:100%; } input,textarea,select { font-size:16px; } main { padding:8px; } .topbar { padding:4px 8px; } h1 { font-size:16px; } .stats { grid-template-columns:repeat(2,minmax(0,1fr)); } nav a { flex:1 1 0; flex-direction:column; gap:2px; padding:4px 2px; font-size:11px; text-align:center; } .search { flex:0 0 26px; justify-content:center; padding:0; } .search span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); } .user small { display:none; } .account { flex-shrink:1; } .xp-chip { display:none; } .lesson { padding:6px 8px; } .lesson th,.lesson td { padding:3px 4px; } }
 @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; } .spin { animation:none; } }
 .answer { display:grid; gap:6px; min-width:0; overflow-wrap:anywhere; }
 .answer p,.answer li { color:var(--ink); white-space:pre-line; }

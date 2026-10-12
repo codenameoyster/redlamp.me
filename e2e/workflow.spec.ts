@@ -117,6 +117,10 @@ test('shows the tutor panel full screen on a phone', async ({ page, notebook, se
 	expect(await panel.boundingBox()).toEqual({ x: 0, y: 0, width: 390, height: 844 });
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 	expect(await panel.getByRole('list', { name: 'Сообщения' }).evaluate(list => list.scrollWidth <= list.clientWidth)).toBe(true);
+	// iOS zooms the page when a field with a font under 16px gets focus. The code field keeps the size of its highlighted copy.
+	await expect(panel.getByLabel('Сообщение', { exact: true })).toBeFocused();
+	expect(await panel.getByLabel('Сообщение', { exact: true }).evaluate(field => getComputedStyle(field).fontSize)).toBe('16px');
+	expect(await page.getByLabel('Код решения', { exact: true }).evaluate(field => getComputedStyle(field).fontSize)).toBe('12.5px');
 });
 
 test('explains a lesson selection with a touch tap', async ({ browser, baseURL }, testInfo) => {

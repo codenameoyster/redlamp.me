@@ -17,10 +17,19 @@ export function Review({ id, user }: { id: string; user: SessionUser }) {
 		try { await api(`/problems/${id}/reviews`, { method: 'POST', body: JSON.stringify({ version: problem.data!.progressVersion, result, note, reviewedOn: localDate(), nextReviewDate: date || null }) }); setSaved(true); problem.reload(); history.reload(); }
 		catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
+	// The work window copies the newest saved attempt into the draft. A pick saves that draft first, so the new draft is empty and no work is lost.
 	async function restart() {
 		setBusy(true); setError('');
-		try { await api(`/problems/${id}/attempts`, { method: 'POST', body: '{}' }); location.assign(`/leetcode/problems/${id}`); }
-		catch (error) { if (error instanceof ApiError && error.code === 'draft_exists') return location.assign(`/leetcode/problems/${id}`); setError(message(error)); setBusy(false); }
+		const start = () => api(`/problems/${id}/attempts`, { method: 'POST', body: '{}' });
+		try {
+			await start().catch(async error => {
+				if (!(error instanceof ApiError && error.code === 'draft_exists')) throw error;
+				const draft = await api<Attempt>(`/problems/${id}/attempts/${error.fields!.attemptId}`);
+				await api(`/problems/${id}/attempts/${draft.id}/save`, { method: 'POST', body: JSON.stringify({ version: draft.version }) });
+				await start();
+			});
+			location.assign(`/leetcode/problems/${id}`);
+		} catch (error) { setError(message(error)); setBusy(false); }
 	}
 	const record = problem.data;
 	if (!record) return <p role="status">{problem.error || 'Открываем повторение...'}</p>;

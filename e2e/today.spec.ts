@@ -32,15 +32,16 @@ for (const row of nextSteps) {
 }
 
 const focus = [
-	{ name: 'draft of a task opens the task window', task: true },
-	{ name: 'draft of a library problem opens the problem window', task: false },
+	{ name: 'draft of a task opens the task window', task: 'in_progress', window: 'task' },
+	{ name: 'draft of a library problem opens the problem window', task: null, window: 'problem' },
+	{ name: 'draft beside a submitted task opens the problem window', task: 'submitted', window: 'problem' },
 ];
 for (const row of focus) {
 	test(row.name, async ({ page, server, notebook }) => {
 		const { DB } = await server.getWorker<TestEnv>().getEnv();
-		const taskId = row.task ? (await addTask(DB, notebook.problem.id, 'in_progress')).taskId : null;
+		const taskId = row.task && (await addTask(DB, notebook.problem.id, row.task)).taskId;
 		await page.goto('/leetcode');
-		await expect(page.getByRole('link', { name: 'Продолжить работу', exact: true })).toHaveAttribute('href', taskId ? `/leetcode/tasks/${taskId}` : `/leetcode/problems/${notebook.problem.id}`);
+		await expect(page.getByRole('link', { name: 'Продолжить работу', exact: true })).toHaveAttribute('href', row.window === 'task' ? `/leetcode/tasks/${taskId}` : `/leetcode/problems/${notebook.problem.id}`);
 	});
 }
 
@@ -64,9 +65,9 @@ test('student sees the level and the earned badge after an accepted attempt', as
 });
 
 const picks = [
-	{ name: 'library pick hides the saved work and starts a new attempt', control: 'link' as const, draft: false, code: '' },
-	{ name: 'library pick with a draft opens the draft', control: 'link' as const, draft: true, code: 'return draft_solution' },
-	{ name: 'set task pick adds the problem and starts a new attempt', control: 'button' as const, draft: false, code: '' },
+	{ name: 'library pick hides the saved work and starts a new attempt', control: 'link' as const, draft: false, states: ['draft', 'saved'] },
+	{ name: 'library pick with a draft saves the draft and starts a new attempt', control: 'link' as const, draft: true, states: ['draft', 'saved', 'saved'] },
+	{ name: 'set task pick adds the problem and starts a new attempt', control: 'button' as const, draft: false, states: ['draft'] },
 ];
 for (const row of picks) {
 	test(row.name, async ({ page, server }) => {
@@ -79,6 +80,7 @@ for (const row of picks) {
 				attempt.bind(crypto.randomUUID(), id, 'saved', work('return saved_solution'), 'now'), ...row.draft ? [attempt.bind(crypto.randomUUID(), id, 'draft', work('return draft_solution'), null)] : []];
 		}));
 		await signIn(page);
+		await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: null, source: 'none', standard: [], own: [], skeleton: '' } }));
 		const recall = page.getByRole('region', { name: 'Случайное повторение' });
 		await expect(recall.getByRole('article')).toHaveCount(5);
 		await expect(recall.getByRole('link', { name: 'Повторить', exact: true })).toHaveCount(2);
@@ -90,6 +92,8 @@ for (const row of picks) {
 		await expect(page.getByRole('button', { name: 'Показать сохранённую работу' })).toHaveCount(0);
 		await page.getByRole('button', { name: 'Начать новую попытку', exact: true }).click();
 		await expect(page).toHaveURL(/\/leetcode\/problems\/[a-f0-9-]{36}$/);
-		await expect(page.getByLabel('Код решения', { exact: true })).toHaveValue(row.code);
+		await expect(page.getByLabel('Код решения', { exact: true })).toHaveValue('');
+		const attempts = await (await page.request.get(`/leetcode/api/problems/${page.url().split('/').at(-1)}/attempts`)).json() as { items: { state: string }[] };
+		expect(attempts.items.map(attempt => attempt.state)).toEqual(row.states);
 	});
 }

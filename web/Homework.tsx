@@ -22,7 +22,7 @@ function HomeworkList({ user }: { user: SessionUser }) {
 		} catch (error) { setError(message(error)); setBusy(false); }
 	}
 	const parent = user.role === 'parent';
-	return <div className="stack"><div className="heading"><div><h1>Домашняя работа</h1><p>{parent ? 'Соберите задачи в домашнюю работу. Проверяйте ход решения.' : 'Выполните каждое задание, затем отправьте попытку на проверку.'}</p></div></div>
+	return <div className="stack"><div className="heading"><div><h1>Домашняя работа</h1><p>{parent ? 'Соберите задачи в домашнюю работу. Проверяйте ход решения.' : 'Выполните каждое задание, затем отправьте решение на проверку.'}</p></div></div>
 		{(error || list.error) && <p className="error" role="alert">{error || list.error}</p>}
 		<section className="card">{list.data?.items.map(h => { const waiting = parent ? h.submittedCount : h.requestedCount; return <article key={h.id} className="list-row"><div className="grow"><h2>{h.unread && <span className="unread" role="img" aria-label="Новое сообщение" />}<a href={`/leetcode/homework/${h.id}`}>{h.title}</a></h2><p>{h.dueDate ? `Срок: ${h.dueDate}` : 'Без срока'}</p></div><span className="small">{h.completedCount} из {h.taskCount} завершено</span>{waiting > 0 && <span className={`tag ${parent ? 'good' : 'medium'}`}>{parent ? 'Ждут проверки' : 'Нужны правки'}: {waiting}</span>}</article>; })}{list.data?.items.length === 0 && <p className="empty">Домашней работы пока нет. {parent ? 'Создайте её ниже.' : 'Родитель может добавить домашнюю работу.'}</p>}</section>
 		{list.data?.nextOffset != null && <a href={`?offset=${list.data.nextOffset}`}>Старее</a>}
