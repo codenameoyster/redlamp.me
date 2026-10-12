@@ -3,7 +3,7 @@ import { sha256, type Expected, type ProblemTests, type TestCase, type TestRun }
 import { api, message } from './api';
 import { checkCode, runTests, type Diagnostic, type RunResult } from './python';
 
-const notes = { constraints: 'Ввод нарушает ограничения задачи.', input: 'Эталонное решение не смогло прочитать ввод.', none: 'Для этой задачи нет эталонного решения.' };
+const notes = { constraints: 'Ввод нарушает ограничения задачи.', input: 'Эталонное решение не смогло прочитать ввод.', size: 'Верный ответ слишком большой для проверки.', none: 'Для этой задачи нет эталонного решения.' };
 type Case = TestCase & { note?: string };
 // An own test gets the answer of the reference solution as its expected value, or a note why it has none.
 const ownCase = (input: string, answer: Expected): Case => ({ input, expected: answer && 'value' in answer ? answer.value : null, note: answer ? 'error' in answer ? notes[answer.error] : undefined : notes.none });

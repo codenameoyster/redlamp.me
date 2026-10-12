@@ -149,9 +149,9 @@ test('compares the own tests of a set task with the reference answer', async ({ 
 
 test('compares the own tests with the expected answers', async ({ page, notebook }) => {
 	test.slow();
-	const own = ['[[3, 3], 6]', '[[1, 2], 4]', '[[1], 5]', '[[1, 2], 3'].map(input => ({ id: crypto.randomUUID(), input, createdAt: 'now' })), sent: unknown[] = [];
+	const own = ['[[3, 3], 6]', '[[1, 2], 4]', '[[1], 5]', '[[1, 2], 3', '[[2, 2], 4]'].map(input => ({ id: crypto.randomUUID(), input, createdAt: 'now' })), sent: unknown[] = [];
 	await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: { mode: 'call', method: 'twoSum' }, source: 'set', standard: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], own } }));
-	await page.route('**/leetcode/api/problems/*/tests/expected', route => { sent.push(route.request().postDataJSON()); return route.fulfill({ json: { expected: [{ value: '[0, 1]' }, { value: '[1, 0]' }, { error: 'constraints' }, { error: 'input' }] } }); });
+	await page.route('**/leetcode/api/problems/*/tests/expected', route => { sent.push(route.request().postDataJSON()); return route.fulfill({ json: { expected: [{ value: '[0, 1]' }, { value: '[1, 0]' }, { error: 'constraints' }, { error: 'input' }, { error: 'size' }] } }); });
 	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
 	await page.getByLabel('Код решения', { exact: true }).fill(`${twoSum}        return [0, 1]\n`);
 	await page.getByRole('button', { name: 'Запустить тесты', exact: true }).click();
@@ -162,8 +162,9 @@ test('compares the own tests with the expected answers', async ({ page, notebook
 		'Тест 3: ✗ Ввод: [[1, 2], 4] Верный ответ: [1, 0] Ваш ответ: [0, 1]',
 		'Тест 4: без проверки Ввод: [[1], 5] Ввод нарушает ограничения задачи. Ваш ответ: [0, 1]',
 		'Тест 5: без проверки Ввод: [[1, 2], 3 Эталонное решение не смогло прочитать ввод. SyntaxError: \'[\' was never closed',
+		'Тест 6: без проверки Ввод: [[2, 2], 4] Верный ответ слишком большой для проверки. Ваш ответ: [0, 1]',
 	], { useInnerText: true, timeout: 30_000 });
-	await expect(rows).toHaveClass(['pass', 'pass', 'fail', '', '']);
+	await expect(rows).toHaveClass(['pass', 'pass', 'fail', '', '', '']);
 	await expect(page.getByText(/^Пройдено/)).toHaveText('Пройдено 2 из 3');
 	expect(sent).toEqual([{ inputs: own.map(test => test.input) }]);
 });

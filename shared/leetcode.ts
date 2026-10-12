@@ -71,7 +71,7 @@ export type TestSpec = { mode: 'call'; method: string; check?: 'return' | 'arg0'
 export type TaskTests = TestSpec & { cases: TestCase[] };
 export interface OwnTest { id: string; input: string; createdAt: string }
 // The answer of the reference solution to an own test: null when the task has no reference.
-export type Expected = { value: string } | { error: 'constraints' | 'input' } | null;
+export type Expected = { value: string } | { error: 'constraints' | 'input' | 'size' } | null;
 export interface ProblemTests { spec: TestSpec | null; source: 'set' | 'leetcode' | 'none'; standard: TestCase[]; own: OwnTest[]; skeleton: string }
 export interface TestRun { approachId: string; passed: number; total: number; codeHash: string; createdAt: string }
 export interface SetTask { url: string; number?: number; title: string; difficulty: Difficulty; topics: string[]; note: string; statement?: string; tests?: TaskTests }

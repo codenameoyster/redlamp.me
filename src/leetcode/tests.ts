@@ -28,12 +28,15 @@ async function lookup(titleSlug: string): Promise<{ tests: TaskTests | null; ske
 	return { skeleton, tests: { mode: 'call', method: meta.name, ...(meta.output?.paramindex === 0 && { check: 'arg0' as const }), cases: value.exampleTestcaseList.map((input, index, list) => ({ input: python(`[${input.split('\n').join(',')}]`), expected: outputs.length === list.length ? outputs[index] : null })) } };
 }
 
+// The harness parses the answer in the 2-second time limit of the run. An answer of more than 100,000 characters can make a correct solution fail.
+const sized = (value: string): Expected => value.length > 100_000 ? { error: 'size' } : { value };
+
 // A reference error other than the constraints error comes from an input of a wrong shape or type.
 export function expectedOf(reference: Reference, input: string): Expected {
 	try {
-		if (reference.mode === 'stdio') return { value: reference.solve(input) };
+		if (reference.mode === 'stdio') return sized(reference.solve(input));
 		const args = parsePy(input);
-		return Array.isArray(args) && args.length === reference.solve.length ? { value: reprPy(reference.solve(...args)) } : { error: 'input' };
+		return Array.isArray(args) && args.length === reference.solve.length ? sized(reprPy(reference.solve(...args))) : { error: 'input' };
 	} catch (error) {
 		return { error: error instanceof RangeError && error.message === 'constraints' ? 'constraints' : 'input' };
 	}

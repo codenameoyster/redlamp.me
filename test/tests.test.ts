@@ -132,6 +132,7 @@ it.each([
 const prefix: Reference = { mode: 'call', solve: (nums: unknown, k: unknown) => { if (!Array.isArray(nums) || !Number.isInteger(k)) throw new RangeError('constraints'); return nums.slice(0, k as number); } };
 const sum: Reference = { mode: 'stdio', solve: stdin => { const [a, b] = stdin.split(/\s+/).filter(Boolean).map(Number); if (!Number.isInteger(a + b)) throw new RangeError('constraints'); return `${a + b}\n`; } };
 const broken: Reference = { mode: 'call', solve: (value: unknown) => (value as string).toUpperCase() };
+const echo: Reference = { mode: 'stdio', solve: stdin => stdin };
 it.each([
 	{ name: 'answer of a call reference', reference: prefix, input: "[[1, 'a', True, None], 3]", expected: { value: "[1, 'a', True]" } },
 	{ name: 'answer of a stdio reference', reference: sum, input: '2 3\n', expected: { value: '5\n' } },
@@ -141,6 +142,9 @@ it.each([
 	{ name: 'too few arguments', reference: prefix, input: '[[1, 2]]', expected: { error: 'input' } },
 	{ name: 'arguments not in a list', reference: prefix, input: '1', expected: { error: 'input' } },
 	{ name: 'reference error on a wrong type', reference: broken, input: '[1]', expected: { error: 'input' } },
+	{ name: 'stdio answer of 100,000 characters', reference: echo, input: 'x'.repeat(100_000), expected: { value: 'x'.repeat(100_000) } },
+	{ name: 'stdio answer over 100,000 characters', reference: echo, input: 'x'.repeat(100_001), expected: { error: 'size' } },
+	{ name: 'call answer over 100,000 characters', reference: prefix, input: `[[${'1, '.repeat(40_000)}1], 40001]`, expected: { error: 'size' } },
 ])('$name', ({ reference, input, expected }) => {
 	expect(expectedOf(reference, input)).toEqual(expected);
 });
