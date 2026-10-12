@@ -89,6 +89,8 @@ it.each([
 	expect(await response.json()).toMatchObject({ error: { code } });
 });
 
+// The set files write Python literals in the JSON form with True and False. A failed parse gives undefined.
+const pythonLiteral = (text: string): unknown => { try { return JSON.parse(text.replace(/"(?:[^"\\]|\\.)*"|\b(?:True|False|true|false|null)\b/g, token => token.startsWith('"') ? token : token === 'True' ? 'true' : token === 'False' ? 'false' : '?')); } catch { return undefined; } };
 const slugFormat = /^[a-z0-9]+(?:-[a-z0-9]+)*$/, fragmentTag = /^(?:h2|h3|p|ul|ol|li|table|caption|thead|tbody|tr|th|td|pre|code|strong|em|sup|blockquote|details|summary|a|br|div)$/;
 it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item }) => {
 	expect(sets.filter(other => other.slug === item.slug)).toHaveLength(1);
@@ -96,6 +98,8 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item 
 	const tasks = tasksOf(item);
 	expect(tasks.filter(task => !slugFormat.test(taskSlug(task))).map(taskSlug)).toEqual([]);
 	expect(tasks.filter((task, index) => tasks.findIndex(other => taskSlug(other) === taskSlug(task)) !== index).map(taskSlug)).toEqual([]);
+	expect(tasks.filter(task => !task.tests || task.tests.cases.length < 4 || task.tests.cases.length > 6 || (task.tests.mode === 'stdio') !== taskSlug(task).startsWith('cf-') || task.tests.mode === 'call' && !/^[a-z][A-Za-z]*$/.test(task.tests.method)).map(taskSlug)).toEqual([]);
+	expect(tasks.flatMap(({ tests, ...task }) => !tests ? [] : tests.cases.filter(item => item.expected === null || (tests.mode === 'call' ? !Array.isArray(pythonLiteral(item.input)) || pythonLiteral(item.expected) === undefined : !item.input.endsWith('\n') || !item.expected.trim())).map(item => `${taskSlug(task)}: ${item.input}`))).toEqual([]);
 	expect(item.chapters.filter(chapter => !chapter.title.trim() || !chapter.summary.trim()).map(chapter => chapter.title)).toEqual([]);
 	expect(item.chapters.filter(chapter => chapter.tasks.length < 3 || chapter.tasks.length > 5 || chapter.cards.length < 6 || chapter.cards.length > 8).map(chapter => chapter.title)).toEqual([]);
 	const links = item.chapters.flatMap(chapter => chapter.links);

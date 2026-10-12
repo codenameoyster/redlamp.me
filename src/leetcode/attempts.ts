@@ -1,11 +1,13 @@
 import type { Env } from '../index';
-import { MAX_DOCUMENT_BYTES, newApproach, type Attempt, type AttemptDocument, type AttemptSummary, type SessionUser } from '../../shared/leetcode';
+import { MAX_DOCUMENT_BYTES, newApproach, sha256, type Attempt, type AttemptDocument, type AttemptSummary, type SessionUser } from '../../shared/leetcode';
 import { requireRole } from './auth';
 import { calendarDate, changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
 import { getProblem, searchText } from './problems';
 
 export const attemptColumns = 'id,problem_id AS problemId,state,acceptance,understanding,version,created_at AS createdAt,updated_at AS updatedAt,saved_at AS savedAt';
 type AttemptRow = Omit<Attempt, 'document'> & { document: string };
+// The latest run of each approach of an attempt. The bare columns come from the row with max(created_at): https://www.sqlite.org/lang_select.html#bareagg
+export const latestRuns = (problem: string, attempt: string) => `SELECT approach_id AS approachId,passed,total,code_hash AS codeHash,max(created_at) AS createdAt FROM test_runs WHERE problem_id=${problem} AND attempt_id=${attempt} GROUP BY approach_id`;
 function attemptValue(row: AttemptRow): Attempt { return { ...row, document: JSON.parse(row.document) }; }
 export async function getAttempt(env: Env, problemId: string, id: string): Promise<Attempt> {
 	const row = await env.DB.prepare(`SELECT ${attemptColumns},document FROM attempts WHERE id=? AND problem_id=?`).bind(uuid(id), uuid(problemId)).first<AttemptRow>();
@@ -48,8 +50,10 @@ export async function handleAttempts(request: Request, env: Env, user: SessionUs
 	if (request.method === 'GET') {
 		if (id) return Response.json(await getAttempt(env, problemId, id));
 		const { limit, offset } = pagination(url);
-		const rows = await env.DB.prepare(`SELECT ${attemptColumns} FROM attempts WHERE problem_id=? ORDER BY state ASC,created_at DESC,id LIMIT ? OFFSET ?`).bind(problemId, limit + 1, offset).all<AttemptSummary>();
-		return Response.json(page(rows.results, limit, offset));
+		// passedCode lists [code hash, current code] of each approach whose latest run passed all tests.
+		const rows = await env.DB.prepare(`SELECT ${attemptColumns},(SELECT json_group_array(json_array(r.codeHash,a.value->>'code')) FROM (${latestRuns('attempts.problem_id', 'attempts.id')}) r JOIN json_each(attempts.document,'$.approaches') a ON a.value->>'id'=r.approachId WHERE r.passed=r.total AND r.total>0) AS passedCode FROM attempts WHERE problem_id=? ORDER BY state ASC,created_at DESC,id LIMIT ? OFFSET ?`).bind(problemId, limit + 1, offset).all<Omit<AttemptSummary, 'testsPassed'> & { passedCode: string }>();
+		const items = await Promise.all(rows.results.map(async ({ passedCode, ...row }) => ({ ...row, testsPassed: (await Promise.all((JSON.parse(passedCode) as [string, string][]).map(async ([hash, code]) => hash === await sha256(code)))).includes(true) })));
+		return Response.json(page(items, limit, offset));
 	}
 	requireRole(user, 'student');
 	const now = new Date().toISOString();

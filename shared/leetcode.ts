@@ -49,7 +49,7 @@ export interface Attempt extends DraftValue {
 	updatedAt: string;
 	savedAt: string | null;
 }
-export type AttemptSummary = Omit<Attempt, 'document'>;
+export type AttemptSummary = Omit<Attempt, 'document'> & { testsPassed: boolean };
 export const MAX_DOCUMENT_BYTES = 256_000;
 export type TaskState = 'assigned' | 'in_progress' | 'submitted' | 'changes_requested' | 'completed' | 'cancelled';
 export interface Homework { id: string; title: string; instructions: string; dueDate: string | null; version: number; createdAt: string; updatedAt: string }
@@ -62,7 +62,17 @@ export interface Submission { id: string; taskId: string; attemptId: string; tas
 export interface Feedback { id: string; problemId: string; taskId: string | null; submissionId: string | null; author: Role; kind: 'reply' | 'changes_requested' | 'completed'; body: string; createdAt: string }
 export interface HomeworkDetails { homework: Homework; tasks: HomeworkTask[] }
 export interface TaskDetails { homework: Homework; task: HomeworkTask; submissions: Submission[] }
-export interface SetTask { url: string; number?: number; title: string; difficulty: Difficulty; topics: string[]; note: string }
+export interface TestCase { input: string; expected: string | null }
+// call: LeetCode style. input is a Python literal list of the arguments, expected a Python literal.
+// check: 'return' compares the return value, 'arg0' the first argument after the call (in-place tasks), 'prefix' the first argument cut to the returned length (Remove Duplicates).
+// order: 'exact', 'any' (sort the top-level list), 'any-nested' (sort each inner list, then the outer list).
+// stdio: Codeforces style. input is the stdin text, expected the stdout text; compared token by token.
+export type TestSpec = { mode: 'call'; method: string; check?: 'return' | 'arg0' | 'prefix'; order?: 'exact' | 'any' | 'any-nested' } | { mode: 'stdio' };
+export type TaskTests = TestSpec & { cases: TestCase[] };
+export interface OwnTest { id: string; input: string; expected: string; createdAt: string }
+export interface ProblemTests { spec: TestSpec | null; source: 'set' | 'leetcode' | 'none'; standard: TestCase[]; own: OwnTest[] }
+export interface TestRun { approachId: string; passed: number; total: number; codeHash: string; createdAt: string }
+export interface SetTask { url: string; number?: number; title: string; difficulty: Difficulty; topics: string[]; note: string; tests?: TaskTests }
 export interface Chapter { title: string; summary: string; tasks: SetTask[]; cards: Card[]; links: { title: string; url: string; source: string }[] }
 export interface LearningSet { slug: string; title: string; summary: string; topics: string[]; chapters: Chapter[] }
 export interface ChapterRef { set: string; setTitle: string; number: number; title: string }
@@ -84,7 +94,7 @@ export interface Dashboard {
 	counts: { recorded: number; solved: number; independent: number; waitingReview: number; dueReviews: number; dueCards: number };
 	topics: { topic: string; solved: number; independent: number }[];
 	homework: HomeworkTask[];
-	drafts: (AttemptSummary & { problemTitle: string })[];
+	drafts: (Omit<Attempt, 'document'> & { problemTitle: string })[];
 	dueReviews: Problem[];
 	recallPicks: Omit<SetTaskRow, 'accepted' | 'activeTask'>[];
 }
@@ -97,4 +107,7 @@ export type BadgeId = 'first-accept' | 'three-day-streak' | 'first-hard' | 'ten-
 export interface Game { xp: number; level: number; levelXp: number; nextLevelXp: number; badges: { id: BadgeId; earned: boolean }[] }
 export function newApproach(): Approach {
 	return { id: crypto.randomUUID(), label: '', idea: '', correctness: '', timeComplexity: '', spaceComplexity: '', edgeCases: '', mistakes: '', language: '', code: '' };
+}
+export async function sha256(value: string): Promise<string> {
+	return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))), byte => byte.toString(16).padStart(2, '0')).join('');
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { newApproach, type Approach, type Attempt, type AttemptSummary, type DraftValue, type HomeworkTask, type Page, type Problem as ProblemRecord, type SessionUser, type TaskDetails } from '../shared/leetcode';
+import { newApproach, type Approach, type Attempt, type AttemptSummary, type DraftValue, type HomeworkTask, type Page, type Problem as ProblemRecord, type ProblemTests, type SessionUser, type TaskDetails, type TestRun } from '../shared/leetcode';
 import { api, ApiError, message } from './api';
 import { useResource } from './useResource';
 import { useDraft, type LeaveGuard, type RegisterGuard } from './useDraft';
@@ -8,13 +8,14 @@ import { Discussion, homeworkLabels } from './Homework';
 import { Materials } from './Materials';
 import { CodeField } from './Code';
 import { Tutor } from './Tutor';
+import { OwnTests, Runner } from './Runner';
 import { addCalendarDays, localDate } from '../shared/dates';
 
 export const understandingLabels = { needs_practice: 'Нужно потренироваться', with_help: 'Решил с подсказкой', independent: 'Решил сам' };
 export const acceptanceLabels = { not_submitted: 'Не отправлял', not_accepted: 'Не принято', accepted: 'Принято на LeetCode' };
-export function attemptLabel(items: AttemptSummary[], index: number): string { return `${items[index].state === 'draft' ? 'Текущий черновик' : `Сохранённая попытка ${items.length - index}`} - ${new Date(items[index].createdAt).toLocaleString('ru-RU')}`; }
+export function attemptLabel(items: AttemptSummary[], index: number): string { return `${items[index].state === 'draft' ? 'Текущий черновик' : `Сохранённая попытка ${items.length - index}`} - ${new Date(items[index].createdAt).toLocaleString('ru-RU')}${items[index].testsPassed ? ' - Тесты пройдены' : ''}`; }
 
-export function AttemptContent({ value, change }: { value: DraftValue; change?: (next: DraftValue) => void }) {
+export function AttemptContent({ value, change, tests, runs, record }: { value: DraftValue; change?: (next: DraftValue) => void; tests?: ProblemTests; runs?: TestRun[]; record?: (approachId: string, run: Pick<TestRun, 'passed' | 'total' | 'codeHash'>) => Promise<void> }) {
 	const [copyState, setCopyState] = useState('');
 	function update(id: string, patch: Partial<Approach>) { change?.({ ...value, document: { ...value.document, approaches: value.document.approaches.map(a => a.id === id ? { ...a, ...patch } : a) } }); }
 	const fields = [{ key: 'idea', label: 'Основная идея' }, { key: 'correctness', label: 'Почему это работает' }, { key: 'edgeCases', label: 'Крайние случаи' }, { key: 'mistakes', label: 'Ошибки и выводы' }] as const;
@@ -25,7 +26,7 @@ export function AttemptContent({ value, change }: { value: DraftValue; change?: 
 			<div className="row spread"><h2>Подход {index + 1}</h2>{change && value.document.approaches.length > 1 && <button type="button" onClick={() => { if (confirm('Удалить этот подход из черновика?')) change({ ...value, document: { ...value.document, approaches: value.document.approaches.filter(a => a.id !== approach.id) } }); }}>Удалить подход</button>}</div>
 			<label>Название подхода<input value={approach.label} maxLength={200} readOnly={!change} onChange={event => update(approach.id, { label: event.target.value })} /></label>
 			<div className="editor-grid"><div className="card card-pad stack">{fields.map(field => <label key={field.key}>{field.label}<textarea aria-label={field.label} value={approach[field.key]} readOnly={!change} onChange={event => update(approach.id, { [field.key]: event.target.value })} /></label>)}<div className="editor-grid"><label>Время<input value={approach.timeComplexity} readOnly={!change} onChange={event => update(approach.id, { timeComplexity: event.target.value })} /></label><label>Память<input value={approach.spaceComplexity} readOnly={!change} onChange={event => update(approach.id, { spaceComplexity: event.target.value })} /></label></div></div>
-				<div className="card card-pad stack"><label>Язык<input value={approach.language} maxLength={40} readOnly={!change} onChange={event => update(approach.id, { language: event.target.value })} /></label><label>Код решения<CodeField language={approach.language} value={approach.code} readOnly={!change} onChange={code => update(approach.id, { code })} /></label><button type="button" onClick={async () => { try { await navigator.clipboard.writeText(approach.code); setCopyState('Код скопирован.'); } catch { setCopyState('Выделите и скопируйте код вручную.'); } }}>Скопировать код</button></div>
+				<div className="card card-pad stack"><label>Язык<input value={approach.language} maxLength={40} readOnly={!change} onChange={event => update(approach.id, { language: event.target.value })} /></label><label>Код решения<CodeField language={approach.language} value={approach.code} readOnly={!change} onChange={code => update(approach.id, { code })} /></label><button type="button" onClick={async () => { try { await navigator.clipboard.writeText(approach.code); setCopyState('Код скопирован.'); } catch { setCopyState('Выделите и скопируйте код вручную.'); } }}>Скопировать код</button>{tests && /^(py|$)/i.test(approach.language.trim()) && <Runner code={approach.code} tests={tests} live={Boolean(change)} latest={runs?.find(run => run.approachId === approach.id)} record={record && (run => record(approach.id, run))} />}</div>
 			</div>
 		</section>)}
 		{copyState && <p role="status">{copyState}</p>}
@@ -35,6 +36,8 @@ export function AttemptContent({ value, change }: { value: DraftValue; change?: 
 
 export function DraftEditor({ initial, user, registerGuard, saved, nextReviewDate, task, reloadTask }: { initial: Attempt; user: SessionUser; registerGuard: RegisterGuard; saved: (attempt: Attempt) => void; nextReviewDate: string | null; task?: HomeworkTask; reloadTask: () => void }) {
 	const draft = useDraft(initial, user);
+	const tests = useResource<ProblemTests>(`/problems/${initial.problemId}/tests`);
+	const runs = useResource<TestRun[]>(`/problems/${initial.problemId}/runs?attemptId=${initial.id}`);
 	const [busy, setBusy] = useState(false), [error, setError] = useState(''), [date, setDate] = useState(nextReviewDate ?? '');
 	const [dateChanged, setDateChanged] = useState(false);
 	const [failure, setFailure] = useState<{ action: 'save' | 'submit'; error: unknown } | null>(null);
@@ -70,6 +73,7 @@ export function DraftEditor({ initial, user, registerGuard, saved, nextReviewDat
 			setFailure({ action, error });
 		} finally { setBusy(false); }
 	}
+	async function record(approachId: string, run: Pick<TestRun, 'passed' | 'total' | 'codeHash'>) { await api(`/problems/${initial.problemId}/runs`, { method: 'POST', body: JSON.stringify({ attemptId: initial.id, approachId, ...run, runOn: localDate() }) }); runs.reload(); }
 	async function copyWork() { try { await navigator.clipboard.writeText(JSON.stringify(draft.value, null, 2)); } catch { setError('Выделите и скопируйте текст из редактора вручную.'); } }
 	const loginRequired = draft.status === 'login_required' || (failure?.error instanceof ApiError && failure.error.status === 401);
 	return <div className="stack">
@@ -78,7 +82,8 @@ export function DraftEditor({ initial, user, registerGuard, saved, nextReviewDat
 		{draft.recovery && <section className="notice stack" aria-label="Копия для восстановления"><p>{draft.recovery.attemptId === initial.id ? 'В этой вкладке есть несохранённая работа.' : 'В этой вкладке есть несохранённая работа из прошлой попытки. Скопируйте её, прежде чем продолжить.'}</p>{draft.recovery.attemptId !== initial.id && <pre>{JSON.stringify(draft.recovery.value, null, 2)}</pre>}<div className="row">{draft.recovery.attemptId === initial.id && <button onClick={draft.recover}>Восстановить несохранённую работу</button>}<button onClick={async () => { try { await navigator.clipboard.writeText(JSON.stringify(draft.recovery!.value, null, 2)); } catch { setError('Выделите и скопируйте текст для восстановления вручную.'); } }}>Скопировать восстановленную работу</button><button onClick={useServerCopy}>Использовать копию с сервера</button></div></section>}
 		{(error || failure || draft.error) && <div className="error" role="alert">{error || (failure ? message(failure.error) : draft.error)}<div className="row">{loginRequired ? <button onClick={draft.signIn}>Войти снова</button> : failure ? (failure.action === 'save' || submittable) && <button disabled={busy} onClick={() => void finalize(failure.action)}>{failure.action === 'save' ? 'Повторить сохранение попытки' : 'Повторить отправку'}</button> : !draft.conflict && <button onClick={() => void draft.flush()}>Повторить сохранение</button>}{!draft.conflict && <button onClick={copyWork}>Скопировать несохранённую работу</button>}</div></div>}
 		{draft.conflict && <section className="notice stack"><h2>Копия с сервера</h2><p>В редакторе осталась ваша локальная копия. Скопируйте её, прежде чем заменить.</p><pre>{JSON.stringify(draft.conflict.document, null, 2)}</pre><div className="row"><button onClick={copyWork}>Скопировать несохранённую работу</button><button onClick={useServerCopy}>Использовать копию с сервера</button></div></section>}
-		<fieldset disabled={busy || Boolean(draft.recovery)}><AttemptContent value={draft.value} change={editable ? draft.change : undefined} /></fieldset>
+		<fieldset disabled={busy || Boolean(draft.recovery)}><AttemptContent value={draft.value} change={editable ? draft.change : undefined} tests={tests.data ?? undefined} runs={runs.data ?? undefined} record={user.role === 'student' ? record : undefined} /></fieldset>
+		{tests.data?.spec && <OwnTests problemId={initial.problemId} tests={tests.data} changed={tests.reload} />}
 		{editable && <div className="card card-pad stack"><div className="row spread"><label>Следующее повторение<input type="date" value={date} disabled={busy} onChange={event => changeDate(event.target.value)} /></label><button className="primary" disabled={busy || Boolean(draft.recovery)} onClick={() => void finalize('save')}>Сохранить попытку</button></div>{draft.value.acceptance === 'accepted' && <div className="row"><span>Напоминание:</span><button type="button" disabled={busy} onClick={() => changeDate(addCalendarDays(localDate(), 1))}>Завтра</button><button type="button" disabled={busy} onClick={() => changeDate(addCalendarDays(localDate(), 3))}>Через три дня</button><button type="button" disabled={busy} onClick={() => changeDate(addCalendarDays(localDate(), 7))}>Через семь дней</button><button type="button" disabled={busy} onClick={() => changeDate('')}>Без напоминания</button></div>}</div>}
 		{submittable && <button className="primary" disabled={busy || Boolean(draft.recovery)} onClick={() => void finalize('submit')}>Отправить на проверку</button>}
 	</div>;
