@@ -49,7 +49,7 @@ export interface Attempt extends DraftValue {
 	updatedAt: string;
 	savedAt: string | null;
 }
-export type AttemptSummary = Omit<Attempt, 'document'> & { testsPassed: boolean };
+export type AttemptSummary = Omit<Attempt, 'document'>;
 export const MAX_DOCUMENT_BYTES = 256_000;
 export type TaskState = 'assigned' | 'in_progress' | 'submitted' | 'changes_requested' | 'completed' | 'cancelled';
 export interface Homework { id: string; title: string; instructions: string; dueDate: string | null; version: number; createdAt: string; updatedAt: string }
@@ -70,9 +70,9 @@ export interface TestCase { input: string; expected: string | null }
 export type TestSpec = { mode: 'call'; method: string; check?: 'return' | 'arg0' | 'prefix'; order?: 'exact' | 'any' | 'any-nested' } | { mode: 'stdio' };
 export type TaskTests = TestSpec & { cases: TestCase[] };
 export interface OwnTest { id: string; input: string; expected: string; createdAt: string }
-export interface ProblemTests { spec: TestSpec | null; source: 'set' | 'leetcode' | 'none'; standard: TestCase[]; own: OwnTest[] }
+export interface ProblemTests { spec: TestSpec | null; source: 'set' | 'leetcode' | 'none'; standard: TestCase[]; own: OwnTest[]; skeleton: string }
 export interface TestRun { approachId: string; passed: number; total: number; codeHash: string; createdAt: string }
-export interface SetTask { url: string; number?: number; title: string; difficulty: Difficulty; topics: string[]; note: string; tests?: TaskTests }
+export interface SetTask { url: string; number?: number; title: string; difficulty: Difficulty; topics: string[]; note: string; statement?: string; tests?: TaskTests }
 export interface Chapter { title: string; summary: string; tasks: SetTask[]; cards: Card[]; links: { title: string; url: string; source: string }[] }
 export interface LearningSet { slug: string; title: string; summary: string; topics: string[]; chapters: Chapter[] }
 export interface ChapterRef { set: string; setTitle: string; number: number; title: string }

@@ -36,7 +36,7 @@ function metadata(data: Record<string, unknown>): ProblemInput & { slug: string 
 }
 
 export async function question<T>(titleSlug: string, fields: string): Promise<T | null> {
-	const response = await fetch('https://leetcode.com/graphql', { method: 'POST', headers: { 'Content-Type': 'application/json', Referer: `https://leetcode.com/problems/${titleSlug}/` }, body: JSON.stringify({ query: `query question($titleSlug: String!) { question(titleSlug: $titleSlug) { ${fields} } }`, variables: { titleSlug } }) });
+	const response = await fetch('https://leetcode.com/graphql', { method: 'POST', headers: { 'Content-Type': 'application/json', Referer: `https://leetcode.com/problems/${titleSlug}/` }, body: JSON.stringify({ query: `query question($titleSlug: String!) { question(titleSlug: $titleSlug) { ${fields} } }`, variables: { titleSlug } }), signal: AbortSignal.timeout(5000) });
 	if (!response.ok) throw new Error(`LeetCode returned ${response.status}.`);
 	return (await response.json() as { data: { question: T | null } }).data.question;
 }

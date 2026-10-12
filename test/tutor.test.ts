@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import prompt from '../src/leetcode/tutor-prompt.txt';
+import evaluation from '../src/leetcode/evaluate-prompt.txt';
 import { htmlText, pump } from '../src/leetcode/tutor';
 import { login, request } from './client';
 
@@ -65,6 +66,9 @@ it.each([
 	{ name: 'message over 4000 characters', role: 'student', method: 'POST', path: '/tutor/messages', body: send({ message: 'm'.repeat(4001) }), status: 400 },
 	{ name: 'quote over 2000 characters', role: 'student', method: 'POST', path: '/tutor/messages', body: send({ quote: 'q'.repeat(2001) }), status: 400 },
 	{ name: 'extra field', role: 'student', method: 'POST', path: '/tutor/messages', body: send({ model: 'x' }), status: 400 },
+	{ name: 'parent cannot evaluate', role: 'parent', method: 'POST', path: '/tutor/messages', body: send({ kind: 'problem', id: PROBLEM, evaluate: true }), status: 403 },
+	{ name: 'evaluate a set', role: 'student', method: 'POST', path: '/tutor/messages', body: send({ evaluate: true }), status: 400 },
+	{ name: 'evaluate flag that is not true', role: 'student', method: 'POST', path: '/tutor/messages', body: send({ kind: 'problem', id: PROBLEM, evaluate: 'yes' }), status: 400 },
 ] as { name: string; role: 'parent' | 'student'; method: string; path: string; body?: unknown; status: number }[])('$name', async ({ role, method, path, body, status }) => {
 	await env.DB.batch([message('problem', PROBLEM, 'student', 'Why?', null, minute(0)), message('problem', PROBLEM, 'assistant', 'Look at the base case.', null, minute(1))]);
 	const spy = upstream({});
@@ -153,6 +157,16 @@ it.each([
 		{ role: 'user', content: expect.stringMatching(/^<context>\n[\s\S]*\n<\/context>$/) },
 		{ role: 'user', content: quote ? `Selected text:\n> ${quote}\n\nExplain this part.` : 'Explain this part.' },
 	]);
+});
+
+it.each([
+	{ name: 'tutor prompt without the evaluate flag', data: {}, instructions: prompt },
+	{ name: 'evaluate prompt with the evaluate flag', data: { evaluate: true }, instructions: evaluation },
+])('$name', async ({ data, instructions }) => {
+	const spy = upstream({ [RESPONSES]: [answer], [GRAPHQL]: [() => Response.json({ data: { question: { content: '<p>Text</p>' } } })] });
+	const response = await request('/tutor/messages', 'POST', send({ kind: 'problem', id: PROBLEM, ...data }), student);
+	expect(await events(response)).toEqual([{ delta: 'Hi' }, { done: true }]);
+	expect(sent(spy)[0].instructions).toBe(instructions);
 });
 
 it.each([

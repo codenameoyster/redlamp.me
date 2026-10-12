@@ -13,7 +13,7 @@ function remember(open: boolean) {
 function stored() { try { return localStorage.getItem('leetcode:tutor') === 'open'; } catch { return false; } }
 const said = (body: string, quote: string | null) => <>{quote && <blockquote>{quote}</blockquote>}<p className="prose">{body}</p></>;
 
-export function Tutor({ context, title, user, flush, quote, lesson }: { context: { kind: TutorKind; id: string }; title: string; user: SessionUser; flush?: () => Promise<unknown> | undefined; quote?: string; lesson?: RefObject<HTMLElement | null> }) {
+export function Tutor({ context, title, user, flush, quote, lesson, evaluate }: { context: { kind: TutorKind; id: string }; title: string; user: SessionUser; flush?: () => Promise<unknown> | undefined; quote?: string; lesson?: RefObject<HTMLElement | null>; evaluate?: boolean }) {
 	const student = user.role === 'student', bridge = student && lesson !== undefined, path = `/tutor/messages?kind=${context.kind}&id=${encodeURIComponent(context.id)}`;
 	const dialog = useRef<HTMLDialogElement>(null), trigger = useRef<HTMLButtonElement>(null), heading = useRef<HTMLHeadingElement>(null), input = useRef<HTMLTextAreaElement>(null), log = useRef<HTMLDivElement>(null);
 	const [open, setOpen] = useState(false), [text, setText] = useState(''), [error, setError] = useState(''), [status, setStatus] = useState(''), [marked, setMarked] = useState('');
@@ -40,7 +40,7 @@ export function Tutor({ context, title, user, flush, quote, lesson }: { context:
 		if (!dialog.current!.open) show();
 		void ask('Объясните эту часть.', text);
 	});
-	useEffect(() => bridge ? watchSelection(lesson!.current!, text => explain(text)) : undefined, [bridge, lesson]);
+	useEffect(() => bridge ? watchSelection(lesson!, text => explain(text)) : undefined, [bridge, lesson]);
 	function highlight(quote: string) {
 		if (dialog.current!.matches(':modal')) dialog.current!.close(); // A modal panel covers the lesson.
 		setMarked(highlightIn(lesson!.current!, quote) ? 'Отрывок выделен в уроке.' : 'Этого отрывка нет в тексте урока.');
@@ -49,13 +49,13 @@ export function Tutor({ context, title, user, flush, quote, lesson }: { context:
 	async function loadOlder() {
 		try { const page = await api<Page<TutorMessage>>(`${path}&offset=${nextOffset}`); setOlder([...older, ...page.items]); setNext(page.nextOffset); } catch (error) { setError(message(error)); }
 	}
-	async function ask(body: string, quote: string | null) {
+	async function ask(body: string, quote: string | null, evaluate?: true) {
 		if (busy.current) return;
 		busy.current = true;
 		setPending({ body, quote, answer: '' }); setError(''); setStatus('Репетитор пишет.');
 		try {
 			await flush?.(); // A failed flush still sends. The context then has the last saved draft, and the page shows the draft error.
-			const response = await fetch('/leetcode/api/tutor/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: context.kind, id: context.id, message: body, quote }), cache: 'no-store' });
+			const response = await fetch('/leetcode/api/tutor/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: context.kind, id: context.id, message: body, quote, evaluate }), cache: 'no-store' });
 			if (!response.ok) throw await apiError(response);
 			const reader = response.body!.pipeThrough(new TextDecoderStream()).getReader();
 			let buffer = '', answer = '', end: TutorEvent | undefined;
@@ -79,6 +79,7 @@ export function Tutor({ context, title, user, flush, quote, lesson }: { context:
 	}
 	return <>
 		<button ref={trigger} aria-expanded={open} aria-controls="tutor" onClick={() => open ? dialog.current!.close() : show()}><Bot size={18} />{student ? 'Спросить ИИ' : 'Читать чат с ИИ'}</button>
+		{evaluate && <button onClick={() => { if (!dialog.current!.open) show(); void ask('Оцените моё решение.', null, true); }}>Оценить решение с ИИ</button>}
 		<dialog id="tutor" ref={dialog} aria-labelledby="tutor-title" onClose={() => { setOpen(false); remember(false); trigger.current?.focus(); }} onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); dialog.current!.close(); } }}>
 			<header className="tutor-head"><div><h2 id="tutor-title" ref={heading} tabIndex={-1}>ИИ-репетитор</h2><p>{title}</p>{!student && <p>Чат ученика. Только чтение.</p>}</div><button className="icon-button" onClick={() => dialog.current!.close()} aria-label="Закрыть" title="Закрыть"><X size={18} /></button></header>
 			<div className="tutor-log" ref={log}>

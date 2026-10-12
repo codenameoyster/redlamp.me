@@ -5,21 +5,26 @@ import { latestRuns } from './attempts';
 import { calendarDate, HttpError, integer, methods, object, readJson, text, uuid } from './http';
 import { getProblem, question } from './problems';
 import { sets, taskSlug, tasksOf } from './sets';
+import { htmlText } from './tutor';
 
 const words: Record<string, string> = { true: 'True', false: 'False', null: 'None', '&quot;': '"', '&#39;': "'", '&lt;': '<', '&gt;': '>', '&amp;': '&', '&nbsp;': ' ' };
 // JSON values of LeetCode become Python literals: the strings stay, true, false and null change.
 const python = (value: string) => value.replace(/"(?:[^"\\]|\\.)*"|\b(?:true|false|null)\b/g, token => words[token] ?? token);
 
+const stdin = 'import sys\ninput = sys.stdin.readline\n\ndef main():\n    # Прочитайте входные данные и выведите ответ.\n    pass\n\nmain()\n';
+
+// One request gives the examples and the Python 3 starter code.
 // ponytail: the examples compare in exact order, so a correct answer in another order fails. Add an order rule when a student finds such a problem.
-async function examples(titleSlug: string): Promise<TaskTests | null> {
-	const value = await question<{ metaData: string; exampleTestcaseList: string[]; content: string | null }>(titleSlug, 'metaData exampleTestcaseList content');
+async function lookup(titleSlug: string): Promise<{ tests: TaskTests | null; skeleton?: string } | null> {
+	const value = await question<{ metaData: string; exampleTestcaseList: string[]; content: string | null; codeSnippets: { langSlug: string; code: string }[] | null }>(titleSlug, 'metaData exampleTestcaseList content codeSnippets { langSlug code }');
 	if (!value) return null;
+	const skeleton = value.codeSnippets?.find(item => item.langSlug === 'python3')?.code;
 	const meta = JSON.parse(value.metaData) as { name?: string; manual?: boolean; params: { type: string }[]; return: { type: string }; output?: { paramindex: number } };
 	// The harness gives plain Python values, so a design problem (no name), an interactive problem (manual) or a class type such as TreeNode gets no runner.
-	if (!meta.name || meta.manual || [...meta.params, meta.return].some(item => /[A-Z]/.test(item.type))) return null;
+	if (!meta.name || meta.manual || [...meta.params, meta.return].some(item => /[A-Z]/.test(item.type))) return { tests: null, skeleton };
 	const statement = (value.content ?? '').replace(/<[^>]*>/g, '').replace(/&(?:quot|#39|lt|gt|amp|nbsp);/g, entity => words[entity]);
 	const outputs = [...statement.matchAll(/^\s*Output:\s*(.+)$/gm)].map(match => python(match[1].trim()));
-	return { mode: 'call', method: meta.name, ...(meta.output?.paramindex === 0 && { check: 'arg0' as const }), cases: value.exampleTestcaseList.map((input, index, list) => ({ input: python(`[${input.split('\n').join(',')}]`), expected: outputs.length === list.length ? outputs[index] : null })) };
+	return { skeleton, tests: { mode: 'call', method: meta.name, ...(meta.output?.paramindex === 0 && { check: 'arg0' as const }), cases: value.exampleTestcaseList.map((input, index, list) => ({ input: python(`[${input.split('\n').join(',')}]`), expected: outputs.length === list.length ? outputs[index] : null })) } };
 }
 
 export async function handleTests(request: Request, env: Env): Promise<Response | null> {
@@ -41,10 +46,20 @@ export async function handleTests(request: Request, env: Env): Promise<Response 
 		return Response.json(value, { status: 201 });
 	}
 	const task = sets.flatMap(tasksOf).find(item => taskSlug(item) === problem.slug)?.tests, codeforces = problem.slug.startsWith('cf-');
-	const leetcode = task || codeforces ? null : await examples(problem.slug).catch(() => null);
+	const found = codeforces ? null : await lookup(problem.slug).catch(() => null), leetcode = task ? null : found?.tests;
 	const { cases = [], ...spec } = task ?? leetcode ?? (codeforces ? { mode: 'stdio' as const } : {});
 	const own = (await env.DB.prepare('SELECT id,input,expected,created_at AS createdAt FROM problem_tests WHERE problem_id=? ORDER BY created_at,id').bind(problem.id).all<OwnTest>()).results;
-	return Response.json({ spec: 'mode' in spec ? spec : null, source: task ? 'set' : leetcode ? 'leetcode' : 'none', standard: cases, own } satisfies ProblemTests);
+	const skeleton = codeforces ? stdin : found?.skeleton ?? ('method' in spec ? 'class Solution:\n    pass' : '');
+	return Response.json({ spec: 'mode' in spec ? spec : null, source: task ? 'set' : leetcode ? 'leetcode' : 'none', standard: cases, own, skeleton } satisfies ProblemTests);
+}
+
+export async function handleStatement(request: Request, env: Env): Promise<Response | null> {
+	const match = /^\/leetcode\/api\/problems\/([^/]+)\/statement$/.exec(new URL(request.url).pathname);
+	if (!match) return null;
+	methods(request, ['GET']);
+	const problem = await getProblem(env, uuid(match[1])), html = sets.flatMap(tasksOf).find(task => taskSlug(task) === problem.slug)?.statement ?? null;
+	const content = html !== null || problem.slug.startsWith('cf-') ? null : await question<{ content: string | null }>(problem.slug, 'content').then(value => value?.content, () => null);
+	return Response.json({ html, text: content ? htmlText(content) : null });
 }
 
 export async function handleRuns(request: Request, env: Env, user: SessionUser): Promise<Response | null> {

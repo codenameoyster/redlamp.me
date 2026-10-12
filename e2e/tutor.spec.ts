@@ -82,6 +82,25 @@ for (const row of flushes) {
 	});
 }
 
+test('evaluates the saved code with the evaluate flag', async ({ page, notebook, server }) => {
+	const { DB } = await server.getWorker<TestEnv>().getEnv();
+	let body: unknown, code: string | undefined;
+	await onSend(page, async route => {
+		body = route.request().postDataJSON();
+		code = JSON.parse((await DB.prepare('SELECT document FROM attempts WHERE id=?').bind(notebook.attempt.id).first<{ document: string }>())!.document).approaches[0].code;
+		await addMessages(DB, 'problem', notebook.problem.id, [{ author: 'student', body: 'Оцените моё решение.' }, { author: 'assistant', body: 'Оценка: 2/10.' }]);
+		await route.fulfill({ contentType: 'text/event-stream', body: sse({ delta: 'Оценка: 2/10.' }, { done: true }) });
+	});
+	const evaluate = page.getByRole('button', { name: 'Оценить решение с ИИ', exact: true });
+	await expect(evaluate).toHaveCount(0);
+	await page.getByLabel('Код решения', { exact: true }).fill('print(1)\n');
+	await evaluate.click();
+	await expect(page.getByRole('dialog', { name: 'ИИ-репетитор' }).getByRole('status')).toHaveText('Репетитор ответил.');
+	await expect(messages(page).nth(1)).toContainText('Оценка: 2/10.');
+	expect(body).toEqual({ kind: 'problem', id: notebook.problem.id, message: 'Оцените моё решение.', quote: null, evaluate: true });
+	expect(code).toBe('print(1)\n');
+});
+
 test('shows each part of the answer as it arrives', async ({ page, notebook }) => {
 	await page.addInitScript(() => {
 		const fetch = window.fetch, encoder = new TextEncoder();

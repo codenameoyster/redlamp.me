@@ -1,7 +1,10 @@
+import type { RefObject } from 'react';
+
 const skip = /[\s­​]/, low = (c: string) => c.toLowerCase()[0];
 
-// Shows "Объяснить с ИИ" below a text selection in root. Ctrl+Enter or Cmd+Enter does the same. Returns the cleanup.
-export function watchSelection(root: HTMLElement, explain: (text: string) => void): () => void {
+// Shows "Объяснить с ИИ" below a text selection in the root element. Ctrl+Enter or Cmd+Enter does the same. Returns the cleanup.
+// The root element can change while the watch runs: the work window shows the lesson again for each new draft.
+export function watchSelection(root: RefObject<HTMLElement | null>, explain: (text: string) => void): () => void {
 	const button = Object.assign(document.createElement('button'), { type: 'button', className: 'primary lesson-ai', hidden: true, title: 'Ctrl+Enter', ariaKeyShortcuts: 'Control+Enter Meta+Enter', textContent: 'Объяснить с ИИ' });
 	document.body.append(button);
 	let picked = '', pressing = false;
@@ -11,7 +14,7 @@ export function watchSelection(root: HTMLElement, explain: (text: string) => voi
 	const press = (e: PointerEvent) => { pressing = e.target === button; };
 	const key = (e: KeyboardEvent) => { if (picked && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); } };
 	const select = () => {
-		const sel = getSelection(), text = sel?.rangeCount && root.contains(sel.getRangeAt(0).commonAncestorContainer) ? sel.toString().replace(/\s+/g, ' ').trim() : '';
+		const sel = getSelection(), text = sel?.rangeCount && root.current?.contains(sel.getRangeAt(0).commonAncestorContainer) ? sel.toString().replace(/\s+/g, ' ').trim() : '';
 		if (!text || document.activeElement?.closest('input,textarea,select,[contenteditable]')) { if (!pressing) hide(); return; }
 		picked = text.slice(0, 2000);
 		const r = sel!.getRangeAt(0).getBoundingClientRect(), gap = matchMedia('(pointer: coarse)').matches ? 32 : 8;

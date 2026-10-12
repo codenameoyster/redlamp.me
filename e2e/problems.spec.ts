@@ -2,6 +2,7 @@ import { test, expect, signIn } from './fixtures';
 
 test('adds metadata and finds the problem by its summary', async ({ page }) => {
 	await signIn(page);
+	await page.route('**/leetcode/api/problems/*/statement', route => route.fulfill({ json: { html: null, text: null } }));
 	await page.getByRole('link', { name: 'Задачи', exact: true }).click();
 	await page.getByRole('button', { name: 'Добавить задачу', exact: true }).click();
 	await page.getByLabel('Ссылка на задачу').fill('https://leetcode.com/problems/minimum-window-substring/description/');
@@ -86,7 +87,7 @@ test.describe('problem details', () => {
 		await expect(dialog.getByRole('status')).toHaveCount(0);
 		await dialog.getByRole('button', { name: 'Сохранить задачу', exact: true }).click();
 		await expect(page.getByRole('heading', { name: 'Theatre Square', exact: true })).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Открыть задачу', exact: true })).toHaveAttribute('href', 'https://codeforces.com/problemset/problem/1/A');
+		await expect(page.getByRole('link', { name: 'Codeforces ↗', exact: true })).toHaveAttribute('href', 'https://codeforces.com/problemset/problem/1/A');
 		expect(looked).toBe(false);
 	});
 });
