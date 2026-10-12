@@ -39,20 +39,20 @@ for (const row of storedRuns) {
 
 const twoSum = 'class Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n';
 const runs: { name: string; spec: TestSpec; code: string; cases: TestCase[]; results: string[]; summary: string | null; diagnostics: string[] }[] = [
-	{ name: 'compares the return value', spec: { mode: 'call', method: 'twoSum' }, code: `${twoSum}        return [0, 1]\n`, cases: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }, { input: '[[3, 3], 6]', expected: '[1, 0]' }, { input: '[[1, 2], 3]', expected: null }], results: ['Тест 1: ✓ Ввод: [[2, 7, 11, 15], 9] Ожидается: [0, 1] Ваш ответ: [0, 1]', 'Тест 2: ✗ Ввод: [[3, 3], 6] Ожидается: [1, 0] Ваш ответ: [0, 1]', 'Тест 3: без проверки Ввод: [[1, 2], 3] Ваш ответ: [0, 1]'], summary: 'Пройдено 1 из 2', diagnostics: [] },
-	{ name: 'accepts a tuple for a list', spec: { mode: 'call', method: 'twoSum' }, code: `${twoSum}        return 0, 1\n`, cases: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], results: ['Тест 1: ✓ Ввод: [[2, 7, 11, 15], 9] Ожидается: [0, 1] Ваш ответ: (0, 1)'], summary: 'Пройдено 1 из 1', diagnostics: [] },
-	{ name: 'accepts inner tuples in any order', spec: { mode: 'call', method: 'permute', order: 'any' }, code: 'class Solution:\n    def permute(self, nums: List[int]) -> List[List[int]]:\n        return list(itertools.permutations(nums))\n', cases: [{ input: '[[1, 2]]', expected: '[[2, 1], [1, 2]]' }], results: ['Тест 1: ✓ Ввод: [[1, 2]] Ожидается: [[2, 1], [1, 2]] Ваш ответ: [(1, 2), (2, 1)]'], summary: 'Пройдено 1 из 1', diagnostics: [] },
-	{ name: 'shows why the expected value does not parse', spec: { mode: 'call', method: 'containsDuplicate' }, code: 'class Solution:\n    def containsDuplicate(self, nums: List[int]) -> bool:\n        return len(set(nums)) < len(nums)\n', cases: [{ input: '[[1, 2, 1]]', expected: 'true' }], results: ["Тест 1: ✗ Ввод: [[1, 2, 1]] Ожидается: true Ваш ответ: True ValueError: malformed node or string on line 1: Name(id='true', ctx=Load())"], summary: 'Пройдено 0 из 1', diagnostics: [] },
-	{ name: 'compares the first argument after an in-place change', spec: { mode: 'call', method: 'moveZeroes', check: 'arg0' }, code: 'class Solution:\n    def moveZeroes(self, nums: List[int]) -> None:\n        nums.sort(key=lambda x: x == 0)\n', cases: [{ input: '[[0, 1, 0, 3, 12]]', expected: '[1, 3, 12, 0, 0]' }], results: ['Тест 1: ✓ Ввод: [[0, 1, 0, 3, 12]] Ожидается: [1, 3, 12, 0, 0] Ваш ответ: [1, 3, 12, 0, 0]'], summary: 'Пройдено 1 из 1', diagnostics: [] },
-	{ name: 'compares the prefix of the returned length', spec: { mode: 'call', method: 'removeDuplicates', check: 'prefix' }, code: 'class Solution:\n    def removeDuplicates(self, nums: List[int]) -> int:\n        k = len(set(nums))\n        nums[:k] = sorted(set(nums))\n        return k\n', cases: [{ input: '[[1, 1, 2]]', expected: '[1, 2]' }], results: ['Тест 1: ✓ Ввод: [[1, 1, 2]] Ожидается: [1, 2] Ваш ответ: [1, 2]'], summary: 'Пройдено 1 из 1', diagnostics: [] },
-	{ name: 'accepts any order of the list', spec: { mode: 'call', method: 'twoSum', order: 'any' }, code: `${twoSum}        return [1, 0]\n`, cases: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], results: ['Тест 1: ✓ Ввод: [[2, 7, 11, 15], 9] Ожидается: [0, 1] Ваш ответ: [1, 0]'], summary: 'Пройдено 1 из 1', diagnostics: [] },
-	{ name: 'accepts any order of the inner lists', spec: { mode: 'call', method: 'subsets', order: 'any-nested' }, code: 'class Solution:\n    def subsets(self, nums: List[int]) -> List[List[int]]:\n        return [[2, 1], [1], [], [2]]\n', cases: [{ input: '[[1, 2]]', expected: '[[], [1], [2], [1, 2]]' }], results: ['Тест 1: ✓ Ввод: [[1, 2]] Ожидается: [[], [1], [2], [1, 2]] Ваш ответ: [[2, 1], [1], [], [2]]'], summary: 'Пройдено 1 из 1', diagnostics: [] },
-	{ name: 'compares standard output token by token', spec: { mode: 'stdio' }, code: 'a, b = map(int, input().split())\nprint(a + b)\n', cases: [{ input: '2 3\n', expected: '5' }, { input: '1 1\n', expected: '3' }], results: ['Тест 1: ✓ Ввод: 2 3 Ожидается: 5 Ваш ответ: 5', 'Тест 2: ✗ Ввод: 1 1 Ожидается: 3 Ваш ответ: 2'], summary: 'Пройдено 1 из 2', diagnostics: [] },
-	{ name: 'reads standard input as bytes', spec: { mode: 'stdio' }, code: 'import sys\na, b = map(int, sys.stdin.buffer.readline().split())\nprint(a + b)\n', cases: [{ input: '2 3\n', expected: '5' }], results: ['Тест 1: ✓ Ввод: 2 3 Ожидается: 5 Ваш ответ: 5'], summary: 'Пройдено 1 из 1', diagnostics: [] },
-	{ name: 'stops a slow test and runs the next test', spec: { mode: 'stdio' }, code: 'n = int(input())\nwhile n:\n    pass\nprint(n)\n', cases: [{ input: '1', expected: '1' }, { input: '0', expected: '0' }], results: ['Тест 1: ✗ Ввод: 1 Ожидается: 1 Превышено время (2 с)', 'Тест 2: ✓ Ввод: 0 Ожидается: 0 Ваш ответ: 0'], summary: 'Пройдено 1 из 2', diagnostics: [] },
-	{ name: 'shows a syntax error with its line', spec: { mode: 'call', method: 'twoSum' }, code: 'class Solution:\n    def twoSum(self, nums, target)\n        return [0, 1]\n', cases: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], results: ["Тест 1: ✗ Ввод: [[2, 7, 11, 15], 9] Ожидается: [0, 1] Строка 2: SyntaxError: expected ':'"], summary: 'Пройдено 0 из 1', diagnostics: ["Строка 2: ошибка синтаксиса. expected ':'"] },
-	{ name: 'shows an exception with its line', spec: { mode: 'call', method: 'twoSum' }, code: `${twoSum}        seen = {}\n        return [0, nums[5]]\n`, cases: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], results: ['Тест 1: ✗ Ввод: [[2, 7, 11, 15], 9] Ожидается: [0, 1] Строка 4: IndexError: list index out of range'], summary: 'Пройдено 0 из 1', diagnostics: ['Строка 3: переменная `seen` не используется.'] },
-	{ name: 'shows the printed output', spec: { mode: 'call', method: 'twoSum' }, code: `${twoSum}        print('сумма', target)\n        return [0, 1]\n`, cases: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], results: ['Тест 1: ✓ Ввод: [[2, 7, 11, 15], 9] Ожидается: [0, 1] Ваш ответ: [0, 1] Печать: сумма 9'], summary: 'Пройдено 1 из 1', diagnostics: [] },
+	{ name: 'compares the return value', spec: { mode: 'call', method: 'twoSum' }, code: `${twoSum}        return [0, 1]\n`, cases: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }, { input: '[[3, 3], 6]', expected: '[1, 0]' }, { input: '[[1, 2], 3]', expected: null }], results: ['Тест 1: ✓ Ввод: [[2, 7, 11, 15], 9] Верный ответ: [0, 1] Ваш ответ: [0, 1]', 'Тест 2: ✗ Ввод: [[3, 3], 6] Верный ответ: [1, 0] Ваш ответ: [0, 1]', 'Тест 3: без проверки Ввод: [[1, 2], 3] Ваш ответ: [0, 1]'], summary: 'Пройдено 1 из 2', diagnostics: [] },
+	{ name: 'accepts a tuple for a list', spec: { mode: 'call', method: 'twoSum' }, code: `${twoSum}        return 0, 1\n`, cases: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], results: ['Тест 1: ✓ Ввод: [[2, 7, 11, 15], 9] Верный ответ: [0, 1] Ваш ответ: (0, 1)'], summary: 'Пройдено 1 из 1', diagnostics: [] },
+	{ name: 'accepts inner tuples in any order', spec: { mode: 'call', method: 'permute', order: 'any' }, code: 'class Solution:\n    def permute(self, nums: List[int]) -> List[List[int]]:\n        return list(itertools.permutations(nums))\n', cases: [{ input: '[[1, 2]]', expected: '[[2, 1], [1, 2]]' }], results: ['Тест 1: ✓ Ввод: [[1, 2]] Верный ответ: [[2, 1], [1, 2]] Ваш ответ: [(1, 2), (2, 1)]'], summary: 'Пройдено 1 из 1', diagnostics: [] },
+	{ name: 'shows why the expected value does not parse', spec: { mode: 'call', method: 'containsDuplicate' }, code: 'class Solution:\n    def containsDuplicate(self, nums: List[int]) -> bool:\n        return len(set(nums)) < len(nums)\n', cases: [{ input: '[[1, 2, 1]]', expected: 'true' }], results: ["Тест 1: ✗ Ввод: [[1, 2, 1]] Верный ответ: true Ваш ответ: True ValueError: malformed node or string on line 1: Name(id='true', ctx=Load())"], summary: 'Пройдено 0 из 1', diagnostics: [] },
+	{ name: 'compares the first argument after an in-place change', spec: { mode: 'call', method: 'moveZeroes', check: 'arg0' }, code: 'class Solution:\n    def moveZeroes(self, nums: List[int]) -> None:\n        nums.sort(key=lambda x: x == 0)\n', cases: [{ input: '[[0, 1, 0, 3, 12]]', expected: '[1, 3, 12, 0, 0]' }], results: ['Тест 1: ✓ Ввод: [[0, 1, 0, 3, 12]] Верный ответ: [1, 3, 12, 0, 0] Ваш ответ: [1, 3, 12, 0, 0]'], summary: 'Пройдено 1 из 1', diagnostics: [] },
+	{ name: 'compares the prefix of the returned length', spec: { mode: 'call', method: 'removeDuplicates', check: 'prefix' }, code: 'class Solution:\n    def removeDuplicates(self, nums: List[int]) -> int:\n        k = len(set(nums))\n        nums[:k] = sorted(set(nums))\n        return k\n', cases: [{ input: '[[1, 1, 2]]', expected: '[1, 2]' }], results: ['Тест 1: ✓ Ввод: [[1, 1, 2]] Верный ответ: [1, 2] Ваш ответ: [1, 2]'], summary: 'Пройдено 1 из 1', diagnostics: [] },
+	{ name: 'accepts any order of the list', spec: { mode: 'call', method: 'twoSum', order: 'any' }, code: `${twoSum}        return [1, 0]\n`, cases: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], results: ['Тест 1: ✓ Ввод: [[2, 7, 11, 15], 9] Верный ответ: [0, 1] Ваш ответ: [1, 0]'], summary: 'Пройдено 1 из 1', diagnostics: [] },
+	{ name: 'accepts any order of the inner lists', spec: { mode: 'call', method: 'subsets', order: 'any-nested' }, code: 'class Solution:\n    def subsets(self, nums: List[int]) -> List[List[int]]:\n        return [[2, 1], [1], [], [2]]\n', cases: [{ input: '[[1, 2]]', expected: '[[], [1], [2], [1, 2]]' }], results: ['Тест 1: ✓ Ввод: [[1, 2]] Верный ответ: [[], [1], [2], [1, 2]] Ваш ответ: [[2, 1], [1], [], [2]]'], summary: 'Пройдено 1 из 1', diagnostics: [] },
+	{ name: 'compares standard output token by token', spec: { mode: 'stdio' }, code: 'a, b = map(int, input().split())\nprint(a + b)\n', cases: [{ input: '2 3\n', expected: '5' }, { input: '1 1\n', expected: '3' }], results: ['Тест 1: ✓ Ввод: 2 3 Верный ответ: 5 Ваш ответ: 5', 'Тест 2: ✗ Ввод: 1 1 Верный ответ: 3 Ваш ответ: 2'], summary: 'Пройдено 1 из 2', diagnostics: [] },
+	{ name: 'reads standard input as bytes', spec: { mode: 'stdio' }, code: 'import sys\na, b = map(int, sys.stdin.buffer.readline().split())\nprint(a + b)\n', cases: [{ input: '2 3\n', expected: '5' }], results: ['Тест 1: ✓ Ввод: 2 3 Верный ответ: 5 Ваш ответ: 5'], summary: 'Пройдено 1 из 1', diagnostics: [] },
+	{ name: 'stops a slow test and runs the next test', spec: { mode: 'stdio' }, code: 'n = int(input())\nwhile n:\n    pass\nprint(n)\n', cases: [{ input: '1', expected: '1' }, { input: '0', expected: '0' }], results: ['Тест 1: ✗ Ввод: 1 Верный ответ: 1 Превышено время (2 с)', 'Тест 2: ✓ Ввод: 0 Верный ответ: 0 Ваш ответ: 0'], summary: 'Пройдено 1 из 2', diagnostics: [] },
+	{ name: 'shows a syntax error with its line', spec: { mode: 'call', method: 'twoSum' }, code: 'class Solution:\n    def twoSum(self, nums, target)\n        return [0, 1]\n', cases: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], results: ["Тест 1: ✗ Ввод: [[2, 7, 11, 15], 9] Верный ответ: [0, 1] Строка 2: SyntaxError: expected ':'"], summary: 'Пройдено 0 из 1', diagnostics: ["Строка 2: ошибка синтаксиса. expected ':'"] },
+	{ name: 'shows an exception with its line', spec: { mode: 'call', method: 'twoSum' }, code: `${twoSum}        seen = {}\n        return [0, nums[5]]\n`, cases: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], results: ['Тест 1: ✗ Ввод: [[2, 7, 11, 15], 9] Верный ответ: [0, 1] Строка 4: IndexError: list index out of range'], summary: 'Пройдено 0 из 1', diagnostics: ['Строка 3: переменная `seen` не используется.'] },
+	{ name: 'shows the printed output', spec: { mode: 'call', method: 'twoSum' }, code: `${twoSum}        print('сумма', target)\n        return [0, 1]\n`, cases: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], results: ['Тест 1: ✓ Ввод: [[2, 7, 11, 15], 9] Верный ответ: [0, 1] Ваш ответ: [0, 1] Печать: сумма 9'], summary: 'Пройдено 1 из 1', diagnostics: [] },
 ];
 for (const row of runs) {
 	test(row.name, async ({ page, notebook }) => {
@@ -87,7 +87,7 @@ for (const row of setRuns) {
 	});
 }
 
-test('runs the own tests and keeps the results after a delete', async ({ page, baseURL }) => {
+test('runs the own tests without a reference and keeps the results after a delete', async ({ page, baseURL }) => {
 	test.slow();
 	await signIn(page);
 	const headers = { Origin: new URL(baseURL!).origin };
@@ -96,23 +96,45 @@ test('runs the own tests and keeps the results after a delete', async ({ page, b
 	await page.goto(`/leetcode/problems/${problem.id}`);
 	await expect(page.getByText('Тестов для этой задачи пока нет.')).toBeVisible();
 	await expect(page.getByLabel('Ввод', { exact: true })).toHaveAttribute('placeholder', 'Входные данные, как в условии');
-	for (const [input, expected] of [['2 3', '5'], ['1 1', '3']]) {
+	for (const input of ['2 3', '1 1']) {
 		await page.getByLabel('Ввод', { exact: true }).fill(input);
-		await page.getByLabel('Ожидается', { exact: true }).fill(expected);
 		await page.getByRole('button', { name: 'Добавить тест', exact: true }).click();
 		await expect(page.getByLabel('Ввод', { exact: true })).toHaveValue('');
 	}
-	await expect(page.getByRole('list', { name: 'Мои тесты' }).getByRole('listitem')).toHaveText(['Тест 1 Ввод: 2 3 Ожидается: 5 Удалить', 'Тест 2 Ввод: 1 1 Ожидается: 3 Удалить'], { useInnerText: true });
+	await expect(page.getByRole('list', { name: 'Мои тесты' }).getByRole('listitem')).toHaveText(['Тест 1 Ввод: 2 3 Удалить', 'Тест 2 Ввод: 1 1 Удалить'], { useInnerText: true });
 	await page.getByLabel('Код решения', { exact: true }).fill('a, b = map(int, input().split())\nprint(a + b)\n');
 	await page.getByRole('button', { name: 'Запустить тесты', exact: true }).click();
-	const results = ['Тест 1: ✓ Ввод: 2 3 Ожидается: 5 Ваш ответ: 5', 'Тест 2: ✗ Ввод: 1 1 Ожидается: 3 Ваш ответ: 2'];
-	await expect(page.getByRole('list', { name: 'Результаты тестов' }).getByRole('listitem')).toHaveText(results, { useInnerText: true, timeout: 30_000 });
+	const rows = page.getByRole('list', { name: 'Результаты тестов' }).getByRole('listitem');
+	const results = ['Тест 1: без проверки Ввод: 2 3 Для этой задачи нет эталонного решения. Ваш ответ: 5', 'Тест 2: без проверки Ввод: 1 1 Для этой задачи нет эталонного решения. Ваш ответ: 2'];
+	await expect(rows).toHaveText(results, { useInnerText: true, timeout: 30_000 });
+	await expect(rows).toHaveClass(['', '']);
 	await page.getByRole('button', { name: 'Удалить тест 2', exact: true }).click();
-	await expect(page.getByRole('list', { name: 'Мои тесты' }).getByRole('listitem')).toHaveText(['Тест 1 Ввод: 2 3 Ожидается: 5 Удалить'], { useInnerText: true });
-	await expect(page.getByRole('list', { name: 'Результаты тестов' }).getByRole('listitem')).toHaveText(results, { useInnerText: true });
-	await expect(page.getByText(/^Пройдено/)).toHaveText('Пройдено 1 из 2');
+	await expect(page.getByRole('list', { name: 'Мои тесты' }).getByRole('listitem')).toHaveText(['Тест 1 Ввод: 2 3 Удалить'], { useInnerText: true });
+	await expect(rows).toHaveText(results, { useInnerText: true });
+	await expect(page.getByText(/^Пройдено/)).toHaveCount(0);
 	await page.reload();
-	await expect(page.getByRole('list', { name: 'Мои тесты' }).getByRole('listitem')).toHaveText(['Тест 1 Ввод: 2 3 Ожидается: 5 Удалить'], { useInnerText: true });
+	await expect(page.getByRole('list', { name: 'Мои тесты' }).getByRole('listitem')).toHaveText(['Тест 1 Ввод: 2 3 Удалить'], { useInnerText: true });
+});
+
+test('compares the own tests with the expected answers', async ({ page, notebook }) => {
+	test.slow();
+	const own = ['[[3, 3], 6]', '[[1, 2], 4]', '[[1], 5]', '[[1, 2], 3'].map(input => ({ id: crypto.randomUUID(), input, createdAt: 'now' })), sent: unknown[] = [];
+	await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: { mode: 'call', method: 'twoSum' }, source: 'set', standard: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], own } }));
+	await page.route('**/leetcode/api/problems/*/tests/expected', route => { sent.push(route.request().postDataJSON()); return route.fulfill({ json: { expected: [{ value: '[0, 1]' }, { value: '[1, 0]' }, { error: 'constraints' }, { error: 'input' }] } }); });
+	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+	await page.getByLabel('Код решения', { exact: true }).fill(`${twoSum}        return [0, 1]\n`);
+	await page.getByRole('button', { name: 'Запустить тесты', exact: true }).click();
+	const rows = page.getByRole('list', { name: 'Результаты тестов' }).getByRole('listitem');
+	await expect(rows).toHaveText([
+		'Тест 1: ✓ Ввод: [[2, 7, 11, 15], 9] Верный ответ: [0, 1] Ваш ответ: [0, 1]',
+		'Тест 2: ✓ Ввод: [[3, 3], 6] Верный ответ: [0, 1] Ваш ответ: [0, 1]',
+		'Тест 3: ✗ Ввод: [[1, 2], 4] Верный ответ: [1, 0] Ваш ответ: [0, 1]',
+		'Тест 4: без проверки Ввод: [[1], 5] Ввод нарушает ограничения задачи. Ваш ответ: [0, 1]',
+		'Тест 5: без проверки Ввод: [[1, 2], 3 Эталонное решение не смогло прочитать ввод. SyntaxError: \'[\' was never closed',
+	], { useInnerText: true, timeout: 30_000 });
+	await expect(rows).toHaveClass(['pass', 'pass', 'fail', '', '']);
+	await expect(page.getByText(/^Пройдено/)).toHaveText('Пройдено 2 из 3');
+	expect(sent).toEqual([{ inputs: own.map(test => test.input) }]);
 });
 
 test('marks passed tests, keeps the mark after a reload and counts the XP', async ({ page, notebook }) => {

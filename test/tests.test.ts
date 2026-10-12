@@ -2,7 +2,8 @@ import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { login, request } from './client';
 import type { ProblemTests } from '../shared/leetcode';
-import { sets, taskSlug, tasksOf } from '../src/leetcode/sets';
+import { sets, taskSlug, tasksOf, type Reference } from '../src/leetcode/sets';
+import { expectedOf } from '../src/leetcode/tests';
 
 let cookie: string;
 beforeEach(async () => { cookie = await login(); });
@@ -77,24 +78,23 @@ it.each([
 	{ name: 'change of the standard tests', path: 'tests', method: 'PUT', status: 405 },
 	{ name: 'statement of an unknown problem', path: 'statement', method: 'GET', status: 404 },
 	{ name: 'change of the statement', path: 'statement', method: 'PUT', status: 405 },
+	{ name: 'expected answers of an unknown problem', path: 'tests/expected', method: 'POST', status: 404 },
+	{ name: 'read of the expected answers', path: 'tests/expected', method: 'GET', status: 405 },
 ])('$name', async ({ path, method, status }) => {
 	expect((await request(`/problems/${crypto.randomUUID()}/${path}`, method, method === 'GET' ? undefined : {}, cookie)).status).toBe(status);
 });
 
-const ownTest = { input: '[[3, 3], 6]', expected: '[0, 1]' };
-const insertOwn = env.DB.prepare("INSERT INTO problem_tests (id,problem_id,input,expected,created_at) VALUES (?,?,'1','1','2026-10-01T10:00:00.000Z')");
+const ownTest = { input: '[[3, 3], 6]' };
+const insertOwn = env.DB.prepare("INSERT INTO problem_tests (id,problem_id,input,created_at) VALUES (?,?,'1','2026-10-01T10:00:00.000Z')");
 it.each([
 	{ name: 'student adds an own test', role: 'student', stored: 0, body: ownTest, status: 201, count: 1, fields: ownTest },
 	{ name: 'parent adds an own test', role: 'parent', stored: 0, body: ownTest, status: 201, count: 1, fields: ownTest },
 	{ name: 'twentieth own test', role: 'student', stored: 19, body: ownTest, status: 201, count: 20, fields: ownTest },
 	{ name: 'twenty-first own test', role: 'student', stored: 20, body: ownTest, status: 409, count: 20, fields: { error: { code: 'too_many_tests' } } },
-	{ name: 'input at 10,000 characters', role: 'student', stored: 0, body: { input: '1'.repeat(10_000), expected: '1' }, status: 201, count: 1, fields: { input: '1'.repeat(10_000) } },
-	{ name: 'input over 10,000 characters', role: 'student', stored: 0, body: { input: '1'.repeat(10_001), expected: '1' }, status: 400, count: 0, fields: { error: { code: 'invalid_input' } } },
-	{ name: 'expected over 10,000 characters', role: 'student', stored: 0, body: { input: '1', expected: '1'.repeat(10_001) }, status: 400, count: 0, fields: { error: { code: 'invalid_input' } } },
-	{ name: 'blank input', role: 'student', stored: 0, body: { input: ' \n', expected: '1' }, status: 400, count: 0, fields: { error: { code: 'invalid_input' } } },
-	{ name: 'blank expected', role: 'student', stored: 0, body: { input: '1', expected: ' ' }, status: 400, count: 0, fields: { error: { code: 'invalid_input' } } },
-	{ name: 'expected of null', role: 'student', stored: 0, body: { input: '1', expected: null }, status: 400, count: 0, fields: { error: { code: 'invalid_input' } } },
-	{ name: 'unknown field', role: 'student', stored: 0, body: { ...ownTest, name: 'Test' }, status: 400, count: 0, fields: { error: { code: 'invalid_input' } } },
+	{ name: 'input at 10,000 characters', role: 'student', stored: 0, body: { input: 'ж'.repeat(10_000) }, status: 201, count: 1, fields: { input: 'ж'.repeat(10_000) } },
+	{ name: 'input over 10,000 characters', role: 'student', stored: 0, body: { input: '1'.repeat(10_001) }, status: 400, count: 0, fields: { error: { code: 'invalid_input' } } },
+	{ name: 'blank input', role: 'student', stored: 0, body: { input: ' \n' }, status: 400, count: 0, fields: { error: { code: 'invalid_input' } } },
+	{ name: 'own test with an expected answer', role: 'student', stored: 0, body: { ...ownTest, expected: '[0, 1]' }, status: 400, count: 0, fields: { error: { code: 'invalid_input' } } },
 ])('$name', async ({ role, stored, body, status, count, fields }) => {
 	vi.spyOn(globalThis, 'fetch').mockImplementation(async () => Response.json({ data: { question: null } }));
 	const id = crypto.randomUUID();
@@ -107,6 +107,40 @@ it.each([
 	expect(await env.DB.prepare('SELECT count(*) AS count FROM problem_tests').first()).toEqual({ count });
 	// The runner numbers the own tests after the standard tests in the order of creation.
 	if (status === 201) expect((await (await request(`/problems/${id}/tests`, 'GET', undefined, cookie)).json() as ProblemTests).own.at(-1)).toEqual(created);
+});
+
+// 20 inputs of 10,000 Cyrillic characters are the largest request: two bytes for each character.
+it.each([
+	{ name: 'expected answers without a reference', role: 'student', inputs: ['[[3, 3], 6]', '1'], status: 200, body: { expected: [null, null] } },
+	{ name: 'expected answers for the parent', role: 'parent', inputs: ['1'], status: 200, body: { expected: [null] } },
+	{ name: 'twenty inputs at 10,000 characters', role: 'student', inputs: Array(20).fill('ж'.repeat(10_000)), status: 200, body: { expected: Array(20).fill(null) } },
+	{ name: 'twenty-one inputs', role: 'student', inputs: Array(21).fill('1'), status: 400, body: { error: { code: 'invalid_input' } } },
+	{ name: 'input over 10,000 characters', role: 'student', inputs: ['1'.repeat(10_001)], status: 400, body: { error: { code: 'invalid_input' } } },
+	{ name: 'input of a number', role: 'student', inputs: [1], status: 400, body: { error: { code: 'invalid_input' } } },
+	{ name: 'inputs of a string', role: 'student', inputs: '1', status: 400, body: { error: { code: 'invalid_input' } } },
+])('$name', async ({ role, inputs, status, body }) => {
+	const id = crypto.randomUUID();
+	await insertProblem.bind(id, 'two-sum').run();
+	const response = await request(`/problems/${id}/tests/expected`, 'POST', { inputs }, role === 'parent' ? await login('parent') : cookie);
+	expect(response.status).toBe(status);
+	expect(await response.json()).toMatchObject(body);
+});
+
+// The fake references check their arguments the way the set references check the statement constraints.
+const prefix: Reference = { mode: 'call', solve: (nums: unknown, k: unknown) => { if (!Array.isArray(nums) || !Number.isInteger(k)) throw new RangeError('constraints'); return nums.slice(0, k as number); } };
+const sum: Reference = { mode: 'stdio', solve: stdin => { const [a, b] = stdin.split(/\s+/).filter(Boolean).map(Number); if (!Number.isInteger(a + b)) throw new RangeError('constraints'); return `${a + b}\n`; } };
+const broken: Reference = { mode: 'call', solve: (value: unknown) => (value as string).toUpperCase() };
+it.each([
+	{ name: 'answer of a call reference', reference: prefix, input: "[[1, 'a', True, None], 3]", expected: { value: "[1, 'a', True]" } },
+	{ name: 'answer of a stdio reference', reference: sum, input: '2 3\n', expected: { value: '5\n' } },
+	{ name: 'call input that breaks the constraints', reference: prefix, input: '[[1, 2], 1.5]', expected: { error: 'constraints' } },
+	{ name: 'stdio input that breaks the constraints', reference: sum, input: 'a b', expected: { error: 'constraints' } },
+	{ name: 'input that does not parse', reference: prefix, input: '[[1, 2], 1', expected: { error: 'input' } },
+	{ name: 'too few arguments', reference: prefix, input: '[[1, 2]]', expected: { error: 'input' } },
+	{ name: 'arguments not in a list', reference: prefix, input: '1', expected: { error: 'input' } },
+	{ name: 'reference error on a wrong type', reference: broken, input: '[1]', expected: { error: 'input' } },
+])('$name', ({ reference, input, expected }) => {
+	expect(expectedOf(reference, input)).toEqual(expected);
 });
 
 it.each([

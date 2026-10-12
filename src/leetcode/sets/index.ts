@@ -20,6 +20,12 @@ export const sets: (LearningSet & { lessons: string[] })[] = [
 	{ ...twoPointers, lessons: [twoPointers1, twoPointers2, twoPointers3, twoPointers4] },
 ];
 
+// A reference solution of a set task. A call input gives solve.length arguments. solve returns the value that the harness compares and throws RangeError('constraints') for an input outside the statement constraints.
+// The references stay on the server, so the student cannot read them.
+export type Reference = { mode: 'call'; solve: (...args: unknown[]) => unknown } | { mode: 'stdio'; solve: (stdin: string) => string };
+const references = new Map<string, Reference>();
+export const referenceOf = (slug: string): Reference | undefined => references.get(slug);
+
 export const tasksOf = (set: LearningSet): SetTask[] => set.chapters.flatMap(chapter => chapter.tasks);
 export const taskSlug = (task: SetTask): string => problemSlug(task.url);
 export const chaptersOf = (slug: string): ChapterRef[] => sets.flatMap(set => set.chapters.flatMap((chapter, index) => chapter.tasks.some(task => taskSlug(task) === slug) ? [{ set: set.slug, setTitle: set.title, number: index + 1, title: chapter.title }] : []));
