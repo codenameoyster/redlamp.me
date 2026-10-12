@@ -101,13 +101,16 @@ test('moves the due date by one day once with Сила Бомжа', async ({ pag
 
 test('parent changes the due date from the homework header', async ({ page, notebook, server }) => {
 	const { DB } = await server.getWorker<TestEnv>().getEnv(), { homeworkId } = await addTask(DB, notebook.problem.id, 'assigned', '2026-10-20');
+	await DB.prepare("INSERT INTO postponements VALUES (?,'2026-10-19','2026-10-20','now')").bind(homeworkId).run();
 	await signIn(page, 'parent');
 	await page.goto(`/leetcode/homework/${homeworkId}`);
+	await expect(page.getByText('Сила Бомжа: срок перенесён на 20.10.', { exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Изменить срок', exact: true }).click();
 	await page.getByLabel('Новый срок', { exact: true }).fill('2026-10-25');
 	await page.getByRole('button', { name: 'Сохранить срок', exact: true }).click();
 	await expect(page.getByText('Срок: 2026-10-25', { exact: true })).toBeVisible();
 	await expect(page.getByLabel('Новый срок', { exact: true })).toHaveCount(0);
+	await expect(page.getByText('Сила Бомжа: срок перенесён на 20.10.', { exact: true })).toHaveCount(0);
 	expect(await DB.prepare('SELECT title,instructions,due_date FROM homework WHERE id=?').bind(homeworkId).first()).toEqual({ title: 'Week 41', instructions: 'Explain', due_date: '2026-10-25' });
 });
 

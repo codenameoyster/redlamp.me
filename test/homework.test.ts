@@ -45,6 +45,19 @@ it.each([
 	expect(await env.DB.prepare('SELECT title,instructions,due_date,version FROM homework').first()).toEqual(row);
 });
 
+// The homework of beforeEach is due on 2026-10-10.
+it.each([
+	{ name: 'new due date resets Сила Бомжа', stored: 1, dueDate: '2026-10-20', expected: 200, postponedTo: null },
+	{ name: 'removed due date resets Сила Бомжа', stored: 1, dueDate: null, expected: 200, postponedTo: null },
+	{ name: 'same due date keeps Сила Бомжа', stored: 1, dueDate: '2026-10-10', expected: 200, postponedTo: '2026-10-10' },
+	{ name: 'stale edit keeps Сила Бомжа', stored: 2, dueDate: '2026-10-20', expected: 409, postponedTo: '2026-10-10' },
+])('$name', async ({ stored, dueDate, expected, postponedTo }) => {
+	await env.DB.batch([env.DB.prepare('UPDATE homework SET version=?').bind(stored), env.DB.prepare("INSERT INTO postponements VALUES (?,'2026-10-09','2026-10-10','now')").bind(homeworkId)]);
+	const response = await request(`/homework/${homeworkId}`, 'PATCH', { version: 1, title: 'Two Sum practice', instructions: 'Explain the invariant', dueDate }, parent);
+	expect(response.status).toBe(expected);
+	expect(await (await request(`/homework/${homeworkId}`, 'GET', undefined, parent)).json()).toMatchObject({ homework: { postponedTo } });
+});
+
 // The server takes today from its own UTC clock.
 const today = new Date().toISOString().slice(0, 10), tomorrow = addCalendarDays(today, 1);
 it.each([
