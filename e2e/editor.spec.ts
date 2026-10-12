@@ -321,3 +321,56 @@ test('keeps the recovery base version through a restored conflict', async ({ pag
 	const server = await page.request.get(`/leetcode/api/problems/${notebook.problem.id}/attempts/${notebook.attempt.id}`);
 	expect((await server.json()).document.approaches[0].idea).toBe('Second tab explanation');
 });
+
+test('numbers each line of the code at the top of its wrapped line', async ({ page, notebook }) => {
+	await expect(page.getByRole('heading', { name: notebook.problem.title })).toBeVisible();
+	await page.getByLabel('Код решения', { exact: true }).fill(`x = 1\n# ${'long_comment_'.repeat(30)}\n\ny = 2`);
+	const lines = page.locator('.code-field .lines > div');
+	await expect(lines).toHaveCount(4);
+	// The comment wraps, so the number of the last line moves down to the highlighted "2".
+	const [first, comment, last, two] = await Promise.all([lines.nth(0).boundingBox(), lines.nth(1).boundingBox(), lines.nth(3).boundingBox(), page.locator('.code-field pre .hljs-number').last().boundingBox()]);
+	expect(comment!.height).toBeGreaterThan(first!.height * 2);
+	expect(Math.abs(last!.y + last!.height / 2 - (two!.y + two!.height / 2))).toBeLessThan(4);
+});
+
+test('copies the code', async ({ page, context, notebook }) => {
+	await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+	await expect(page.getByRole('heading', { name: notebook.problem.title })).toBeVisible();
+	await page.getByLabel('Код решения', { exact: true }).fill('print(1)\n');
+	await page.getByRole('button', { name: 'Скопировать код', exact: true }).click();
+	await expect(page.getByText('Код скопирован.', { exact: true })).toBeVisible();
+	expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('print(1)\n');
+});
+
+const skeleton = 'class Solution:\n    def twoSum(self, nums: list[int], target: int) -> list[int]:\n        ';
+const skeletons = [
+	{ name: 'fills an empty working copy with the starter code', code: '', expected: skeleton },
+	{ name: 'keeps the code of the working copy over the starter code', code: 'print(1)', expected: 'print(1)' },
+];
+for (const row of skeletons) {
+	test(row.name, async ({ page, notebook }) => {
+		const code = page.getByLabel('Код решения', { exact: true }), status = page.getByRole('status', { name: 'Состояние сохранения' });
+		if (row.code) { await code.fill(row.code); await expect(status).toHaveText('Сохранено'); }
+		await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: null, source: 'none', standard: [], own: [], skeleton } }));
+		await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+		await expect(code).toHaveValue(row.expected);
+		await expect(status).toHaveText('Сохранено');
+		await page.reload();
+		await expect(code).toHaveValue(row.expected);
+	});
+}
+
+test('keeps the recovery copy while the starter code waits', async ({ page, notebook }) => {
+	await page.route(`**/attempts/${notebook.attempt.id}`, route => route.request().method() === 'PUT' ? route.abort() : route.continue());
+	await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: null, source: 'none', standard: [], own: [], skeleton } }));
+	await page.getByLabel('Основная идея', { exact: true }).fill('Recover this explanation');
+	await expect(page.getByRole('button', { name: 'Повторить сохранение' })).toBeVisible();
+	for (let reload = 0; reload < 2; reload++) {
+		page.once('dialog', dialog => dialog.accept());
+		await page.reload();
+		await expect(page.getByRole('button', { name: 'Восстановить несохранённую работу' })).toBeVisible();
+	}
+	await page.getByRole('button', { name: 'Восстановить несохранённую работу' }).click();
+	await expect(page.getByLabel('Основная идея', { exact: true })).toHaveValue('Recover this explanation');
+	await expect(page.getByLabel('Код решения', { exact: true })).toHaveValue(skeleton);
+});

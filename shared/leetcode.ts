@@ -70,7 +70,7 @@ export interface TestCase { input: string; expected: string | null }
 export type TestSpec = { mode: 'call'; method: string; check?: 'return' | 'arg0' | 'prefix'; order?: 'exact' | 'any' | 'any-nested' } | { mode: 'stdio' };
 export type TaskTests = TestSpec & { cases: TestCase[] };
 export interface OwnTest { id: string; input: string; expected: string; createdAt: string }
-export interface ProblemTests { spec: TestSpec | null; source: 'set' | 'leetcode' | 'none'; standard: TestCase[]; own: OwnTest[] }
+export interface ProblemTests { spec: TestSpec | null; source: 'set' | 'leetcode' | 'none'; standard: TestCase[]; own: OwnTest[]; skeleton: string }
 export interface TestRun { approachId: string; passed: number; total: number; codeHash: string; createdAt: string }
 export interface SetTask { url: string; number?: number; title: string; difficulty: Difficulty; topics: string[]; note: string; tests?: TaskTests }
 export interface Chapter { title: string; summary: string; tasks: SetTask[]; cards: Card[]; links: { title: string; url: string; source: string }[] }
