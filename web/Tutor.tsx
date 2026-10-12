@@ -79,7 +79,7 @@ export function Tutor({ context, title, user, flush, quote, lesson, evaluate }: 
 	}
 	return <>
 		<button ref={trigger} aria-expanded={open} aria-controls="tutor" onClick={() => open ? dialog.current!.close() : show()} data-tip="Открыть или закрыть чат с ИИ-репетитором."><Bot size={18} />{student ? 'Спросить ИИ' : 'Читать чат с ИИ'}</button>
-		{evaluate && <button onClick={() => { if (!dialog.current!.open) show(); void ask('Оцените моё решение.', null, true); }} data-tip="Попросить ИИ-репетитора оценить ваше решение.">Оценить решение с ИИ</button>}
+		{evaluate && <button onClick={() => { if (!dialog.current!.open) show(); void ask('Оцените моё решение.', null, true); }} data-tip="Попросить ИИ-репетитора оценить ваш код и заметки.">Оценить решение с ИИ</button>}
 		<dialog id="tutor" ref={dialog} aria-labelledby="tutor-title" onClose={() => { setOpen(false); remember(false); trigger.current?.focus(); }} onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); dialog.current!.close(); } }}>
 			<header className="tutor-head"><div><h2 id="tutor-title" ref={heading} tabIndex={-1}>ИИ-репетитор</h2><p>{title}</p>{!student && <p>Чат ученика. Только чтение.</p>}</div><button className="icon-button" onClick={() => dialog.current!.close()} aria-label="Закрыть" data-tip="Закрыть чат."><X size={18} /></button></header>
 			<div className="tutor-log" ref={log}>
