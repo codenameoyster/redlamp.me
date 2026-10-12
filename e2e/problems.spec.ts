@@ -94,7 +94,6 @@ test.describe('problem details', () => {
 
 const fieldButtons = [
 	{ name: 'aligns the link button with the set field', role: 'parent', field: 'Набор', button: 'Привязать' },
-	{ name: 'aligns the save button with the review date field', role: 'student', field: 'Следующее повторение', button: 'Сохранить попытку' },
 ] as const;
 for (const row of fieldButtons) {
 	test(row.name, async ({ page, notebook }) => {

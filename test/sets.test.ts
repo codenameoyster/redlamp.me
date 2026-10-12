@@ -3,7 +3,8 @@ import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
 import type { LearningSetDetails, LearningSetSummary, SetTask } from '../shared/leetcode';
 import { parsePy, reprPy } from '../src/leetcode/pyliteral';
-import { referenceOf, sets, taskLabel, taskSlug, tasksOf } from '../src/leetcode/sets';
+import { mulberry32 } from '../src/leetcode/judge';
+import { generatorOf, referenceOf, sets, taskLabel, taskSlug, tasksOf } from '../src/leetcode/sets';
 import { expectedOf } from '../src/leetcode/tests';
 import { htmlText } from '../src/leetcode/tutor';
 
@@ -124,6 +125,20 @@ it.each(sets.flatMap(tasksOf).map(task => ({ name: taskSlug(task), task })))('$n
 	// The answer goes through the expected route path: the stdout text or the Python text of the value. Stdout compares token by token.
 	const form = (text: string) => tests.mode === 'stdio' ? text.split(/\s+/).filter(Boolean).join(' ') : ordered(parsePy(text), tests.order);
 	expect(tests.cases.map(item => { const answer = expectedOf(reference!, item.input); return answer && 'value' in answer ? form(answer.value) : answer; })).toEqual(tests.cases.map(item => form(item.expected!)));
+});
+
+// The hidden tests of seeds 1 and 2^32 - 1. Each input must have the argument count of the reference and satisfy the constraints. A reference run of 100 ms or more makes the judge route slow.
+// The judge route refuses an output over 1,000,000 characters, so a longer answer can never pass.
+it.each(sets.flatMap(tasksOf).map(task => ({ name: taskSlug(task), task })))('$name generator gives valid hidden tests', ({ task }) => {
+	const reference = referenceOf(taskSlug(task))!, generate = generatorOf(taskSlug(task)), inputs = generate?.(mulberry32(1)) ?? [];
+	expect(inputs.length).toBeGreaterThanOrEqual(10);
+	expect(inputs.length).toBeLessThanOrEqual(16);
+	expect([...inputs, ...generate?.(mulberry32(2 ** 32 - 1)) ?? []].flatMap((input, index) => {
+		const args = reference.mode === 'call' ? parsePy(input) as unknown[] : [input], start = performance.now();
+		if (args.length !== reference.solve.length) return [index];
+		const expected = reference.mode === 'stdio' ? reference.solve(input) : reprPy(reference.solve(...args));
+		return performance.now() - start < 100 && expected.length <= 1_000_000 ? [] : [index];
+	})).toEqual([]);
 });
 
 const task: Omit<SetTask, 'url' | 'number'> = { title: 'Task', difficulty: 'easy', topics: [], note: '' };

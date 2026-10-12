@@ -1,17 +1,16 @@
 import type { Env } from '../index';
-import type { Feedback, Homework, HomeworkSummary, HomeworkTask, Role, SessionUser, Submission } from '../../shared/leetcode';
+import type { Feedback, Homework, HomeworkBoard, HomeworkSummary, HomeworkTask, Role, SessionUser, Submission } from '../../shared/leetcode';
 import { requireRole } from './auth';
-import { getAttempt, saveProgress } from './attempts';
 import { getProblem } from './problems';
 import { calendarDate, changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
 
-const homeworkColumns = 'h.id,h.title,h.instructions,h.due_date AS dueDate,h.version,h.created_at AS createdAt,h.updated_at AS updatedAt';
+const postponedSQL = '(SELECT to_date FROM postponements WHERE homework_id=h.id) AS postponedTo';
+const homeworkColumns = `h.id,h.title,h.instructions,h.due_date AS dueDate,${postponedSQL},h.version,h.created_at AS createdAt,h.updated_at AS updatedAt`;
 // ?1 is the viewer role. A later ? takes the next number. https://www.sqlite.org/lang_expr.html#varparam
 const unreadSQL = "EXISTS(SELECT 1 FROM feedback f WHERE f.problem_id=t.problem_id AND f.author<>?1 AND f.created_at>coalesce((SELECT read_at FROM discussion_reads r WHERE r.role=?1 AND r.problem_id=t.problem_id),''))";
-export const taskColumns = `t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,h.instructions,h.due_date AS dueDate,t.problem_id AS problemId,p.title AS problemTitle,p.difficulty,t.state,t.current_submission_id AS submissionId,t.version,t.created_at AS createdAt,t.updated_at AS updatedAt,${unreadSQL} AS unread`;
+export const taskColumns = `t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,h.instructions,h.due_date AS dueDate,${postponedSQL},t.problem_id AS problemId,p.title AS problemTitle,p.difficulty,t.state,t.current_submission_id AS submissionId,t.version,t.created_at AS createdAt,t.updated_at AS updatedAt,${unreadSQL} AS unread`;
 export const taskTables = 'homework_tasks t JOIN homework h ON h.id=t.homework_id JOIN problems p ON p.id=t.problem_id';
 const feedbackColumns = 'id,problem_id AS problemId,task_id AS taskId,submission_id AS submissionId,author,kind,body,created_at AS createdAt';
-const editableTask = "('assigned','in_progress','changes_requested')";
 export function unreadValue<T extends { unread: boolean }>(row: T): T { return { ...row, unread: Boolean(row.unread) }; }
 export async function getHomework(env: Env, id: string): Promise<Homework> {
 	const row = await env.DB.prepare(`SELECT ${homeworkColumns} FROM homework h WHERE h.id=?`).bind(uuid(id)).first<Homework>();
@@ -36,9 +35,21 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		const [rows] = await env.DB.batch<Feedback>(statements);
 		return Response.json(page(rows.results, limit, offset));
 	}
-	const bundle = /^\/leetcode\/api\/homework(?:\/([^/]+))?$/.exec(url.pathname);
+	const bundle = /^\/leetcode\/api\/homework(?:\/([^/]+)(\/postpone)?)?$/.exec(url.pathname);
 	if (bundle) {
 		const id = bundle[1] ? uuid(bundle[1]) : null;
+		if (bundle[2]) {
+			methods(request, ['POST']); requireRole(user, 'student');
+			// The UTC date, as in the late rule of /game.
+			const today = now.slice(0, 10), version = integer(object(await readJson(request), ['version']).version), homework = await getHomework(env, id!);
+			if (homework.postponedTo) throw new HttpError(409, 'postponed', 'Сила Бомжа уже использована для этой домашней работы.');
+			if (!homework.dueDate || today > homework.dueDate) throw new HttpError(400, 'invalid_input', 'Перенести можно только срок, который ещё не прошёл.');
+			changed((await env.DB.batch([
+				env.DB.prepare("INSERT INTO postponements SELECT id,due_date,date(due_date,'+1 day'),? FROM homework WHERE id=? AND version=?").bind(now, id, version),
+				env.DB.prepare("UPDATE homework SET due_date=date(due_date,'+1 day'),version=version+1,updated_at=? WHERE id=? AND version=?").bind(now, id, version),
+			]))[0]);
+			return Response.json(await getHomework(env, id!));
+		}
 		methods(request, id ? ['GET', 'PATCH'] : ['GET', 'POST']);
 		if (request.method === 'GET') {
 			if (id) {
@@ -65,7 +76,7 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		await env.DB.prepare('INSERT INTO homework (id,title,instructions,due_date,created_at,updated_at) VALUES (?,?,?,?,?,?)').bind(newId, title, instructions, dueDate, now, now).run();
 		return Response.json(await getHomework(env, newId), { status: 201 });
 	}
-	const match = /^\/leetcode\/api\/tasks(?:\/([^/]+)(?:\/(start|submit|review|cancel))?)?$/.exec(url.pathname);
+	const match = /^\/leetcode\/api\/tasks(?:\/([^/]+)(?:\/(start|review|cancel))?)?$/.exec(url.pathname);
 	if (!match) return null;
 	const id = match[1] ? uuid(match[1]) : null, action = match[2];
 	methods(request, action ? ['POST'] : id ? ['GET'] : ['GET', 'POST']);
@@ -75,13 +86,18 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 			const submissions = await env.DB.prepare('SELECT id,task_id AS taskId,attempt_id AS attemptId,task_version AS taskVersion,created_at AS createdAt FROM submissions WHERE task_id=? ORDER BY created_at DESC,id DESC LIMIT 50').bind(id).all<Submission>();
 			return Response.json({ homework: await getHomework(env, task.homeworkId), task, submissions: submissions.results });
 		}
+		if (url.searchParams.get('view') === 'board') {
+			const section = (states: string, order: string) => env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.state IN ${states} ORDER BY ${order},t.id LIMIT 200`).bind(user.role);
+			const [progress, future, accepted] = (await env.DB.batch<HomeworkTask>([section("('in_progress','submitted','changes_requested')", 'h.due_date IS NULL,h.due_date'), section("('assigned')", 'h.due_date IS NULL,h.due_date'), section("('completed')", 't.updated_at DESC')])).map(rows => rows.results.map(unreadValue));
+			return Response.json({ progress, future, accepted } satisfies HomeworkBoard);
+		}
 		const { limit, offset } = pagination(url), where = ['1=1'], args: string[] = [];
 		if (url.searchParams.has('problemId')) { where.push('t.problem_id=?'); args.push(uuid(url.searchParams.get('problemId'))); }
 		if (url.searchParams.get('active') === '1') where.push("t.state NOT IN ('completed','cancelled')");
 		const rows = await env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE ${where.join(' AND ')} ORDER BY (t.state='submitted') DESC,t.created_at DESC,t.id LIMIT ? OFFSET ?`).bind(user.role, ...args, limit + 1, offset).all<HomeworkTask>();
 		return Response.json(page(rows.results.map(unreadValue), limit, offset));
 	}
-	requireRole(user, action === 'submit' || action === 'start' ? 'student' : 'parent');
+	requireRole(user, action === 'start' ? 'student' : 'parent');
 	if (!id) {
 		const data = object(await readJson(request), ['homeworkId', 'problemId']);
 		const homeworkId = uuid(data.homeworkId), problemId = uuid(data.problemId), newId = crypto.randomUUID();
@@ -90,24 +106,12 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		if (!result.meta.changes) throw (await getProblem(env, problemId)).archivedAt ? new HttpError(409, 'archived', 'Верните задачу из архива, прежде чем назначать домашнюю работу.') : new HttpError(409, 'active_homework', 'У этой задачи уже есть активное задание. Сначала завершите или отмените его.');
 		return Response.json(await getTask(env, newId, user.role), { status: 201 });
 	}
-	const task = await getTask(env, id, user.role);
-	if (action === 'submit') {
-		const data = object(await readJson(request), ['version', 'attemptId', 'attemptVersion', 'nextReviewDate']);
-		const attempt = await getAttempt(env, task.problemId, uuid(data.attemptId));
-		if (![attempt.document.notes, ...attempt.document.approaches.flatMap(a => [a.idea, a.correctness, a.mistakes, a.code])].some(value => value.trim())) throw new HttpError(400, 'empty_attempt', 'Добавьте объяснение, заметки или код перед отправкой.');
-		const submissionId = crypto.randomUUID(), progress = saveProgress(env, task.problemId, attempt.id, data, now);
-		const statements = [env.DB.prepare(`INSERT INTO submissions (id,task_id,attempt_id,task_version,created_at) SELECT ?,t.id,a.id,t.version+1,? FROM homework_tasks t JOIN attempts a ON a.problem_id=t.problem_id WHERE t.id=? AND t.version=? AND t.state IN ${editableTask} AND a.id=? AND a.version=? AND a.state=?`).bind(submissionId, now, id, integer(data.version), attempt.id, integer(data.attemptVersion), attempt.state)];
-		if (attempt.state === 'draft') statements.push(
-			env.DB.prepare("UPDATE attempts SET state='saved',version=version+1,saved_at=?1,updated_at=?1 WHERE id=?2 AND state='draft' AND EXISTS(SELECT 1 FROM submissions WHERE id=?3 AND attempt_id=attempts.id)").bind(now, attempt.id, submissionId),
-			progress,
-		);
-		statements.push(env.DB.prepare("UPDATE homework_tasks SET state='submitted',current_submission_id=?1,version=version+1,updated_at=?2 WHERE id=?3 AND EXISTS(SELECT 1 FROM submissions WHERE id=?1 AND task_id=homework_tasks.id)").bind(submissionId, now, id));
-		changed((await env.DB.batch(statements))[0]);
-	} else if (action === 'review') {
+	await getTask(env, id, user.role);
+	if (action === 'review') {
 		const data = object(await readJson(request), ['version', 'submissionId', 'decision', 'body']);
 		const decision = choice(data.decision, ['changes_requested', 'completed']), body = text(data.body, 8000, decision === 'changes_requested').trim(), feedbackId = crypto.randomUUID();
 		const result = await env.DB.batch([
-			env.DB.prepare("INSERT INTO feedback (id,problem_id,task_id,submission_id,author,kind,body,created_at) SELECT ?,problem_id,id,current_submission_id,'parent',?,?,? FROM homework_tasks WHERE id=? AND version=? AND state='submitted' AND current_submission_id=?").bind(feedbackId, decision, body, now, id, integer(data.version), uuid(data.submissionId)),
+			env.DB.prepare(`INSERT INTO feedback (id,problem_id,task_id,submission_id,author,kind,body,created_at) SELECT ?,problem_id,id,current_submission_id,'parent',?,?,? FROM homework_tasks WHERE id=? AND version=? AND state IN ${decision === 'completed' ? "('submitted')" : "('submitted','completed')"} AND current_submission_id=?`).bind(feedbackId, decision, body, now, id, integer(data.version), uuid(data.submissionId)),
 			env.DB.prepare('UPDATE homework_tasks SET state=?,version=version+1,updated_at=? WHERE id=? AND EXISTS(SELECT 1 FROM feedback WHERE id=?)').bind(decision, now, id, feedbackId),
 		]);
 		changed(result[0]);

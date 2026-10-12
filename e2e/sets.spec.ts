@@ -70,7 +70,7 @@ test('assigns set tasks to new and existing homework', async ({ page, context })
 	await expect(library.getByRole('link', { name: 'Permutations', exact: true })).toBeVisible();
 	expect(await (await page.request.get('/leetcode/api/problems?q=subsets')).json()).toMatchObject({ items: [{ url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: ['Массив', 'Перебор'], summary: 'LeetCode, medium. Шаблон с индексом start. Сохраняйте копию path[:] при каждом вызове, ответов будет 2 в степени n.' }] });
 	await page.getByRole('link', { name: 'Домашняя работа', exact: true }).click();
-	await expect(page.getByText('0 из 2 завершено', { exact: true })).toBeVisible();
+	await expect(page.getByRole('region', { name: 'Будущее', exact: true }).getByRole('link', { name: 'Week 41: backtracking', exact: true })).toHaveCount(2);
 	await signIn(page);
 	await page.goto(setPath);
 	await expect(row(page, 'Перебор: подмножества, перестановки, сочетания')).toContainText('Задач принято 0 из 5');

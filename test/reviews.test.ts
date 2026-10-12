@@ -1,8 +1,9 @@
 import { env } from 'cloudflare:workers';
-import { beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as dates from '../shared/dates';
 import type { Dashboard, Problem } from '../shared/leetcode';
 import { login, request } from './client';
+import { spreadDays } from '../src/leetcode/reviews';
 
 let cookie: string, first: string, taskId: string, homeworkId: string;
 beforeEach(async () => {
@@ -23,6 +24,7 @@ beforeEach(async () => {
 		env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) VALUES (?,?,?,'assigned','now','now')").bind(taskId, homeworkId, first),
 	]);
 });
+afterEach(() => { vi.restoreAllMocks(); });
 
 it.each([
 	{ name: 'month boundary', date: '2026-01-31', days: 1, expected: '2026-02-01' },
@@ -59,7 +61,7 @@ it.each([
 ])('$name', async ({ state, rows }) => {
 	await env.DB.prepare('UPDATE homework_tasks SET state=?').bind(state).run();
 	const { homework } = await (await request('/dashboard?today=2026-10-07', 'GET', undefined, cookie)).json() as Dashboard;
-	expect(homework).toEqual([{ id: taskId, homeworkId, homeworkTitle: 'Week 41', instructions: 'Explain', dueDate: '2026-10-07', problemId: first, problemTitle: 'accepted independently', difficulty: 'medium', state, submissionId: null, version: 1, createdAt: 'now', updatedAt: 'now', unread: false }].slice(0, rows));
+	expect(homework).toEqual([{ id: taskId, homeworkId, homeworkTitle: 'Week 41', instructions: 'Explain', dueDate: '2026-10-07', postponedTo: null, problemId: first, problemTitle: 'accepted independently', difficulty: 'medium', state, submissionId: null, version: 1, createdAt: 'now', updatedAt: 'now', unread: false }].slice(0, rows));
 });
 
 it.each([
@@ -94,17 +96,71 @@ it.each([
 	{ name: 'parent edit after a student save', earlier: 'save', later: 'edit', expected: 200, fields: { version: 2, progressVersion: 2 }, reviews: 0 },
 	{ name: 'student review after a parent edit', earlier: 'edit', later: 'review', expected: 201, fields: { version: 2, progressVersion: 2, nextReviewDate: null }, reviews: 1 },
 	{ name: 'second review with the same progress version', earlier: 'review', later: 'review', expected: 409, fields: { version: 1, progressVersion: 2 }, reviews: 1 },
-	{ name: 'parent edit after a homework submission of a draft', earlier: 'submit', later: 'edit', expected: 200, fields: { version: 2, progressVersion: 2 }, reviews: 0 },
+	{ name: 'parent edit after the student marks a draft solved', earlier: 'solved', later: 'edit', expected: 200, fields: { version: 2, progressVersion: 2 }, reviews: 0 },
 ])('$name', async ({ earlier, later, expected, fields, reviews }) => {
 	const draftId = crypto.randomUUID(), parent = await login('parent');
 	await env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'draft',?,'','accepted','with_help','now','now')").bind(draftId, first, JSON.stringify({ notes: 'Explain the invariant.', approaches: [] })).run();
 	const problem = await (await request(`/problems/${first}`, 'GET', undefined, cookie)).json() as Problem;
 	const write = (kind: string) => kind === 'save' ? request(`/problems/${first}/attempts/${draftId}/save`, 'POST', { version: 1 }, cookie)
-		: kind === 'submit' ? request(`/tasks/${taskId}/submit`, 'POST', { version: 1, attemptId: draftId, attemptVersion: 1 }, cookie)
+		: kind === 'solved' ? request(`/problems/${first}/solved`, 'POST', { attemptId: draftId }, cookie)
 		: kind === 'edit' ? request(`/problems/${first}`, 'PATCH', { url: 'https://leetcode.com/problems/one/', number: null, title: 'Edited', difficulty: 'medium', topics: [], summary: '', version: problem.version }, parent)
 		: request(`/problems/${first}/reviews`, 'POST', { version: problem.progressVersion, result: 'with_help', note: '', reviewedOn: '2026-10-07', nextReviewDate: null }, cookie);
 	expect((await write(earlier)).ok).toBe(true);
 	expect((await write(later)).status).toBe(expected);
 	expect(await (await request(`/problems/${first}`, 'GET', undefined, cookie)).json()).toMatchObject(fields);
 	expect(await env.DB.prepare('SELECT count(*) AS count FROM reviews').first()).toEqual({ count: reviews });
+});
+
+const window30 = Array.from({ length: 30 }, (_, i) => dates.addCalendarDays('2026-10-07', i + 1));
+const fresh = (count: number) => Array.from({ length: count }, (_, i) => ({ id: `p${i}`, nextReviewDate: null }));
+it.each<{ name: string; problems: { id: string; nextReviewDate: string | null }[]; random: (count: number) => number; days: Record<string, string> }>([
+	{ name: 'one problem gets the first free day', problems: fresh(1), random: () => 0, days: { p0: '2026-10-08' } },
+	{ name: 'the last free day is day 30', problems: fresh(1), random: count => count - 1, days: { p0: '2026-11-06' } },
+	{ name: '30 problems get 30 distinct days', problems: fresh(30), random: () => 0, days: Object.fromEntries(window30.map((day, i) => [`p${i}`, day])) },
+	{ name: '31 problems use one day twice', problems: fresh(31), random: () => 0, days: Object.fromEntries([...window30, '2026-10-08'].map((day, i) => [`p${i}`, day])) },
+	{ name: 'a date in the window stays and its day is used', problems: [{ id: 'kept', nextReviewDate: '2026-10-08' }, { id: 'new', nextReviewDate: null }], random: () => 0, days: { new: '2026-10-09' } },
+	{ name: 'day 30 stays', problems: [{ id: 'kept', nextReviewDate: '2026-11-06' }], random: () => 0, days: {} },
+	{ name: 'a past date gets a new day', problems: [{ id: 'past', nextReviewDate: '2026-10-01' }], random: () => 0, days: { past: '2026-10-08' } },
+	{ name: 'today gets a new day', problems: [{ id: 'today', nextReviewDate: '2026-10-07' }], random: () => 0, days: { today: '2026-10-08' } },
+	{ name: 'a date after day 30 gets a new day', problems: [{ id: 'late', nextReviewDate: '2026-11-07' }], random: count => count - 1, days: { late: '2026-11-06' } },
+])('$name', ({ problems, random, days }) => { expect(spreadDays('2026-10-07', problems, random)).toEqual(days); });
+
+it.each([
+	{ name: 'student spreads a completed task', role: 'student', state: 'completed', archived: false, today: '2026-10-07', expected: 200, body: { count: 1, from: '2026-10-08', to: '2026-10-08' }, date: '2026-10-08', progressVersion: 2 },
+	{ name: 'parent spreads a completed task', role: 'parent', state: 'completed', archived: false, today: '2026-10-07', expected: 200, body: { count: 1, from: '2026-10-08', to: '2026-10-08' }, date: '2026-10-08', progressVersion: 2 },
+	{ name: 'archived problem is skipped', role: 'student', state: 'completed', archived: true, today: '2026-10-07', expected: 200, body: { count: 0, from: null, to: null }, date: '2026-10-07', progressVersion: 1 },
+	{ name: 'no completed tasks', role: 'student', state: 'assigned', archived: false, today: '2026-10-07', expected: 200, body: { count: 0, from: null, to: null }, date: '2026-10-07', progressVersion: 1 },
+	{ name: 'impossible today', role: 'student', state: 'completed', archived: false, today: '2026-02-30', expected: 400, body: { error: { code: 'invalid_input' } }, date: '2026-10-07', progressVersion: 1 },
+])('$name', async ({ role, state, archived, today, expected, body, date, progressVersion }) => {
+	vi.spyOn(crypto, 'getRandomValues').mockImplementation(array => array);
+	await env.DB.batch([env.DB.prepare('UPDATE homework_tasks SET state=?').bind(state), env.DB.prepare('UPDATE problems SET archived_at=? WHERE id=?').bind(archived ? 'now' : null, first)]);
+	const response = await request('/reviews/distribute', 'POST', { today }, role === 'student' ? cookie : await login('parent'));
+	expect(response.status).toBe(expected);
+	expect(await response.json()).toMatchObject(body);
+	expect(await env.DB.prepare('SELECT next_review_date,progress_version FROM problems WHERE id=?').bind(first).first()).toEqual({ next_review_date: date, progress_version: progressVersion });
+});
+
+// The window is [today + 15, today + 45]. The random value 30 gives the last day.
+it.each([
+	{ name: 'student gets the first day of the window', role: 'student', random: 0, today: '2026-10-07', status: 200, body: { nextReviewDate: '2026-10-22' }, after: { understanding: 'needs_practice', next_review_date: '2026-10-22', progress_version: 2 } },
+	{ name: 'parent gets the last day of the window', role: 'parent', random: 30, today: '2026-10-07', status: 200, body: { nextReviewDate: '2026-11-21' }, after: { understanding: 'needs_practice', next_review_date: '2026-11-21', progress_version: 2 } },
+	{ name: 'practice over a year boundary', role: 'student', random: 30, today: '2026-12-20', status: 200, body: { nextReviewDate: '2027-02-03' }, after: { understanding: 'needs_practice', next_review_date: '2027-02-03', progress_version: 2 } },
+	{ name: 'impossible today', role: 'student', random: 0, today: '2026-02-30', status: 400, body: { error: { code: 'invalid_input' } }, after: { understanding: 'independent', next_review_date: '2026-10-07', progress_version: 1 } },
+])('$name', async ({ role, random, today, status, body, after }) => {
+	const account = role === 'student' ? cookie : await login('parent');
+	vi.spyOn(crypto, 'getRandomValues').mockImplementation(array => { (array as Uint32Array)[0] = random; return array; });
+	const response = await request(`/problems/${first}/practice`, 'POST', { today }, account);
+	expect(response.status).toBe(status);
+	expect(await response.json()).toMatchObject(body);
+	expect(await env.DB.prepare('SELECT understanding,next_review_date,progress_version FROM problems WHERE id=?').bind(first).first()).toEqual(after);
+});
+
+it.each([
+	{ name: 'due problem with a completed task opens a pick', state: 'completed', fromHomework: true },
+	{ name: 'due problem with an active task opens the review', state: 'assigned', fromHomework: false },
+	{ name: 'due problem with a cancelled task opens the review', state: 'cancelled', fromHomework: false },
+])('$name', async ({ state, fromHomework }) => {
+	await env.DB.prepare('UPDATE homework_tasks SET state=?').bind(state).run();
+	const { dueReviews } = await (await request('/dashboard?today=2026-10-07', 'GET', undefined, cookie)).json() as Dashboard;
+	expect(Object.fromEntries(dueReviews.map(problem => [problem.slug, problem.fromHomework]))).toEqual({ one: fromHomework, two: false, three: false });
 });

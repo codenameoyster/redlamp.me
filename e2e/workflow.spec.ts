@@ -36,12 +36,9 @@ test('completes learning with two accounts and a linked set', async ({ page: par
 		await student.goBack();
 		await student.getByLabel('Основная идея', { exact: true }).fill('Shrink only while all target counts are satisfied.');
 		await student.getByLabel('Код решения', { exact: true }).fill(`return sliding_window(source, target) # ${'long_code_line_'.repeat(40)}`);
-		await student.getByRole('combobox', { name: 'Статус на LeetCode', exact: true }).selectOption('accepted');
-		await student.getByRole('combobox', { name: 'Понимание', exact: true }).selectOption('with_help');
-		await student.getByRole('button', { name: 'Через три дня', exact: true }).click();
 		expect(await student.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 		await student.screenshot({ path: testInfo.outputPath('notebook.png'), fullPage: true });
-		await student.getByRole('button', { name: 'Отправить на проверку', exact: true }).click();
+		await student.getByRole('button', { name: 'Решено', exact: true }).click();
 		await expect(student.getByText('Отправлено', { exact: true })).toBeVisible();
 		await parent.reload();
 		await expect(parent.getByText('Отправлено', { exact: true })).toBeVisible();
@@ -58,7 +55,7 @@ test('completes learning with two accounts and a linked set', async ({ page: par
 		await expect(student.getByText('Нужны правки: Explain why shrinking cannot miss a shorter valid window.', { exact: true })).toBeVisible();
 		await student.getByLabel('Почему это работает', { exact: true }).fill('Each valid left boundary is checked before it is removed.');
 		await student.getByLabel('Код решения', { exact: true }).fill('return revised_sliding_window(source, target)');
-		await student.getByRole('button', { name: 'Отправить на проверку', exact: true }).click();
+		await student.getByRole('button', { name: 'Решено', exact: true }).click();
 		await expect(student.getByText('Отправлено', { exact: true })).toBeVisible();
 		await parent.reload();
 		await expect(parent.getByLabel('Код решения', { exact: true })).toHaveValue('return revised_sliding_window(source, target)');
@@ -66,7 +63,7 @@ test('completes learning with two accounts and a linked set', async ({ page: par
 		await expect(parent.getByText('Завершено', { exact: true }).first()).toBeVisible();
 		const original = await (await parent.request.get(`/leetcode/api/problems/${problemId}/attempts/${firstAttemptId}`)).json();
 		expect(original.document.approaches[0].code).toBe(`return sliding_window(source, target) # ${'long_code_line_'.repeat(40)}`);
-		expect(await (await parent.request.get(`/leetcode/api/problems/${problemId}`)).json()).toMatchObject({ solved: true, understanding: 'with_help' });
+		expect(await (await parent.request.get(`/leetcode/api/problems/${problemId}`)).json()).toMatchObject({ solved: true, understanding: 'independent' });
 		await parent.getByRole('link', { name: 'Сегодня', exact: true }).click();
 		await expect(parent.getByRole('heading', { name: 'Понимание тем' })).toBeVisible();
 		await parent.screenshot({ path: testInfo.outputPath('today.png'), fullPage: true });
@@ -140,5 +137,19 @@ test('explains a lesson selection with a touch tap', async ({ browser, baseURL }
 		await page.getByRole('button', { name: 'Объяснить с ИИ', exact: true }).tap();
 		await expect(page.getByRole('dialog', { name: 'ИИ-репетитор' })).toBeVisible();
 		await expect.poll(() => body).toEqual({ kind: 'set', id: 'permutations-and-combinations', message: 'Объясните эту часть.', quote: 'Рекурсия это функция, которая вызывает сама себя. Для дерева это удобно. Функция делает один шаг вниз, а дальше просит саму себя сделать остальное. Функцию, которая идёт по дереву, назовём dfs.' });
+	} finally { await context.close(); }
+});
+
+test('hides the tip after a touch tap', async ({ browser, baseURL }, testInfo) => {
+	test.skip(testInfo.project.name !== 'mobile', 'Only the mobile project has a phone viewport.');
+	const context = await browser.newContext({ baseURL, viewport: testInfo.project.use.viewport, hasTouch: true, isMobile: true });
+	const page = await context.newPage();
+	try {
+		await signIn(page);
+		const bar = page.getByRole('banner');
+		// A phone keeps the hover on the button after a tap. A click gives this hover, and tap() does not. The tip shows 0.3 s after the hover starts.
+		await bar.getByRole('button', { name: 'Светлая тема', exact: true }).click();
+		await page.waitForTimeout(600);
+		expect(await bar.getByRole('button', { name: 'Тёмная тема', exact: true }).evaluate(button => getComputedStyle(button, '::after').visibility)).toBe('hidden');
 	} finally { await context.close(); }
 });

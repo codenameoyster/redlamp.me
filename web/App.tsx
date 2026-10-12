@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Bot, Brain, CalendarCheck, ClipboardCheck, CodeXml, LogOut, Moon, Search, Sun, Tent } from 'lucide-react';
-import type { Game, SessionUser } from '../shared/leetcode';
+import { NOTEBOOK_PAGE, type Game, type SessionUser } from '../shared/leetcode';
 import { api, ApiError, message } from './api';
 import { Login } from './Login';
+import { Music } from './Music';
+import { go } from './navigate';
 import { Problems } from './Problems';
 import { Workspace } from './Workspace';
 import type { LeaveGuard } from './useDraft';
@@ -14,11 +16,11 @@ import { Review } from './Review';
 import { TutorPage } from './TutorPage';
 import { useResource } from './useResource';
 
-export function Layout({ user, children, logout }: { user: SessionUser; children: ReactNode; logout: () => void }) {
+export function Layout({ user, visit, children, logout }: { user: SessionUser; visit: number; children: ReactNode; logout: () => void }) {
 	const [dark, setDark] = useState(() => {
 		try { return localStorage.getItem('leetcode:appearance') !== 'light'; } catch { return true; }
 	});
-	const { data: game } = useResource<Game>('/game');
+	const { data: game } = useResource<Game>('/game', visit);
 	document.documentElement.dataset.appearance = dark ? 'dark' : 'light';
 	function appearance() {
 		setDark(!dark);
@@ -32,7 +34,7 @@ export function Layout({ user, children, logout }: { user: SessionUser; children
 			<nav aria-label="Тетрадь">{navigation.map(({ path, label, Icon }) => <a key={path} href={`/leetcode${path}`} aria-current={location.pathname === `/leetcode${path}` ? 'page' : undefined}><Icon size={18} />{label}</a>)}</nav>
 		</aside>
 		<div className="workspace"><header className="topbar"><a className="search" href="/leetcode/problems"><Search size={16} /><span>Поиск по задачам и заметкам</span></a>
-			<div className="account">{game && <div className="xp-chip"><strong>Уровень {game.level}</strong><progress className="xp" aria-label={`Прогресс до уровня ${game.level + 1}`} value={game.xp - game.levelXp} max={game.nextLevelXp - game.levelXp} /></div>}<button className="icon-button" onClick={appearance} aria-label={dark ? 'Светлая тема' : 'Тёмная тема'} title={dark ? 'Светлая тема' : 'Тёмная тема'}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button><div className="user"><span className="avatar" aria-hidden="true">{user.username[0].toUpperCase()}</span><span><strong>{user.username}</strong><small>{user.role === 'parent' ? 'Родитель' : 'Ученик'}</small></span></div><button className="icon-button" onClick={logout} aria-label="Выйти" title="Выйти"><LogOut size={18} /></button></div></header><main id="main">{children}</main></div>
+			<div className="account">{game && <div className="xp-chip"><strong>Уровень {game.level}</strong><progress className="xp" aria-label={`Прогресс до уровня ${game.level + 1}`} value={game.xp - game.levelXp} max={game.nextLevelXp - game.levelXp} /></div>}<Music /><button className="icon-button" onClick={appearance} aria-label={dark ? 'Светлая тема' : 'Тёмная тема'} data-tip={dark ? 'Включить светлую тему.' : 'Включить тёмную тему.'}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button><div className="user"><span className="avatar" aria-hidden="true">{user.username[0].toUpperCase()}</span><span><strong>{user.username}</strong><small>{user.role === 'parent' ? 'Родитель' : 'Ученик'}</small></span></div><button className="icon-button" onClick={logout} aria-label="Выйти" data-tip="Выйти из аккаунта."><LogOut size={18} /></button></div></header><main id="main">{children}</main></div>
 	</div>;
 }
 
@@ -41,18 +43,22 @@ export function App() {
 	const [error, setError] = useState('');
 	const guard = useRef<LeaveGuard | null>(null);
 	const registerGuard = useCallback((value: LeaveGuard | null) => { guard.current = value; }, []);
+	const [visit, setVisit] = useState(0);
 	useEffect(() => {
 		async function navigate(event: MouseEvent) {
 			const anchor = (event.target as Element).closest('a');
-			if (!anchor || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || anchor.target || anchor.hasAttribute('download') || anchor.hash || !guard.current) return;
+			if (!anchor || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || anchor.target || anchor.hasAttribute('download') || anchor.hash) return;
 			const url = new URL(anchor.href);
-			if (url.origin !== location.origin) return;
+			if (url.origin !== location.origin || !NOTEBOOK_PAGE.test(url.pathname)) return;
 			event.preventDefault();
-			if (!(await guard.current.flush())) { if (!confirm('Удалить несохранённую работу и уйти с этой страницы?')) return; guard.current.discard(); }
-			location.assign(url.href);
+			if (guard.current && !(await guard.current.flush())) { if (!confirm('Удалить несохранённую работу и уйти с этой страницы?')) return; guard.current.discard(); }
+			go(url.pathname + url.search);
 		}
+		// Back and forward do not wait for the save. The draft keeps its recovery copy until the save succeeds.
+		function popped() { void guard.current?.flush(); setVisit(value => value + 1); }
 		document.addEventListener('click', navigate);
-		return () => document.removeEventListener('click', navigate);
+		window.addEventListener('popstate', popped);
+		return () => { document.removeEventListener('click', navigate); window.removeEventListener('popstate', popped); };
 	}, []);
 	useEffect(() => {
 		if (location.pathname === '/leetcode/login') return;
@@ -85,5 +91,5 @@ export function App() {
 	const quiz = /^\/leetcode\/quiz(?:\/([a-z0-9-]+))?$/.exec(path);
 	const review = /^\/leetcode\/problems\/([a-f0-9-]{36})\/review$/.exec(path);
 	const screen = path === '/leetcode/problems' ? <Problems /> : match || task ? <Workspace problemId={match?.[1]} taskId={task?.[1]} user={user} registerGuard={registerGuard} /> : homework ? <Homework id={homework[1]} user={user} /> : sets ? <Sets slug={sets[1]} chapter={sets[2] ? Number(sets[2]) : undefined} user={user} /> : quiz ? <Quiz slug={quiz[1]} user={user} /> : review ? <Review id={review[1]} user={user} /> : path === '/leetcode/tutor' ? <TutorPage user={user} /> : <Today user={user} />;
-	return <Layout user={user} logout={logout}>{error && <p className="error" role="alert">{error}</p>}{screen}</Layout>;
+	return <Layout user={user} visit={visit} logout={logout}>{error && <p className="error" role="alert">{error}</p>}<Fragment key={visit}>{screen}</Fragment></Layout>;
 }

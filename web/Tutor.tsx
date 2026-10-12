@@ -78,12 +78,12 @@ export function Tutor({ context, title, user, flush, quote, lesson, evaluate }: 
 		} catch (error) { setError(message(error)); setStatus(''); } finally { busy.current = false; setPending(null); }
 	}
 	return <>
-		<button ref={trigger} aria-expanded={open} aria-controls="tutor" onClick={() => open ? dialog.current!.close() : show()}><Bot size={18} />{student ? 'Спросить ИИ' : 'Читать чат с ИИ'}</button>
-		{evaluate && <button onClick={() => { if (!dialog.current!.open) show(); void ask('Оцените моё решение.', null, true); }}>Оценить решение с ИИ</button>}
+		<button ref={trigger} aria-expanded={open} aria-controls="tutor" onClick={() => open ? dialog.current!.close() : show()} data-tip="Открыть или закрыть чат с ИИ-репетитором."><Bot size={18} />{student ? 'Спросить ИИ' : 'Читать чат с ИИ'}</button>
+		{evaluate && <button onClick={() => { if (!dialog.current!.open) show(); void ask('Оцените моё решение.', null, true); }} data-tip="Попросить ИИ-репетитора оценить ваше решение.">Оценить решение с ИИ</button>}
 		<dialog id="tutor" ref={dialog} aria-labelledby="tutor-title" onClose={() => { setOpen(false); remember(false); trigger.current?.focus(); }} onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); dialog.current!.close(); } }}>
-			<header className="tutor-head"><div><h2 id="tutor-title" ref={heading} tabIndex={-1}>ИИ-репетитор</h2><p>{title}</p>{!student && <p>Чат ученика. Только чтение.</p>}</div><button className="icon-button" onClick={() => dialog.current!.close()} aria-label="Закрыть" title="Закрыть"><X size={18} /></button></header>
+			<header className="tutor-head"><div><h2 id="tutor-title" ref={heading} tabIndex={-1}>ИИ-репетитор</h2><p>{title}</p>{!student && <p>Чат ученика. Только чтение.</p>}</div><button className="icon-button" onClick={() => dialog.current!.close()} aria-label="Закрыть" data-tip="Закрыть чат."><X size={18} /></button></header>
 			<div className="tutor-log" ref={log}>
-				{nextOffset != null && <button onClick={() => void loadOlder()}>Более ранние сообщения</button>}
+				{nextOffset != null && <button onClick={() => void loadOlder()} data-tip="Загрузить более ранние сообщения.">Более ранние сообщения</button>}
 				<ol className="messages" aria-label="Сообщения">
 					{items.map(m => <li key={m.id} className={m.author === 'student' ? 'feedback student' : undefined}><small>{m.author === 'assistant' ? 'Репетитор' : student ? 'Вы' : 'Ученик'} - {new Date(m.createdAt).toLocaleString('ru-RU')}</small>{m.author === 'student' ? said(m.body, m.quote) : <Answer text={m.body} streaming={false} highlight={bridge ? highlight : undefined} />}</li>)}
 					{pending && <><li className="feedback student"><small>Вы</small>{said(pending.body, pending.quote)}</li><li aria-busy="true"><small>Репетитор</small><Answer text={pending.answer} streaming /></li></>}
@@ -93,7 +93,7 @@ export function Tutor({ context, title, user, flush, quote, lesson, evaluate }: 
 			</div>
 			{student && <form className="tutor-compose" onSubmit={event => { event.preventDefault(); input.current!.focus(); void ask(text, quote ?? null); }}>
 				<label>Сообщение<textarea ref={input} value={text} onChange={event => setText(event.target.value)} maxLength={4000} required onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form!.requestSubmit(); } }} /></label>
-				<div className="row spread"><small>Работает через подписку ChatGPT. Родитель может читать этот чат.</small><button className="primary" disabled={Boolean(pending)}>Отправить</button></div>
+				<div className="row spread"><small>Работает через подписку ChatGPT. Родитель может читать этот чат.</small><button className="primary" disabled={Boolean(pending)} data-tip="Отправить сообщение ИИ-репетитору.">Отправить</button></div>
 			</form>}
 			<p role="status" className="visually-hidden">{status}</p>
 		</dialog>

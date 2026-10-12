@@ -42,8 +42,8 @@ Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and wa
 ## Use the notebook
 
 - Add a LeetCode problem. Paste its URL in **Add a problem**. The notebook fills the number, title, difficulty, and topics from LeetCode. If LeetCode does not answer, enter them yourself.
-- As the student, start a draft. A draft can hold one or more approaches. The editor autosaves changed content. Use **Save attempt** to preserve an immutable copy.
-- Record LeetCode acceptance and understanding separately. An accepted solution can still need practice.
+- As the student, start a draft. A draft can hold one or more approaches. The editor autosaves changed content. On a Бомжарня task, use **Отправить**: the server checks the code on hidden tests and accepts the attempt when all tests pass. On another problem, use **Решено** to save the attempt as accepted.
+- The understanding of an accepted attempt is automatic: "independent" when the student did not write to the tutor about the problem, else "with help". Both roles can use **Нужно потренироваться**. It sets the understanding "needs practice" and a random review date from 15 to 45 days after today.
 - Below **Solution code** of a Python approach, the notebook checks the student's draft code while he types. Ruff and the Python compiler report the problems with their line numbers. **Run tests** runs the code in the browser with Pyodide against the tests of the problem. Each test has 2 seconds. The code is not sent to LeetCode or Codeforces.
 - Both roles can add up to 20 own tests to a problem in **My tests**. An own test has only the input. **Run tests** runs them after the standard tests.
 - A task of a learning set has a reference solution on the server. The reference solution gives the correct answer of each own test. The result of a test shows the correct answer and the answer of the student. The result is green when the two answers are the same and red when they are different. An input outside the constraints of the task gets a note and no check. A problem outside the sets has no reference solution, so its own tests show only the answer of the student.
@@ -51,8 +51,10 @@ Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and wa
 - The notebook records each test run of the student. An approach shows **Tests passed** when its latest run passed all tests and its code did not change after that run. The attempt history shows the same mark for the attempt.
 - As the parent, create homework on the **Homework** page. Give it a title, instructions, and an optional due date. Use **Edit homework** to change these details later.
 - On the homework page, use **Add a task** to add a problem from the library. Each task has its own review state. A problem can have only one active task in all homework.
+- The **Homework** page shows the tasks of all homework in three sections. **В процессе** has the started, submitted, and returned tasks. **Будущее** has the assigned tasks. **Принятое** has the completed tasks, with the newest first. The page does not show cancelled tasks.
+- In **Принятое**, use **Распределить повторения на 30 дней**. Each problem of a completed task gets a random review date from tomorrow to 30 days after today. Two problems get the same date only when there are more than 30 problems. A problem with a review date in this period keeps its date. On the review date, **Today** shows the problem in **Пора повторить**. The link opens the recall page of a pick, so the student solves the problem again without the saved work.
 - The parent can link learning sets to problems and homework in **Materials**. **Materials** also shows the set chapters that contain the problem. For homework, it shows the chapters of all its problems. A task page shows the chapters of its problem and the sets of its homework.
-- As the student, open a task from **Today**, the homework page, or the problem page. Submit an exact attempt for review. The parent can request another attempt or complete the task.
+- As the student, open a task from **Today**, the homework page, or the problem page. **Решено** submits the attempt for review. The parent can request another attempt or complete the task. An attempt that passes the hidden tests completes the task. The parent can still return a completed task.
 - A red dot before a homework or a task shows a message or a review decision from the other account that you did not read. Open the discussion of the task or the problem to remove the dot.
 - Use **Recall this problem** to practise before revealing saved work. Record the result. Choose the next review date.
 - **Today** also shows random recall picks from the library: three problems of the Two Pointers set and two problems of the first permutations homework. The picks change every day. A pick that you recall today leaves the list. The recall page of a pick does not show the summary or the saved work. Use **Start a new attempt** to solve the problem again. If the problem has a draft, the button opens the draft.
@@ -151,7 +153,7 @@ A badge stays earned. The student and the parent see the same badges.
 | Independent five | Five accepted problems with the understanding "independent". |
 | Set cleared | An accepted saved attempt for each problem of one learning set. |
 
-The student selects the acceptance and the understanding, so the XP shows what the student records. The **Today** counts do not include archived problems, so they can be different from the XP.
+The hidden tests or **Решено** set the acceptance, and the understanding is automatic. The **Today** counts do not include archived problems, so they can be different from the XP.
 
 ## Cloudflare setup
 

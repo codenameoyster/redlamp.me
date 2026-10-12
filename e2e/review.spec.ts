@@ -2,9 +2,7 @@ import { test, expect } from './fixtures';
 
 test('reveals saved work on request and keeps acceptance after a failed review', async ({ page, notebook }) => {
 	await page.getByLabel('Код решения', { exact: true }).fill('return saved_solution');
-	await page.getByRole('combobox', { name: 'Статус на LeetCode', exact: true }).selectOption('accepted');
-	await page.getByRole('combobox', { name: 'Понимание', exact: true }).selectOption('independent');
-	await page.getByRole('button', { name: 'Сохранить попытку', exact: true }).click();
+	await page.getByRole('button', { name: 'Решено', exact: true }).click();
 	await expect(page.getByText('Попытка сохранена.', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Повторить задачу' }).click();
 	await expect(page.getByRole('button', { name: 'Показать сохранённую работу' })).toBeVisible();

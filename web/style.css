@@ -1,7 +1,7 @@
 @font-face { font-family:'JetBrains Mono Variable'; font-style:normal; font-display:swap; font-weight:100 800; src:url(/leetcode/assets/jetbrains-mono-latin-wght-normal.woff2); }
 * { box-sizing: border-box; }
-:root { color-scheme:dark; --face:#3c3c3c; --field:#1e1e1e; --ink:#f0f0f0; --muted:#b8b8b8; --disabled:#7a7a7a; --hover:#444; --hi:#7a7a7a; --lite:#5a5a5a; --shade:#242424; --dark:#000; --link:#8cc4ff; --orange:#f38020; --orange-text:#faae40; --title:linear-gradient(90deg,#f38020,#faae40); --rule-bg:#3a2a18; --red:#ff8a80; --red-bg:#3d1f1f; --amber:#ffd27a; --amber-bg:#3a3018; --green:#7ee08a; --green-bg:#1f3d24; --code:#000; --code-text:#c0c0c0; --raised:inset -1px -1px var(--dark),inset 1px 1px var(--hi),inset -2px -2px var(--shade),inset 2px 2px var(--lite); --sunken:inset 1px 1px var(--shade),inset -1px -1px var(--hi),inset 2px 2px var(--dark),inset -2px -2px var(--lite); --sans:Tahoma,Verdana,"Segoe UI",sans-serif; --mono:'JetBrains Mono Variable',ui-monospace,SFMono-Regular,Consolas,monospace; }
-:root[data-appearance="light"] { color-scheme:light; --face:#c0c0c0; --field:#fff; --ink:#000; --muted:#404040; --disabled:#808080; --hover:#cfcfcf; --hi:#fff; --lite:#dfdfdf; --shade:#808080; --dark:#0a0a0a; --link:#00399e; --orange-text:#b34d00; --rule-bg:#fff1e0; --red:#a00000; --red-bg:#ffe0e0; --amber:#6b4400; --amber-bg:#fff2c2; --green:#006b1a; --green-bg:#e0ffe0; }
+:root { color-scheme:dark; --face:#3c3c3c; --field:#1e1e1e; --ink:#f0f0f0; --muted:#b8b8b8; --disabled:#7a7a7a; --hover:#444; --hi:#7a7a7a; --lite:#5a5a5a; --shade:#242424; --dark:#000; --link:#8cc4ff; --orange:#f38020; --orange-text:#faae40; --title:linear-gradient(90deg,#f38020,#faae40); --rule-bg:#3a2a18; --red:#ff8a80; --red-bg:#3d1f1f; --amber:#ffd27a; --amber-bg:#3a3018; --green:#7ee08a; --green-bg:#1f3d24; --code:#000; --code-text:#c0c0c0; --tip:#2b2b2b; --raised:inset -1px -1px var(--dark),inset 1px 1px var(--hi),inset -2px -2px var(--shade),inset 2px 2px var(--lite); --sunken:inset 1px 1px var(--shade),inset -1px -1px var(--hi),inset 2px 2px var(--dark),inset -2px -2px var(--lite); --sans:Tahoma,Verdana,"Segoe UI",sans-serif; --mono:'JetBrains Mono Variable',ui-monospace,SFMono-Regular,Consolas,monospace; }
+:root[data-appearance="light"] { color-scheme:light; --face:#c0c0c0; --field:#fff; --ink:#000; --muted:#404040; --disabled:#808080; --hover:#cfcfcf; --hi:#fff; --lite:#dfdfdf; --shade:#808080; --dark:#0a0a0a; --link:#00399e; --orange-text:#b34d00; --rule-bg:#fff1e0; --red:#a00000; --red-bg:#ffe0e0; --amber:#6b4400; --amber-bg:#fff2c2; --green:#006b1a; --green-bg:#e0ffe0; --tip:#ffffe1; }
 body { margin:0; color:var(--ink); font:13px/1.4 var(--sans); background:var(--face); }
 button,input,textarea,select { font:inherit; color:inherit; }
 button,.button { min-height:26px; border:0; border-radius:0; padding:3px 12px; background:var(--face); color:var(--ink); box-shadow:var(--raised); cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
@@ -15,6 +15,11 @@ button[aria-pressed="true"] { background:var(--field); box-shadow:var(--sunken);
 :focus-visible { outline:1px dotted var(--ink); outline-offset:1px; }
 button:focus-visible,.button:focus-visible { outline-offset:-5px; }
 .primary:focus-visible { outline-color:#000; }
+/* The fixed tip anchors to its button, so the overflow of a card does not clip it. The empty alternative text keeps the tip out of the accessible name. https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Anchor_positioning */
+[data-tip]::after { content:attr(data-tip) / ""; position:fixed; position-area:bottom span-right; position-try-fallbacks:flip-inline; width:max-content; max-width:260px; margin-top:2px; padding:2px 4px; border:1px solid #000; background:var(--tip); color:var(--ink); font:12px/1.3 var(--sans); text-align:left; pointer-events:none; z-index:20; visibility:hidden; }
+/* A touch screen keeps the hover after a tap, so only a device that can hover shows the tip on hover. https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@media/hover */
+[data-tip]:focus-visible::after { visibility:visible; transition:visibility 0s .3s; }
+@media (hover:hover) { [data-tip]:hover::after { visibility:visible; transition:visibility 0s .3s; } }
 a { color:var(--link); text-underline-offset:2px; }
 h1,h2,h3,p { margin:0; }
 h1 { font-size:18px; line-height:1.25; }
@@ -43,6 +48,11 @@ nav a[aria-current]:focus-visible { outline-color:#000; outline-offset:-3px; }
 .search { flex:0 1 320px; min-width:0; min-height:26px; display:flex; align-items:center; gap:6px; padding:0 8px; background:var(--field); box-shadow:var(--sunken); color:var(--muted); text-decoration:none; }
 .search span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .account { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+.music { display:grid; gap:4px; }
+.music .playing,.music .playing:hover { box-shadow:0 0 0 2px var(--orange); }
+.music input { appearance:none; width:26px; height:2px; min-height:0; padding:0; background:var(--hi); box-shadow:none; }
+.music input::-webkit-slider-thumb { appearance:none; width:4px; height:6px; background:var(--orange); }
+.music input::-moz-range-thumb { width:4px; height:6px; border:0; border-radius:0; background:var(--orange); }
 .icon-button { width:26px; padding:0; background:transparent; box-shadow:none; }
 .icon-button:hover { background:var(--face); box-shadow:var(--raised); }
 .xp-chip { display:flex; align-items:center; gap:6px; font-size:12px; }
@@ -184,7 +194,17 @@ progress::-moz-progress-bar { background:repeating-linear-gradient(90deg,var(--o
 @media (max-width:900px) { .panes { grid-template-columns:minmax(0,1fr); } .pane { max-height:none; } .divider { display:none; } }
 @media (max-width:850px) { .app { grid-template-columns:minmax(0,1fr); } .sidebar { position:static; height:auto; gap:4px; } nav { display:flex; overflow:auto; } nav a { flex-shrink:0; } .editor-grid { grid-template-columns:1fr; } }
 @media (max-width:620px) { #tutor { width:100%; } input,textarea,select { font-size:16px; } main { padding:8px; } .topbar { padding:4px 8px; } h1 { font-size:16px; } .stats { grid-template-columns:repeat(2,minmax(0,1fr)); } nav a { flex:1 1 0; flex-direction:column; gap:2px; padding:4px 2px; font-size:11px; text-align:center; } .search { flex:0 0 26px; justify-content:center; padding:0; } .search span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); } .user small { display:none; } .account { flex-shrink:1; } .xp-chip { display:none; } .lesson { padding:6px 8px; } .lesson th,.lesson td { padding:3px 4px; } }
-@media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; } .spin { animation:none; } }
+.poop { position:fixed; left:50%; top:50%; z-index:30; font-size:96px; line-height:1; pointer-events:none; animation:poop 1.5s forwards; }
+@keyframes poop {
+	0% { transform:translate(calc(var(--x) - 50%),calc(var(--y) - 50%)) scale(.3) rotate(0deg); animation-timing-function:ease-out; }
+	35% { transform:translate(calc(var(--x) / 2 - 50%),calc(var(--y) / 2 - 50% - 25vh)) scale(.7) rotate(-200deg); animation-timing-function:ease-in; }
+	65% { transform:translate(-50%,-50%) scale(1.25,.75) rotate(-360deg); }
+	75% { transform:translate(-50%,-50%) scale(.9,1.1) rotate(-360deg); }
+	85% { transform:translate(-50%,-50%) scale(1) rotate(-360deg); opacity:1; }
+	100% { transform:translate(-50%,-50%) scale(1) rotate(-360deg); opacity:0; }
+}
+@keyframes poop-fade { from { opacity:1; } to { opacity:0; } }
+@media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; } .spin { animation:none; } .poop { transform:translate(-50%,-50%); animation:poop-fade .8s forwards; } }
 .answer { display:grid; gap:6px; min-width:0; overflow-wrap:anywhere; }
 .answer p,.answer li { color:var(--ink); white-space:pre-line; }
 .answer ul,.answer ol { margin:0; padding-left:20px; }

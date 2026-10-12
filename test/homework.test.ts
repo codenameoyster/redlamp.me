@@ -1,7 +1,8 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
-import type { Dashboard, HomeworkDetails, HomeworkSummary, HomeworkTask, Page, TaskDetails } from '../shared/leetcode';
+import { addCalendarDays } from '../shared/dates';
+import type { Dashboard, HomeworkBoard, HomeworkDetails, HomeworkSummary, HomeworkTask, Page, TaskDetails } from '../shared/leetcode';
 
 let student: string, parent: string, problemId: string, attemptId: string, homeworkId: string, taskId: string, submissionId: string;
 const insertProblem = env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,?,?,'medium','[]','','','now','now')");
@@ -42,6 +43,24 @@ it.each([
 	const response = await request(`/homework/${homeworkId}`, 'PATCH', { version: 1, title: 'Week 41', instructions: 'Compare two approaches.', dueDate: null }, role === 'parent' ? parent : student);
 	expect(response.status).toBe(expected);
 	expect(await env.DB.prepare('SELECT title,instructions,due_date,version FROM homework').first()).toEqual(row);
+});
+
+// The server takes today from its own UTC clock.
+const today = new Date().toISOString().slice(0, 10), tomorrow = addCalendarDays(today, 1);
+it.each([
+	{ name: 'student moves the due date by one day', role: 'student', due: today, used: false, version: 1, expected: 200, code: null, dueAfter: tomorrow, postponedTo: tomorrow },
+	{ name: 'second use of Сила Бомжа', role: 'student', due: today, used: true, version: 1, expected: 409, code: 'postponed', dueAfter: today, postponedTo: '2026-10-10' },
+	{ name: 'parent cannot postpone', role: 'parent', due: today, used: false, version: 1, expected: 403, code: 'forbidden', dueAfter: today, postponedTo: null },
+	{ name: 'postpone after the due date', role: 'student', due: addCalendarDays(today, -1), used: false, version: 1, expected: 400, code: 'invalid_input', dueAfter: addCalendarDays(today, -1), postponedTo: null },
+	{ name: 'postpone without a due date', role: 'student', due: null, used: false, version: 1, expected: 400, code: 'invalid_input', dueAfter: null, postponedTo: null },
+	{ name: 'stale postpone', role: 'student', due: today, used: false, version: 2, expected: 409, code: 'conflict', dueAfter: today, postponedTo: null },
+])('$name', async ({ role, due, used, version, expected, code, dueAfter, postponedTo }) => {
+	await env.DB.prepare('UPDATE homework SET due_date=?').bind(due).run();
+	if (used) await env.DB.prepare("INSERT INTO postponements VALUES (?,'2026-10-09','2026-10-10','now')").bind(homeworkId).run();
+	const response = await request(`/homework/${homeworkId}/postpone`, 'POST', { version }, role === 'parent' ? parent : student);
+	expect(response.status).toBe(expected);
+	expect(await response.json()).toMatchObject(code ? { error: { code } } : { dueDate: dueAfter, postponedTo, version: 2 });
+	expect(await (await request(`/homework/${homeworkId}`, 'GET', undefined, parent)).json()).toMatchObject({ homework: { dueDate: dueAfter, postponedTo }, tasks: [{ dueDate: dueAfter, postponedTo }] });
 });
 
 async function bundles() {
@@ -101,83 +120,62 @@ it.each([
 
 it.each([
 	{ name: 'student starts assignment', role: 'student', from: 'assigned', action: 'start', expected: 200, to: 'in_progress' },
-	{ name: 'student submits new homework', role: 'student', from: 'assigned', action: 'submit', expected: 200, to: 'submitted' },
-	{ name: 'student submits progress', role: 'student', from: 'in_progress', action: 'submit', expected: 200, to: 'submitted' },
-	{ name: 'student resubmits changes', role: 'student', from: 'changes_requested', action: 'submit', expected: 200, to: 'submitted' },
 	{ name: 'parent requests changes', role: 'parent', from: 'submitted', action: 'changes_requested', expected: 200, to: 'changes_requested' },
 	{ name: 'parent completes review', role: 'parent', from: 'submitted', action: 'completed', expected: 200, to: 'completed' },
 	{ name: 'student cannot complete', role: 'student', from: 'submitted', action: 'completed', expected: 403, to: 'submitted' },
-	{ name: 'parent cannot submit', role: 'parent', from: 'assigned', action: 'submit', expected: 403, to: 'assigned' },
 	{ name: 'cancel assigned', role: 'parent', from: 'assigned', action: 'cancel', expected: 200, to: 'cancelled' },
 	{ name: 'cancel progress', role: 'parent', from: 'in_progress', action: 'cancel', expected: 200, to: 'cancelled' },
 	{ name: 'cancel submitted', role: 'parent', from: 'submitted', action: 'cancel', expected: 200, to: 'cancelled' },
 	{ name: 'cancel requested changes', role: 'parent', from: 'changes_requested', action: 'cancel', expected: 200, to: 'cancelled' },
 	{ name: 'completed homework stays complete', role: 'parent', from: 'completed', action: 'cancel', expected: 409, to: 'completed' },
+	{ name: 'parent returns a completed task', role: 'parent', from: 'completed', action: 'changes_requested', expected: 200, to: 'changes_requested' },
+	{ name: 'parent cannot complete a completed task again', role: 'parent', from: 'completed', action: 'completed', expected: 409, to: 'completed' },
 ])('$name', async ({ role, from, action, expected, to }) => {
-	if (from === 'submitted') {
+	const reviewed = ['submitted', 'completed'].includes(from);
+	if (reviewed) {
 		await env.DB.prepare("UPDATE attempts SET state='saved'").run();
 		await env.DB.prepare('INSERT INTO submissions VALUES (?,?,?,?,?)').bind(submissionId, taskId, attemptId, 1, 'now').run();
 	}
-	await env.DB.prepare('UPDATE homework_tasks SET state=?,current_submission_id=?').bind(from, from === 'submitted' ? submissionId : null).run();
+	await env.DB.prepare('UPDATE homework_tasks SET state=?,current_submission_id=?').bind(from, reviewed ? submissionId : null).run();
 	const review = ['changes_requested', 'completed'].includes(action);
-	const body = review ? { version: 1, submissionId, decision: action, body: 'Explain the next step.' } : action === 'submit' ? { version: 1, attemptId, attemptVersion: 1 } : { version: 1 };
+	const body = review ? { version: 1, submissionId, decision: action, body: 'Explain the next step.' } : { version: 1 };
 	const response = await request(`/tasks/${taskId}/${review ? 'review' : action}`, 'POST', body, role === 'parent' ? parent : student);
 	expect(response.status).toBe(expected);
 	expect(await env.DB.prepare('SELECT state FROM homework_tasks WHERE id=?').bind(taskId).first()).toEqual({ state: to });
 });
 
-it.each([
-	{ name: 'stale task leaves the draft and history unchanged', taskVersion: 2, attemptVersion: 1 },
-	{ name: 'stale attempt leaves the draft and history unchanged', taskVersion: 1, attemptVersion: 2 },
-])('$name', async ({ taskVersion, attemptVersion }) => {
-	await env.DB.prepare('UPDATE homework_tasks SET version=?').bind(taskVersion).run();
-	await env.DB.prepare('UPDATE attempts SET version=?').bind(attemptVersion).run();
-	expect((await request(`/tasks/${taskId}/submit`, 'POST', { version: 1, attemptId, attemptVersion: 1 }, student)).status).toBe(409);
-	expect(await env.DB.prepare('SELECT state,version FROM attempts').first()).toEqual({ state: 'draft', version: attemptVersion });
-	expect(await env.DB.prepare('SELECT count(*) AS count FROM submissions').first()).toEqual({ count: 0 });
-	expect(await (await request(`/problems/${problemId}`, 'GET', undefined, student)).json()).toMatchObject({ understanding: 'needs_practice', progressVersion: 1 });
-});
+// The student marks the draft solved, so the assigned task gets a submission of the draft.
+async function solve(): Promise<string> {
+	expect((await request(`/problems/${problemId}/solved`, 'POST', { attemptId }, student)).status).toBe(200);
+	return (await env.DB.prepare('SELECT id FROM submissions').first<{ id: string }>())!.id;
+}
 
 it.each([
 	{ name: 'blank change request', current: true, decision: 'changes_requested', body: '  ', expected: 400 },
 	{ name: 'review of another submission', current: false, decision: 'completed', body: '', expected: 409 },
 ])('$name', async ({ current, decision, body, expected }) => {
-	const record = await (await request(`/tasks/${taskId}/submit`, 'POST', { version: 1, attemptId, attemptVersion: 1 }, student)).json() as { submissionId: string };
-	expect((await request(`/tasks/${taskId}/review`, 'POST', { version: 2, submissionId: current ? record.submissionId : crypto.randomUUID(), decision, body }, parent)).status).toBe(expected);
+	const submission = await solve();
+	expect((await request(`/tasks/${taskId}/review`, 'POST', { version: 2, submissionId: current ? submission : crypto.randomUUID(), decision, body }, parent)).status).toBe(expected);
 	expect(await env.DB.prepare('SELECT state,version FROM homework_tasks').first()).toEqual({ state: 'submitted', version: 2 });
 	expect(await env.DB.prepare('SELECT count(*) AS count FROM feedback').first()).toEqual({ count: 0 });
 });
 
-it('rejects a repeated submission', async () => {
-	const submit = () => request(`/tasks/${taskId}/submit`, 'POST', { version: 1, attemptId, attemptVersion: 1 }, student);
-	expect((await submit()).status).toBe(200);
-	expect((await submit()).status).toBe(409);
-});
-
 it('rejects a repeated review decision', async () => {
-	const record = await (await request(`/tasks/${taskId}/submit`, 'POST', { version: 1, attemptId, attemptVersion: 1 }, student)).json() as { submissionId: string };
-	const review = () => request(`/tasks/${taskId}/review`, 'POST', { version: 2, submissionId: record.submissionId, decision: 'changes_requested', body: 'Add a proof.' }, parent);
+	const submission = await solve();
+	const review = () => request(`/tasks/${taskId}/review`, 'POST', { version: 2, submissionId: submission, decision: 'changes_requested', body: 'Add a proof.' }, parent);
 	expect((await review()).status).toBe(200);
 	expect((await review()).status).toBe(409);
 	expect(await env.DB.prepare('SELECT count(*) AS count FROM feedback').first()).toEqual({ count: 1 });
 });
 
-it.each([
-	{ name: 'submission of empty work', empty: true, unknownAttempt: false, expected: 400 },
-	{ name: 'submission of an unknown attempt', empty: false, unknownAttempt: true, expected: 404 },
-])('$name', async ({ empty, unknownAttempt, expected }) => {
-	if (empty) await env.DB.prepare("UPDATE attempts SET document=json_set(document,'$.notes','')").run();
-	expect((await request(`/tasks/${taskId}/submit`, 'POST', { version: 1, attemptId: unknownAttempt ? crypto.randomUUID() : attemptId, attemptVersion: 1 }, student)).status).toBe(expected);
-});
-
 it('returns the task with its bundle and submissions', async () => {
-	const record = await (await request(`/tasks/${taskId}/submit`, 'POST', { version: 1, attemptId, attemptVersion: 1 }, student)).json() as { submissionId: string };
+	const submission = await solve();
 	const response = await request(`/tasks/${taskId}`, 'GET', undefined, parent);
 	expect(response.status).toBe(200);
 	expect(await response.json()).toMatchObject({
 		homework: { id: homeworkId, title: 'Two Sum practice', instructions: 'Explain the invariant', dueDate: '2026-10-10', version: 1 },
-		task: { id: taskId, homeworkId, homeworkTitle: 'Two Sum practice', instructions: 'Explain the invariant', dueDate: '2026-10-10', problemId, problemTitle: 'Two Sum', difficulty: 'easy', state: 'submitted', submissionId: record.submissionId, version: 2 },
-		submissions: [{ id: record.submissionId, taskId, attemptId, taskVersion: 2 }],
+		task: { id: taskId, homeworkId, homeworkTitle: 'Two Sum practice', instructions: 'Explain the invariant', dueDate: '2026-10-10', problemId, problemTitle: 'Two Sum', difficulty: 'easy', state: 'submitted', submissionId: submission, version: 2 },
+		submissions: [{ id: submission, taskId, attemptId, taskVersion: 2 }],
 	});
 });
 
@@ -233,6 +231,36 @@ it.each([
 	expect((await request(`/problems/${problemId}/feedback?offset=${offset}`, 'GET', undefined, viewer === 'parent' ? parent : student)).status).toBe(200);
 	expect((await env.DB.prepare('SELECT role,read_at FROM discussion_reads ORDER BY role').all()).results).toEqual(reads);
 	expect((await (await request(`/tasks/${taskId}`, 'GET', undefined, parent)).json() as TaskDetails).task.unread).toBe(unread);
+});
+
+it.each([
+	{ name: 'assigned task is in the future section', role: 'student', state: 'assigned', section: 'future' },
+	{ name: 'started task is in progress', role: 'student', state: 'in_progress', section: 'progress' },
+	{ name: 'submitted task is in progress', role: 'student', state: 'submitted', section: 'progress' },
+	{ name: 'task with requested changes is in progress', role: 'student', state: 'changes_requested', section: 'progress' },
+	{ name: 'completed task is accepted', role: 'student', state: 'completed', section: 'accepted' },
+	{ name: 'parent sees the same board', role: 'parent', state: 'completed', section: 'accepted' },
+	{ name: 'cancelled task is not on the board', role: 'student', state: 'cancelled', section: null },
+])('$name', async ({ role, state, section }) => {
+	await env.DB.prepare('UPDATE homework_tasks SET state=?').bind(state).run();
+	const response = await request('/tasks?view=board', 'GET', undefined, role === 'parent' ? parent : student);
+	expect(response.status).toBe(200);
+	const task = { id: taskId, homeworkId, homeworkTitle: 'Two Sum practice', dueDate: '2026-10-10', problemId, problemTitle: 'Two Sum', state, unread: false };
+	expect(await response.json()).toEqual({ progress: [], future: [], accepted: [], ...section && { [section]: [expect.objectContaining(task)] } });
+});
+
+it.each([
+	{ name: 'progress by due date with no date last', section: 'progress', tasks: [{ title: 'No date', state: 'in_progress', due: null, at: 'now' }, { title: 'Later', state: 'submitted', due: '2026-10-12', at: 'now' }, { title: 'Sooner', state: 'changes_requested', due: '2026-10-11', at: 'now' }], titles: ['Sooner', 'Later', 'No date'] },
+	{ name: 'future by due date with no date last', section: 'future', tasks: [{ title: 'No date', state: 'assigned', due: null, at: 'now' }, { title: 'Later', state: 'assigned', due: '2026-10-12', at: 'now' }, { title: 'Sooner', state: 'assigned', due: '2026-10-11', at: 'now' }], titles: ['Sooner', 'Later', 'No date'] },
+	{ name: 'accepted by completion time with the newest first', section: 'accepted', tasks: [{ title: 'First', state: 'completed', due: null, at: '2026-10-05T10:00:00.000Z' }, { title: 'Last', state: 'completed', due: null, at: '2026-10-07T10:00:00.000Z' }, { title: 'Middle', state: 'completed', due: '2026-10-01', at: '2026-10-06T10:00:00.000Z' }], titles: ['Last', 'Middle', 'First'] },
+])('$name', async ({ section, tasks, titles }) => {
+	const insertDone = env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) VALUES (?,?,?,?,'now',?)");
+	await env.DB.batch([env.DB.prepare("UPDATE homework_tasks SET state='cancelled'"), ...tasks.flatMap(task => {
+		const [id, bundle] = [crypto.randomUUID(), crypto.randomUUID()];
+		return [insertProblem.bind(id, task.title, task.title), insertBundle.bind(bundle, task.title, task.due, 'now', 'now'), insertDone.bind(crypto.randomUUID(), bundle, id, task.state, task.at)];
+	})]);
+	const board = await (await request('/tasks?view=board', 'GET', undefined, student)).json() as HomeworkBoard;
+	expect(board[section as keyof HomeworkBoard].map(task => task.problemTitle)).toEqual(titles);
 });
 
 it('marks a bundle unread when one of its tasks is unread', async () => {

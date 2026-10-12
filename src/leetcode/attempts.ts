@@ -1,7 +1,7 @@
 import type { Env } from '../index';
 import { MAX_DOCUMENT_BYTES, newApproach, type Attempt, type AttemptDocument, type AttemptSummary, type SessionUser } from '../../shared/leetcode';
 import { requireRole } from './auth';
-import { calendarDate, changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
+import { changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
 import { getProblem, searchText } from './problems';
 
 export const attemptColumns = 'id,problem_id AS problemId,state,acceptance,understanding,version,created_at AS createdAt,updated_at AS updatedAt,saved_at AS savedAt';
@@ -34,9 +34,8 @@ function attemptSearch(document: AttemptDocument): string {
 	return searchText([document.notes, ...document.approaches.flatMap(a => [a.label, a.idea, a.correctness, a.timeComplexity, a.spaceComplexity, a.edgeCases, a.mistakes])].join(' '));
 }
 // Run directly after the statement that finalizes the attempt: changes() reads its row count. https://www.sqlite.org/lang_corefunc.html#changes
-export function saveProgress(env: Env, problemId: string, attemptId: string, data: Record<string, unknown>, now: string): D1PreparedStatement {
-	const hasDate = Object.hasOwn(data, 'nextReviewDate');
-	return env.DB.prepare('UPDATE problems SET understanding=(SELECT understanding FROM attempts WHERE id=?),next_review_date=CASE WHEN ? THEN ? ELSE next_review_date END,progress_version=progress_version+1,updated_at=? WHERE id=? AND changes()=1').bind(attemptId, hasDate ? 1 : 0, hasDate ? calendarDate(data.nextReviewDate) : null, now, problemId);
+export function saveProgress(env: Env, problemId: string, attemptId: string, now: string): D1PreparedStatement {
+	return env.DB.prepare('UPDATE problems SET understanding=(SELECT understanding FROM attempts WHERE id=?),progress_version=progress_version+1,updated_at=? WHERE id=? AND changes()=1').bind(attemptId, now, problemId);
 }
 
 export async function handleAttempts(request: Request, env: Env, user: SessionUser): Promise<Response | null> {
@@ -70,10 +69,10 @@ export async function handleAttempts(request: Request, env: Env, user: SessionUs
 		return Response.json(await getAttempt(env, problemId, newId), { status: 201 });
 	}
 	if (match[3]) {
-		const data = object(await readJson(request), ['version', 'nextReviewDate']);
+		const data = object(await readJson(request), ['version']);
 		const results = await env.DB.batch([
 			env.DB.prepare("UPDATE attempts SET state='saved',version=version+1,saved_at=?,updated_at=? WHERE id=? AND problem_id=? AND state='draft' AND version=?").bind(now, now, id, problemId, integer(data.version)),
-			saveProgress(env, problemId, id, data, now),
+			saveProgress(env, problemId, id, now),
 		]);
 		if (!results[0].meta.changes) await getAttempt(env, problemId, id);
 		changed(results[0]);

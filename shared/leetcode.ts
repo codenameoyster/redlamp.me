@@ -52,15 +52,16 @@ export interface Attempt extends DraftValue {
 export type AttemptSummary = Omit<Attempt, 'document'>;
 export const MAX_DOCUMENT_BYTES = 256_000;
 export type TaskState = 'assigned' | 'in_progress' | 'submitted' | 'changes_requested' | 'completed' | 'cancelled';
-export interface Homework { id: string; title: string; instructions: string; dueDate: string | null; version: number; createdAt: string; updatedAt: string }
+export interface Homework { id: string; title: string; instructions: string; dueDate: string | null; postponedTo: string | null; version: number; createdAt: string; updatedAt: string }
 export interface HomeworkSummary extends Homework { taskCount: number; completedCount: number; submittedCount: number; requestedCount: number; unread: boolean }
 export interface HomeworkTask {
-	id: string; homeworkId: string; homeworkTitle: string; instructions: string; dueDate: string | null; problemId: string; problemTitle: string; difficulty: Difficulty;
+	id: string; homeworkId: string; homeworkTitle: string; instructions: string; dueDate: string | null; postponedTo: string | null; problemId: string; problemTitle: string; difficulty: Difficulty;
 	state: TaskState; submissionId: string | null; version: number; createdAt: string; updatedAt: string; unread: boolean;
 }
 export interface Submission { id: string; taskId: string; attemptId: string; taskVersion: number; createdAt: string }
 export interface Feedback { id: string; problemId: string; taskId: string | null; submissionId: string | null; author: Role; kind: 'reply' | 'changes_requested' | 'completed'; body: string; createdAt: string }
 export interface HomeworkDetails { homework: Homework; tasks: HomeworkTask[] }
+export type HomeworkBoard = Record<'progress' | 'future' | 'accepted', HomeworkTask[]>;
 export interface TaskDetails { homework: Homework; task: HomeworkTask; submissions: Submission[] }
 export interface TestCase { input: string; expected: string | null }
 // call: LeetCode style. input is a Python literal list of the arguments, expected a Python literal.
@@ -73,6 +74,9 @@ export interface OwnTest { id: string; input: string; createdAt: string }
 // The answer of the reference solution to an own test: null when the task has no reference.
 export type Expected = { value: string } | { error: 'constraints' | 'input' | 'size' } | null;
 export interface ProblemTests { spec: TestSpec | null; source: 'set' | 'leetcode' | 'none'; standard: TestCase[]; own: OwnTest[]; skeleton: string }
+// An output of the student code on a hidden test: the answer text, the error message or a timeout.
+export type JudgeOutput = { value: string } | { error: string } | { timeout: true };
+export type Judgement = { verdict: 'accepted'; failed: null } | { verdict: 'wrong' | 'timeout' | 'error'; failed: { index: number; input: string; expected: string; output: string } };
 export interface TestRun { approachId: string; passed: number; total: number; codeHash: string; createdAt: string }
 export interface SetTask { url: string; number?: number; title: string; difficulty: Difficulty; topics: string[]; note: string; statement?: string; tests?: TaskTests }
 export interface Chapter { title: string; summary: string; tasks: SetTask[]; cards: Card[]; links: { title: string; url: string; source: string }[] }
@@ -91,13 +95,14 @@ export type QuizCard = Strip<Card>;
 export interface QuizDeck { slug: string; title: string; cardCount: number; dueCount: number; newCount: number }
 export interface QuizRound { title: string; cards: QuizCard[]; remaining: number }
 export interface QuizResult { correct: boolean; answer: string; explain: string; days: number }
+export interface Distribution { count: number; from: string | null; to: string | null }
 export interface Revision { id: string; problemId: string; result: Understanding; note: string; reviewedOn: string; nextReviewDate: string | null; createdAt: string }
 export interface Dashboard {
 	counts: { recorded: number; solved: number; independent: number; waitingReview: number; dueReviews: number; dueCards: number };
 	topics: { topic: string; solved: number; independent: number }[];
 	homework: HomeworkTask[];
 	drafts: (Omit<Attempt, 'document'> & { problemTitle: string })[];
-	dueReviews: Problem[];
+	dueReviews: (Problem & { fromHomework: boolean })[];
 	recallPicks: Omit<SetTaskRow, 'accepted' | 'activeTask'>[];
 }
 export type TutorKind = 'problem' | 'set';
@@ -106,7 +111,7 @@ export interface TutorThread { kind: TutorKind; id: string; title: string; count
 export type TutorEvent = { delta: string } | { done: true } | { error: { code: string; message: string } };
 export interface TutorAccount { connected: boolean; connectedAt: string | null; model: string | null; models: { slug: string; name: string }[]; pending: boolean }
 export type BadgeId = 'first-accept' | 'three-day-streak' | 'first-hard' | 'ten-accepted' | 'independent-five' | 'set-cleared';
-export interface Game { xp: number; level: number; levelXp: number; nextLevelXp: number; badges: { id: BadgeId; earned: boolean }[] }
+export interface Game { xp: number; level: number; levelXp: number; nextLevelXp: number; late: number; badges: { id: BadgeId; earned: boolean }[] }
 export function newApproach(): Approach {
 	return { id: crypto.randomUUID(), label: '', idea: '', correctness: '', timeComplexity: '', spaceComplexity: '', edgeCases: '', mistakes: '', language: '', code: '' };
 }
