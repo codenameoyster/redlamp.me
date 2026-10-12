@@ -72,12 +72,13 @@ test('recovers after the same account signs in', async ({ page, server, notebook
 	expect(page.url()).toContain(notebook.problem.id);
 });
 
-test('saves history and copies it without changing the old attempt', async ({ page, notebook }) => {
+test('saves an attempt and keeps the work in a new copy', async ({ page, notebook }) => {
 	await page.getByLabel('Основная идея', { exact: true }).fill('Original explanation');
 	await page.getByRole('button', { name: 'Сохранить попытку', exact: true }).click();
-	await expect(page.getByRole('button', { name: 'Скопировать в новый черновик' })).toBeVisible();
-	await page.getByRole('button', { name: 'Скопировать в новый черновик' }).click();
+	await expect(page.getByText('Попытка сохранена.', { exact: true })).toBeVisible();
+	await expect(page.getByLabel('Основная идея', { exact: true })).toHaveValue('Original explanation');
 	await page.getByLabel('Основная идея', { exact: true }).fill('Another explanation');
+	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
 	await page.getByRole('link', { name: 'Задачи', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'Задачи', exact: true })).toBeVisible();
 	const old = await page.request.get(`/leetcode/api/problems/${notebook.problem.id}/attempts/${notebook.attempt.id}`);
@@ -113,9 +114,7 @@ test('protects older recovery when another tab starts a replacement draft', asyn
 	await second.goto(`/leetcode/problems/${notebook.problem.id}`);
 	await second.getByLabel('Основная идея', { exact: true }).fill('The saved server explanation');
 	await second.getByRole('button', { name: 'Сохранить попытку', exact: true }).click();
-	await expect(second.getByRole('button', { name: 'Скопировать в новый черновик' })).toBeVisible();
-	await second.getByRole('button', { name: 'Начать новую попытку' }).click();
-	await expect(second.getByLabel('Основная идея', { exact: true })).toBeEditable();
+	await expect(second.getByText('Попытка сохранена.', { exact: true })).toBeVisible();
 	await page.getByLabel('Основная идея', { exact: true }).fill('Keep the older unsaved explanation');
 	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Конфликт правок');
 	page.once('dialog', dialog => dialog.accept());
@@ -131,71 +130,76 @@ test('protects older recovery when another tab starts a replacement draft', asyn
 	await expect(page.getByLabel('Основная идея', { exact: true })).toHaveValue('Replacement draft explanation');
 });
 
-test('opens a finalized server copy as read-only after a conflict', async ({ page, context, notebook }) => {
+test('opens the new working copy after a conflict with a saved attempt', async ({ page, context, notebook }) => {
 	const second = await context.newPage();
 	await second.goto(`/leetcode/problems/${notebook.problem.id}`);
+	await second.getByLabel('Основная идея', { exact: true }).fill('Second tab explanation');
 	await second.getByRole('button', { name: 'Сохранить попытку', exact: true }).click();
-	await expect(second.getByRole('button', { name: 'Скопировать в новый черновик' })).toBeVisible();
+	await expect(second.getByText('Попытка сохранена.', { exact: true })).toBeVisible();
 	await page.getByLabel('Основная идея', { exact: true }).fill('Local explanation');
 	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Конфликт правок');
 	page.once('dialog', dialog => dialog.accept());
 	await page.getByRole('button', { name: 'Использовать копию с сервера', exact: true }).click();
-	await expect(page.getByLabel('Основная идея', { exact: true })).toHaveAttribute('readonly', '');
-	await expect(page.getByRole('button', { name: 'Скопировать в новый черновик' })).toBeVisible();
+	await expect(page.getByLabel('Основная идея', { exact: true })).toHaveValue('Second tab explanation');
+	await expect(page.getByLabel('Основная идея', { exact: true })).toBeEditable();
+	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
+	const attempts = await (await page.request.get(`/leetcode/api/problems/${notebook.problem.id}/attempts`)).json();
+	expect(attempts.items.map((attempt: { state: string }) => attempt.state)).toEqual(['draft', 'saved']);
 });
 
 const reminders = [
-	{ name: 'save keeps a newer reminder when unchanged', button: 'Сохранить попытку', initial: null, clear: false, expected: '2026-11-15' },
-	{ name: 'submission keeps a newer reminder when unchanged', button: 'Отправить на проверку', initial: null, clear: false, expected: '2026-11-15' },
-	{ name: 'save can explicitly clear a reminder', button: 'Сохранить попытку', initial: '2026-11-01', clear: true, expected: null },
-	{ name: 'submission can explicitly clear a reminder', button: 'Отправить на проверку', initial: '2026-11-01', clear: true, expected: null },
+	{ name: 'save keeps a newer reminder when unchanged', button: 'Сохранить попытку', done: 'Попытка сохранена.', initial: null, clear: false, expected: '2026-11-15' },
+	{ name: 'submission keeps a newer reminder when unchanged', button: 'Отправить на проверку', done: 'Отправлено', initial: null, clear: false, expected: '2026-11-15' },
+	{ name: 'save can explicitly clear a reminder', button: 'Сохранить попытку', done: 'Попытка сохранена.', initial: '2026-11-01', clear: true, expected: null },
+	{ name: 'submission can explicitly clear a reminder', button: 'Отправить на проверку', done: 'Отправлено', initial: '2026-11-01', clear: true, expected: null },
 ];
 for (const row of reminders) {
 	test(row.name, async ({ page, notebook, server }) => {
 		const { DB } = await server.getWorker<TestEnv>().getEnv();
 		const review = DB.prepare('UPDATE problems SET next_review_date=? WHERE id=?');
 		await review.bind(row.initial, notebook.problem.id).run();
-		await addTask(DB, notebook.problem.id);
-		await page.reload();
+		const { taskId } = await addTask(DB, notebook.problem.id);
+		await page.goto(`/leetcode/tasks/${taskId}`);
 		await expect(page.getByLabel('Следующее повторение', { exact: true })).toHaveValue(row.initial ?? '');
 		await review.bind('2026-11-15', notebook.problem.id).run();
 		await page.getByLabel('Основная идея', { exact: true }).fill('Keep the current reminder unless I change it.');
 		if (row.clear) await page.getByLabel('Следующее повторение', { exact: true }).fill('');
 		await page.getByRole('button', { name: row.button, exact: true }).click();
-		await expect(page.getByRole('button', { name: 'Скопировать в новый черновик' })).toBeVisible();
+		await expect(page.getByText(row.done, { exact: true })).toBeVisible();
 		expect(await (await page.request.get(`/leetcode/api/problems/${notebook.problem.id}`)).json()).toMatchObject({ nextReviewDate: row.expected });
 	});
 }
 
 const failedFinalActions = [
-	{ name: 'retries a failed attempt save', endpoint: '**/attempts/*/save', button: 'Сохранить попытку', retry: 'Повторить сохранение попытки', stored: false, state: 'assigned', submissions: 0 },
-	{ name: 'retries a failed submission', endpoint: '**/tasks/*/submit', button: 'Отправить на проверку', retry: 'Повторить отправку', stored: false, state: 'submitted', submissions: 1 },
-	{ name: 'recognizes a finalized attempt after a lost acknowledgement', endpoint: '**/attempts/*/save', button: 'Сохранить попытку', retry: 'Повторить сохранение попытки', stored: true, state: 'assigned', submissions: 0 },
-	{ name: 'recognizes a submission after a lost acknowledgement', endpoint: '**/tasks/*/submit', button: 'Отправить на проверку', retry: 'Повторить отправку', stored: true, state: 'submitted', submissions: 1 },
+	{ name: 'retries a failed attempt save', endpoint: '**/attempts/*/save', button: 'Сохранить попытку', retry: 'Повторить сохранение попытки', done: 'Попытка сохранена.', stored: false, state: 'in_progress', submissions: 0 },
+	{ name: 'retries a failed submission', endpoint: '**/tasks/*/submit', button: 'Отправить на проверку', retry: 'Повторить отправку', done: 'Отправлено', stored: false, state: 'submitted', submissions: 1 },
+	{ name: 'recognizes a finalized attempt after a lost acknowledgement', endpoint: '**/attempts/*/save', button: 'Сохранить попытку', retry: 'Повторить сохранение попытки', done: 'Попытка сохранена.', stored: true, state: 'in_progress', submissions: 0 },
+	{ name: 'recognizes a submission after a lost acknowledgement', endpoint: '**/tasks/*/submit', button: 'Отправить на проверку', retry: 'Повторить отправку', done: 'Отправлено', stored: true, state: 'submitted', submissions: 1 },
 ];
 for (const row of failedFinalActions) {
 	test(row.name, async ({ page, notebook, server }) => {
 		const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id);
-		await page.reload();
+		await page.goto(`/leetcode/tasks/${taskId}`);
+		await expect(page.getByText('В работе', { exact: true })).toBeVisible();
 		await page.getByLabel('Основная идея', { exact: true }).fill('A complete explanation');
 		await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
 		await page.route(row.endpoint, async route => { if (row.stored) await route.fetch(); await route.abort(); }, { times: 1 });
 		await page.getByRole('button', { name: row.button, exact: true }).click();
 		await page.getByRole('button', { name: row.retry, exact: true }).click();
-		await expect(page.getByRole('button', { name: 'Скопировать в новый черновик' })).toBeVisible();
+		await expect(page.getByText(row.done, { exact: true })).toBeVisible();
 		const response = await (await page.request.get(`/leetcode/api/tasks/${taskId}`)).json();
 		expect(response.task.state).toBe(row.state); expect(response.submissions).toHaveLength(row.submissions);
 	});
 }
 
 const rejectedFinalActions = [
-	{ name: 'recovers login after attempt-save rejection', endpoint: '**/attempts/*/save', button: 'Сохранить попытку', state: 'assigned', submissions: 0 },
-	{ name: 'recovers login after submission rejection', endpoint: '**/tasks/*/submit', button: 'Отправить на проверку', state: 'submitted', submissions: 1 },
+	{ name: 'recovers login after attempt-save rejection', endpoint: '**/attempts/*/save', button: 'Сохранить попытку', done: 'Попытка сохранена.', state: 'in_progress', submissions: 0 },
+	{ name: 'recovers login after submission rejection', endpoint: '**/tasks/*/submit', button: 'Отправить на проверку', done: 'Отправлено', state: 'submitted', submissions: 1 },
 ];
 for (const row of rejectedFinalActions) {
 	test(row.name, async ({ page, notebook, server }) => {
 		const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id);
-		await page.reload();
+		await page.goto(`/leetcode/tasks/${taskId}`);
 		await page.getByLabel('Основная идея', { exact: true }).fill('A complete explanation');
 		await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
 		await page.route(row.endpoint, route => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: { code: 'login', message: 'Sign in again.' } }) }), { times: 1 });
@@ -205,33 +209,34 @@ for (const row of rejectedFinalActions) {
 		await page.getByRole('button', { name: 'Войти', exact: true }).click();
 		await expect(page.getByLabel('Основная идея', { exact: true })).toHaveValue('A complete explanation');
 		await page.getByRole('button', { name: row.button, exact: true }).click();
-		await expect(page.getByRole('button', { name: 'Скопировать в новый черновик' })).toBeVisible();
+		await expect(page.getByText(row.done, { exact: true })).toBeVisible();
 		const response = await (await page.request.get(`/leetcode/api/tasks/${taskId}`)).json();
 		expect(response.task.state).toBe(row.state); expect(response.submissions).toHaveLength(row.submissions);
 	});
 }
 
 test('retries a submission with the changed task version', async ({ page, notebook, server }) => {
-	const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id);
-	await page.reload();
+	const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id, 'changes_requested');
+	await page.goto(`/leetcode/tasks/${taskId}`);
 	await page.getByLabel('Основная идея', { exact: true }).fill('A complete explanation');
 	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
 	await DB.prepare("UPDATE homework_tasks SET state='in_progress',version=version+1 WHERE id=?").bind(taskId).run();
 	await page.getByRole('button', { name: 'Отправить на проверку', exact: true }).click();
 	await expect(page.getByText('В работе', { exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Повторить отправку', exact: true }).click();
-	await expect(page.getByRole('button', { name: 'Скопировать в новый черновик' })).toBeVisible();
+	await expect(page.getByText('Отправлено', { exact: true })).toBeVisible();
 	expect((await (await page.request.get(`/leetcode/api/tasks/${taskId}`)).json()).task.state).toBe('submitted');
 });
 
 test('hides the submission retry after the task is cancelled', async ({ page, notebook, server }) => {
 	const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id);
-	await page.reload();
+	await page.goto(`/leetcode/tasks/${taskId}`);
 	await page.getByLabel('Основная идея', { exact: true }).fill('A complete explanation');
 	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
 	await DB.prepare("UPDATE homework_tasks SET state='cancelled',version=version+1 WHERE id=?").bind(taskId).run();
 	await page.getByRole('button', { name: 'Отправить на проверку', exact: true }).click();
-	await expect(page.getByRole('button', { name: 'Отправить на проверку', exact: true })).toHaveCount(0);
+	await expect(page.getByText('Отменено', { exact: true })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Отправить на проверку', exact: true })).toBeDisabled();
 	await expect(page.getByRole('alert')).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Повторить отправку', exact: true })).toHaveCount(0);
 	expect((await (await page.request.get(`/leetcode/api/tasks/${taskId}`)).json()).task.state).toBe('cancelled');
@@ -257,7 +262,7 @@ test('drops recovery when edits return to the server copy', async ({ page, noteb
 	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
 	expect(await page.evaluate(id => sessionStorage.getItem(`leetcode:draft:student-test:${id}`), notebook.problem.id)).toBeNull();
 	await page.getByRole('button', { name: 'Сохранить попытку', exact: true }).click();
-	await page.getByRole('button', { name: 'Скопировать в новый черновик' }).click();
+	await expect(page.getByText('Попытка сохранена.', { exact: true })).toBeVisible();
 	await expect(idea).toBeEditable();
 	await expect(page.getByRole('region', { name: 'Копия для восстановления' })).toHaveCount(0);
 	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
@@ -277,7 +282,7 @@ test('drops recovery when a reload shows that the server stored a save whose ack
 	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
 	expect(await page.evaluate(id => sessionStorage.getItem(`leetcode:draft:student-test:${id}`), notebook.problem.id)).toBeNull();
 	await page.getByRole('button', { name: 'Сохранить попытку', exact: true }).click();
-	await page.getByRole('button', { name: 'Скопировать в новый черновик' }).click();
+	await expect(page.getByText('Попытка сохранена.', { exact: true })).toBeVisible();
 	await expect(idea).toBeEditable();
 	await expect(page.getByRole('region', { name: 'Копия для восстановления' })).toHaveCount(0);
 	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
@@ -315,39 +320,4 @@ test('keeps the recovery base version through a restored conflict', async ({ pag
 	await expect(page.getByLabel('Основная идея', { exact: true })).toHaveValue('First tab explanation');
 	const server = await page.request.get(`/leetcode/api/problems/${notebook.problem.id}/attempts/${notebook.attempt.id}`);
 	expect((await server.json()).document.approaches[0].idea).toBe('Second tab explanation');
-});
-
-test('removes a start error after the attempt save succeeds', async ({ page, notebook }) => {
-	await page.getByLabel('Основная идея', { exact: true }).fill('Saved explanation');
-	await page.getByRole('button', { name: 'Сохранить попытку', exact: true }).click();
-	await page.getByRole('button', { name: 'Начать новую попытку' }).click();
-	await expect(page.getByLabel('Основная идея', { exact: true })).toBeEditable();
-	await page.getByLabel('История попыток').selectOption(notebook.attempt.id);
-	await page.getByRole('button', { name: 'Скопировать в новый черновик' }).click();
-	await expect(page.getByRole('alert')).toHaveText('Откройте текущий черновик, прежде чем начинать новую попытку.');
-	await page.getByLabel('Основная идея', { exact: true }).fill('Draft explanation');
-	await page.getByRole('button', { name: 'Сохранить попытку', exact: true }).click();
-	await expect(page.getByRole('button', { name: 'Скопировать в новый черновик' })).toBeVisible();
-	await expect(page.getByRole('alert')).toHaveCount(0);
-});
-
-test('keeps an attempt chosen while the attempt save is pending', async ({ page, notebook }) => {
-	await page.getByLabel('Основная идея', { exact: true }).fill('Saved explanation');
-	await page.getByRole('button', { name: 'Сохранить попытку', exact: true }).click();
-	await page.getByRole('button', { name: 'Скопировать в новый черновик' }).click();
-	await page.getByLabel('Основная идея', { exact: true }).fill('Draft explanation');
-	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
-	let release!: () => void, entered!: () => void;
-	const held = new Promise<void>(resolve => { release = resolve; });
-	const pending = new Promise<void>(resolve => { entered = resolve; });
-	await page.route('**/attempts/*/save', async route => { entered(); await held; await route.continue(); }, { times: 1 });
-	await page.getByRole('button', { name: 'Сохранить попытку', exact: true }).click();
-	await pending;
-	const history = page.getByLabel('История попыток');
-	await history.selectOption(notebook.attempt.id);
-	await expect(page.getByLabel('Основная идея', { exact: true })).toHaveValue('Saved explanation');
-	release();
-	await expect(history.locator('option', { hasText: 'Сохранённая попытка 2' })).toHaveCount(1);
-	await expect(history).toHaveValue(notebook.attempt.id);
-	await expect(page.getByLabel('Основная идея', { exact: true })).toHaveValue('Saved explanation');
 });

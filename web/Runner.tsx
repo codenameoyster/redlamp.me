@@ -25,7 +25,7 @@ export function Runner({ code, tests, live, latest, record }: { code: string; te
 		{diagnostics.length > 0 && <ul className="messages" aria-label="Замечания к коду">{diagnostics.map((item, index) => <li key={index}>{item.message}</li>)}</ul>}
 		{/* The code runs with the session of the page, so only the student runs his code. */}
 		{record && (tests.spec && cases.length > 0 ? <button type="button" disabled={busy || !code.trim()} onClick={() => void run()}>Запустить тесты</button> : <p>Тестов для этой задачи пока нет.</p>)}
-		{latest && latest.total > 0 && latest.passed === latest.total && latest.codeHash === hash && <p><span className="tag good">Тесты пройдены</span></p>}
+		{latest && latest.total > 0 && latest.codeHash === hash && (latest.passed === latest.total ? <p><span className="tag good">Тесты пройдены</span></p> : !record && <p>Последний запуск: пройдено {latest.passed} из {latest.total}</p>)}
 		{error && <p className="error" role="alert">{error}</p>}
 		{results.length > 0 && <ol className="messages" aria-label="Результаты тестов">{results.map((result, index) => <li key={index} aria-label={`Тест ${index + 1}`}>
 			<strong>Тест {index + 1}: {result.ok === null ? 'без проверки' : result.ok ? '✓' : '✗'}</strong>

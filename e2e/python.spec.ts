@@ -1,5 +1,5 @@
-import { test, expect, signIn } from './fixtures';
-import type { Problem, TestCase, TestSpec } from '../shared/leetcode';
+import { test, expect, signIn, type TestEnv } from './fixtures';
+import { sha256, type Problem, type TestCase, type TestSpec } from '../shared/leetcode';
 
 test('loads Python and Ruff from the notebook assets under the page CSP', async ({ page, notebook, baseURL }) => {
 	test.slow();
@@ -14,14 +14,6 @@ test('loads Python and Ruff from the notebook assets under the page CSP', async 
 	expect(requests.filter(url => new URL(url).origin !== new URL(baseURL!).origin)).toEqual([]);
 });
 
-test('hides the runner for a solution in another language', async ({ page, notebook }) => {
-	await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: { mode: 'stdio' }, source: 'set', standard: [{ input: '1', expected: '1' }], own: [] } }));
-	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
-	await expect(page.getByRole('button', { name: 'Запустить тесты', exact: true })).toBeVisible();
-	await page.getByLabel('Язык', { exact: true }).fill('C++');
-	await expect(page.getByRole('button', { name: 'Запустить тесты', exact: true })).toHaveCount(0);
-});
-
 test('shows no run button to the parent on the student code', async ({ page, notebook }) => {
 	await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: { mode: 'call', method: 'twoSum' }, source: 'set', standard: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], own: [] } }));
 	await signIn(page, 'parent');
@@ -30,6 +22,20 @@ test('shows no run button to the parent on the student code', async ({ page, not
 	await expect(page.getByLabel('Код решения', { exact: true })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Запустить тесты', exact: true })).toHaveCount(0);
 });
+
+const storedRuns = [
+	{ name: 'shows the passed mark of the stored run to the parent', passed: 1, text: 'Тесты пройдены' },
+	{ name: 'shows the count of the stored run to the parent', passed: 0, text: 'Последний запуск: пройдено 0 из 1' },
+];
+for (const row of storedRuns) {
+	test(row.name, async ({ page, notebook, server }) => {
+		const { DB } = await server.getWorker<TestEnv>().getEnv(), { id, problemId, document } = notebook.attempt;
+		await DB.prepare("INSERT INTO test_runs (id,problem_id,attempt_id,approach_id,code_hash,passed,total,run_on,created_at) VALUES (?,?,?,?,?,?,1,'2026-10-12','now')").bind(crypto.randomUUID(), problemId, id, document.approaches[0].id, await sha256(document.approaches[0].code), row.passed).run();
+		await signIn(page, 'parent');
+		await page.goto(`/leetcode/problems/${problemId}`);
+		await expect(page.getByText(row.text, { exact: true })).toBeVisible();
+	});
+}
 
 const twoSum = 'class Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n';
 const runs: { name: string; spec: TestSpec; code: string; cases: TestCase[]; results: string[]; summary: string | null; diagnostics: string[] }[] = [
@@ -123,7 +129,6 @@ test('marks passed tests, keeps the mark after a reload and counts the XP', asyn
 	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
 	await page.reload();
 	await expect(mark).toBeVisible();
-	await expect(page.getByRole('option', { name: /Тесты пройдены$/ })).toHaveCount(1);
 	// +10 XP for the first pass and -2 XP for the failed run.
 	await expect(page.getByLabel('Прогресс до уровня 2')).toHaveAttribute('value', '8');
 	await code.fill(`${twoSum}        return [0, 1]  # done\n`);

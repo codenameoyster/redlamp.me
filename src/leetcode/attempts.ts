@@ -1,5 +1,5 @@
 import type { Env } from '../index';
-import { MAX_DOCUMENT_BYTES, newApproach, sha256, type Attempt, type AttemptDocument, type AttemptSummary, type SessionUser } from '../../shared/leetcode';
+import { MAX_DOCUMENT_BYTES, newApproach, type Attempt, type AttemptDocument, type AttemptSummary, type SessionUser } from '../../shared/leetcode';
 import { requireRole } from './auth';
 import { calendarDate, changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
 import { getProblem, searchText } from './problems';
@@ -50,10 +50,8 @@ export async function handleAttempts(request: Request, env: Env, user: SessionUs
 	if (request.method === 'GET') {
 		if (id) return Response.json(await getAttempt(env, problemId, id));
 		const { limit, offset } = pagination(url);
-		// passedCode lists [code hash, current code] of each approach whose latest run passed all tests.
-		const rows = await env.DB.prepare(`SELECT ${attemptColumns},(SELECT json_group_array(json_array(r.codeHash,a.value->>'code')) FROM (${latestRuns('attempts.problem_id', 'attempts.id')}) r JOIN json_each(attempts.document,'$.approaches') a ON a.value->>'id'=r.approachId WHERE r.passed=r.total AND r.total>0) AS passedCode FROM attempts WHERE problem_id=? ORDER BY state ASC,created_at DESC,id LIMIT ? OFFSET ?`).bind(problemId, limit + 1, offset).all<Omit<AttemptSummary, 'testsPassed'> & { passedCode: string }>();
-		const items = await Promise.all(rows.results.map(async ({ passedCode, ...row }) => ({ ...row, testsPassed: (await Promise.all((JSON.parse(passedCode) as [string, string][]).map(async ([hash, code]) => hash === await sha256(code)))).includes(true) })));
-		return Response.json(page(items, limit, offset));
+		const rows = await env.DB.prepare(`SELECT ${attemptColumns} FROM attempts WHERE problem_id=? ORDER BY state ASC,created_at DESC,id LIMIT ? OFFSET ?`).bind(problemId, limit + 1, offset).all<AttemptSummary>();
+		return Response.json(page(rows.results, limit, offset));
 	}
 	requireRole(user, 'student');
 	const now = new Date().toISOString();

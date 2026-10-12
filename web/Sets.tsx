@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type SubmitEvent } from 'react';
+import { useEffect, useRef, useState, type RefObject, type SubmitEvent } from 'react';
 import type { Homework, HomeworkSummary, LearningSetDetails, LearningSetSummary, Page, Problem, QuizDeck, SessionUser, SetTask, SetTaskRow } from '../shared/leetcode';
 import { localDate } from '../shared/dates';
 import { api, message } from './api';
@@ -39,19 +39,23 @@ function ChapterPage({ slug, number, user }: { slug: string; number: number; use
 	const details = useResource<LearningSetDetails>(`/sets/${slug}`), decks = useResource<QuizDeck[]>(`/quiz?today=${localDate()}`), lesson = useResource<{ html: string }>(`/sets/${slug}/lesson/${number}`);
 	const [adding, setAdding] = useState<SetTaskRow | null>(null), article = useRef<HTMLElement>(null);
 	const set = details.data, chapter = set?.chapters[number - 1], html = set && lesson.data?.html;
-	useEffect(() => { for (const code of article.current?.querySelectorAll('pre code') ?? []) code.innerHTML = highlight(/\blanguage-(\S+)/.exec(code.className)?.[1] ?? 'python', code.textContent ?? '').html; }, [html]);
 	if (!set) return <p role="status">{details.error || 'Открываем набор...'}</p>;
 	if (!chapter) return <p role="alert">Такой главы нет. <a href={`/leetcode/sets/${slug}`}>К набору</a></p>;
 	return <div className="stack"><div className="heading"><div><h1>Глава {number}. {chapter.title}</h1><p>{chapter.summary}</p></div><div className="row"><Tutor context={{ kind: 'set', id: slug }} title={set.title} user={user} lesson={article} /></div></div>
 		{(details.error || decks.error || lesson.error) && <p className="error" role="alert">{details.error || decks.error || lesson.error}</p>}
-		{/* The lesson HTML is repository content: src/leetcode/sets/<set>/chapter<N>.html. */}
-		<article className="lesson" ref={article} dangerouslySetInnerHTML={{ __html: html ?? '' }} />
+		<Lesson html={html ?? ''} ref={article} />
 		<section className="card"><header className="card-head"><h2>Задачи</h2></header>{chapter.tasks.map(t => <article className="list-row" key={t.slug}><span className="small">{t.label}</span><div className="grow"><h3>{t.problemId ? <a href={`/leetcode/problems/${t.problemId}`}>{t.title}</a> : <a href={t.url} target="_blank" rel="noopener noreferrer">{t.title}</a>}</h3><p className="small">{t.note}</p></div><span className={`tag ${t.difficulty}`}>{difficultyLabels[t.difficulty]}</span>{t.accepted && <span className="tag good">Принято</span>}{t.activeTask && <a className="tag" href={`/leetcode/tasks/${t.activeTask.id}`}>{homeworkLabels[t.activeTask.state]}</a>}{user.role === 'parent' && !t.activeTask && <button onClick={() => setAdding(t)}>Добавить в домашнюю работу</button>}</article>)}</section>
 		<section className="card card-pad stack"><h2>Квиз главы</h2><p>{cardCounts(decks.data?.find(deck => deck.slug === `${slug}-${number}`))}</p><div className="row"><a className="button" href={`/leetcode/quiz/${slug}-${number}`}>Пройти квиз</a></div></section>
 		<section className="card card-pad stack"><h2>Где узнать больше</h2><ul>{chapter.links.map(link => <li key={link.url}><a href={link.url} target="_blank" rel="noopener noreferrer">{link.title}</a> <small>{link.source}</small></li>)}</ul></section>
 		<nav className="row" aria-label="Главы">{number > 1 && <a className="button" href={`/leetcode/sets/${slug}/${number - 1}`}>Предыдущая глава</a>}<a className="button" href={`/leetcode/sets/${slug}`}>К набору</a>{number < set.chapters.length && <a className="button" href={`/leetcode/sets/${slug}/${number + 1}`}>Следующая глава</a>}</nav>
 		{adding && <AddToHomework task={adding} title={set.title} close={() => setAdding(null)} added={() => { setAdding(null); details.reload(); }} />}
 	</div>;
+}
+
+// The lesson HTML is repository content: src/leetcode/sets/<set>/chapter<N>.html.
+export function Lesson({ html, ref }: { html: string; ref: RefObject<HTMLElement | null> }) {
+	useEffect(() => { for (const code of ref.current?.querySelectorAll('pre code') ?? []) code.innerHTML = highlight(/\blanguage-(\S+)/.exec(code.className)?.[1] ?? 'python', code.textContent ?? '').html; }, [html]);
+	return <article className="lesson" ref={ref} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
 function AddToHomework({ task, title, close, added }: { task: SetTaskRow; title: string; close: () => void; added: () => void }) {

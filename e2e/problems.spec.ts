@@ -86,7 +86,7 @@ test.describe('problem details', () => {
 		await expect(dialog.getByRole('status')).toHaveCount(0);
 		await dialog.getByRole('button', { name: 'Сохранить задачу', exact: true }).click();
 		await expect(page.getByRole('heading', { name: 'Theatre Square', exact: true })).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Открыть задачу', exact: true })).toHaveAttribute('href', 'https://codeforces.com/problemset/problem/1/A');
+		await expect(page.getByRole('link', { name: 'Codeforces ↗', exact: true })).toHaveAttribute('href', 'https://codeforces.com/problemset/problem/1/A');
 		expect(looked).toBe(false);
 	});
 });

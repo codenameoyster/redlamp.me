@@ -40,7 +40,7 @@ export function Tutor({ context, title, user, flush, quote, lesson }: { context:
 		if (!dialog.current!.open) show();
 		void ask('Объясните эту часть.', text);
 	});
-	useEffect(() => bridge ? watchSelection(lesson!.current!, text => explain(text)) : undefined, [bridge, lesson]);
+	useEffect(() => bridge ? watchSelection(lesson!, text => explain(text)) : undefined, [bridge, lesson]);
 	function highlight(quote: string) {
 		if (dialog.current!.matches(':modal')) dialog.current!.close(); // A modal panel covers the lesson.
 		setMarked(highlightIn(lesson!.current!, quote) ? 'Отрывок выделен в уроке.' : 'Этого отрывка нет в тексте урока.');

@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
-import type { Dashboard, HomeworkDetails, HomeworkSummary, HomeworkTask, Page, Role, TaskDetails } from '../shared/leetcode';
+import type { Dashboard, HomeworkDetails, HomeworkSummary, HomeworkTask, Page, TaskDetails } from '../shared/leetcode';
 
 let student: string, parent: string, problemId: string, attemptId: string, homeworkId: string, taskId: string, submissionId: string;
 const insertProblem = env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,?,?,'medium','[]','','','now','now')");
@@ -198,19 +198,11 @@ it.each([
 	expect(await response.json()).toMatchObject({ error: { code: 'not_found' } });
 });
 
-it.each([
-	{ name: 'parent reply after completion', role: 'parent', task: 'own', expected: 201, error: null },
-	{ name: 'student reply after completion', role: 'student', task: 'own', expected: 201, error: null },
-	{ name: 'reply with the task of another problem', role: 'student', task: 'other', expected: 400, error: { code: 'invalid_reference' } },
-	{ name: 'reply with an unknown task', role: 'student', task: 'unknown', expected: 404, error: { code: 'not_found' } },
-])('$name', async ({ role, task, expected, error }) => {
-	const otherProblem = crypto.randomUUID(), otherTask = crypto.randomUUID();
-	await env.DB.batch([env.DB.prepare("UPDATE homework_tasks SET state='completed'"), insertProblem.bind(otherProblem, 'subsets', 'Subsets'), insertTask.bind(otherTask, homeworkId, otherProblem, 'assigned', '2026-10-05')]);
-	const chosen = { own: taskId, other: otherTask, unknown: crypto.randomUUID() }[task];
-	const response = await request(`/problems/${problemId}/feedback`, 'POST', { taskId: chosen, body: 'Follow-up question.' }, role === 'parent' ? parent : student);
-	expect(response.status).toBe(expected);
-	expect(await response.json()).toMatchObject(error ? { error } : { author: role as Role, taskId, kind: 'reply' });
-	expect(await env.DB.prepare('SELECT count(*) AS count FROM feedback').first()).toEqual({ count: error ? 0 : 1 });
+it('rejects a discussion reply', async () => {
+	const response = await request(`/problems/${problemId}/feedback`, 'POST', { taskId, body: 'Follow-up question.' }, student);
+	expect(response.status).toBe(405);
+	expect(response.headers.get('Allow')).toBe('GET');
+	expect(await env.DB.prepare('SELECT count(*) AS count FROM feedback').first()).toEqual({ count: 0 });
 });
 
 it.each([

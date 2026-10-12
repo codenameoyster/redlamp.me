@@ -5,7 +5,7 @@ test('reveals saved work on request and keeps acceptance after a failed review',
 	await page.getByRole('combobox', { name: 'Статус на LeetCode', exact: true }).selectOption('accepted');
 	await page.getByRole('combobox', { name: 'Понимание', exact: true }).selectOption('independent');
 	await page.getByRole('button', { name: 'Сохранить попытку', exact: true }).click();
-	await expect(page.getByRole('button', { name: 'Скопировать в новый черновик' })).toBeVisible();
+	await expect(page.getByText('Попытка сохранена.', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Повторить задачу' }).click();
 	await expect(page.getByRole('button', { name: 'Показать сохранённую работу' })).toBeVisible();
 	await expect(page.getByLabel('Код решения', { exact: true })).toHaveCount(0);

@@ -28,22 +28,13 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 	const url = new URL(request.url), now = new Date().toISOString();
 	const discussion = /^\/leetcode\/api\/problems\/([^/]+)\/feedback$/.exec(url.pathname);
 	if (discussion) {
-		methods(request, ['GET', 'POST']);
+		methods(request, ['GET']);
 		const problemId = uuid(discussion[1]); await getProblem(env, problemId);
-		if (request.method === 'GET') {
-			const { limit, offset } = pagination(url);
-			const statements = [env.DB.prepare(`SELECT ${feedbackColumns} FROM feedback WHERE problem_id=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(problemId, limit + 1, offset)];
-			if (!offset) statements.push(env.DB.prepare('INSERT INTO discussion_reads (role,problem_id,read_at) SELECT ?,problem_id,max(created_at) FROM feedback WHERE problem_id=? GROUP BY problem_id ON CONFLICT(role,problem_id) DO UPDATE SET read_at=excluded.read_at').bind(user.role, problemId));
-			const [rows] = await env.DB.batch<Feedback>(statements);
-			return Response.json(page(rows.results, limit, offset));
-		}
-		const data = object(await readJson(request), ['body', 'taskId', 'submissionId']);
-		const body = text(data.body, 8000, true).trim(), taskId = data.taskId == null ? null : uuid(data.taskId), submissionId = data.submissionId == null ? null : uuid(data.submissionId);
-		if (taskId && (await getTask(env, taskId, user.role)).problemId !== problemId) throw new HttpError(400, 'invalid_reference', 'Выберите задание для этой задачи.');
-		if (submissionId && !await env.DB.prepare('SELECT s.id FROM submissions s JOIN homework_tasks t ON t.id=s.task_id WHERE s.id=? AND t.problem_id=? AND (? IS NULL OR t.id=?)').bind(submissionId, problemId, taskId, taskId).first()) throw new HttpError(400, 'invalid_reference', 'Выберите отправленную работу для этого обсуждения.');
-		const id = crypto.randomUUID();
-		await env.DB.prepare("INSERT INTO feedback VALUES (?,?,?,?,?,'reply',?,?)").bind(id, problemId, taskId, submissionId, user.role, body, now).run();
-		return Response.json(await env.DB.prepare(`SELECT ${feedbackColumns} FROM feedback WHERE id=?`).bind(id).first(), { status: 201 });
+		const { limit, offset } = pagination(url);
+		const statements = [env.DB.prepare(`SELECT ${feedbackColumns} FROM feedback WHERE problem_id=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(problemId, limit + 1, offset)];
+		if (!offset) statements.push(env.DB.prepare('INSERT INTO discussion_reads (role,problem_id,read_at) SELECT ?,problem_id,max(created_at) FROM feedback WHERE problem_id=? GROUP BY problem_id ON CONFLICT(role,problem_id) DO UPDATE SET read_at=excluded.read_at').bind(user.role, problemId));
+		const [rows] = await env.DB.batch<Feedback>(statements);
+		return Response.json(page(rows.results, limit, offset));
 	}
 	const bundle = /^\/leetcode\/api\/homework(?:\/([^/]+))?$/.exec(url.pathname);
 	if (bundle) {

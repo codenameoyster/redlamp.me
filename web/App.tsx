@@ -4,9 +4,9 @@ import type { Game, SessionUser } from '../shared/leetcode';
 import { api, ApiError, message } from './api';
 import { Login } from './Login';
 import { Problems } from './Problems';
-import { Problem } from './Problem';
+import { Workspace } from './Workspace';
 import type { LeaveGuard } from './useDraft';
-import { Homework, Task } from './Homework';
+import { Homework } from './Homework';
 import { Sets } from './Sets';
 import { Quiz } from './Quiz';
 import { Today } from './Today';
@@ -84,6 +84,6 @@ export function App() {
 	const sets = /^\/leetcode\/sets(?:\/([a-z0-9-]+)(?:\/([1-9][0-9]?))?)?$/.exec(path);
 	const quiz = /^\/leetcode\/quiz(?:\/([a-z0-9-]+))?$/.exec(path);
 	const review = /^\/leetcode\/problems\/([a-f0-9-]{36})\/review$/.exec(path);
-	const screen = path === '/leetcode/problems' ? <Problems /> : match ? <Problem id={match[1]} user={user} registerGuard={registerGuard} /> : homework ? <Homework id={homework[1]} user={user} /> : task ? <Task id={task[1]} user={user} /> : sets ? <Sets slug={sets[1]} chapter={sets[2] ? Number(sets[2]) : undefined} user={user} /> : quiz ? <Quiz slug={quiz[1]} user={user} /> : review ? <Review id={review[1]} user={user} /> : path === '/leetcode/tutor' ? <TutorPage user={user} /> : <Today user={user} />;
+	const screen = path === '/leetcode/problems' ? <Problems /> : match || task ? <Workspace problemId={match?.[1]} taskId={task?.[1]} user={user} registerGuard={registerGuard} /> : homework ? <Homework id={homework[1]} user={user} /> : sets ? <Sets slug={sets[1]} chapter={sets[2] ? Number(sets[2]) : undefined} user={user} /> : quiz ? <Quiz slug={quiz[1]} user={user} /> : review ? <Review id={review[1]} user={user} /> : path === '/leetcode/tutor' ? <TutorPage user={user} /> : <Today user={user} />;
 	return <Layout user={user} logout={logout}>{error && <p className="error" role="alert">{error}</p>}{screen}</Layout>;
 }

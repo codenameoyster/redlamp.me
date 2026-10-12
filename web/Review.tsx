@@ -3,7 +3,7 @@ import type { Attempt, AttemptSummary, Page, Problem, Revision, SessionUser, Und
 import { addCalendarDays, localDate } from '../shared/dates';
 import { api, ApiError, message } from './api';
 import { useResource } from './useResource';
-import { AttemptContent, understandingLabels } from './Problem';
+import { AttemptContent, understandingLabels } from './Workspace';
 
 const results: { value: Understanding; label: string; days: number }[] = [{ value: 'needs_practice', label: 'Нужно потренироваться', days: 1 }, { value: 'with_help', label: 'Решил с подсказкой', days: 3 }, { value: 'independent', label: 'Решил сам', days: 7 }];
 export function Review({ id, user }: { id: string; user: SessionUser }) {

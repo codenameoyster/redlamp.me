@@ -10,7 +10,7 @@ for (const row of dueDates) {
 		const { taskId } = await addTask(DB, notebook.problem.id, row.state, '2020-01-01');
 		await page.goto('/leetcode');
 		await expect(page.getByText(row.due, { exact: true })).toBeVisible();
-		await expect(page.locator(`a[href="/leetcode/tasks/${taskId}"]`)).toHaveText(notebook.problem.title);
+		await expect(page.getByRole('heading', { level: 3, name: notebook.problem.title }).getByRole('link')).toHaveAttribute('href', `/leetcode/tasks/${taskId}`);
 		await expect(page.getByText('Week 41', { exact: true })).toBeVisible();
 	});
 }
@@ -28,6 +28,19 @@ for (const row of nextSteps) {
 		await expect(page.getByRole('heading', { name: 'Выберите следующую задачу.' })).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Открыть библиотеку задач' })).toHaveAttribute('href', '/leetcode/problems');
 		await expect(page.getByRole('heading', { name: 'Ваша первая задача начинается здесь.' })).toHaveCount(0);
+	});
+}
+
+const focus = [
+	{ name: 'draft of a task opens the task window', task: true },
+	{ name: 'draft of a library problem opens the problem window', task: false },
+];
+for (const row of focus) {
+	test(row.name, async ({ page, server, notebook }) => {
+		const { DB } = await server.getWorker<TestEnv>().getEnv();
+		const taskId = row.task ? (await addTask(DB, notebook.problem.id, 'in_progress')).taskId : null;
+		await page.goto('/leetcode');
+		await expect(page.getByRole('link', { name: 'Продолжить работу', exact: true })).toHaveAttribute('href', taskId ? `/leetcode/tasks/${taskId}` : `/leetcode/problems/${notebook.problem.id}`);
 	});
 }
 

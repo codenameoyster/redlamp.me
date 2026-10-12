@@ -1,7 +1,7 @@
 import { test, expect, signIn, addMessages, type TestEnv } from './fixtures';
 import type { TaskDetails } from '../shared/leetcode';
 
-test('completes learning with two accounts, two approaches, and a linked set', async ({ page: parent, browser, baseURL }, testInfo) => {
+test('completes learning with two accounts and a linked set', async ({ page: parent, browser, baseURL }, testInfo) => {
 	const studentContext = await browser.newContext({ baseURL, viewport: testInfo.project.use.viewport });
 	const student = await studentContext.newPage();
 	try {
@@ -17,7 +17,7 @@ test('completes learning with two accounts, two approaches, and a linked set', a
 		const problemId = parent.url().split('/').at(-1)!;
 		await parent.getByRole('link', { name: 'Домашняя работа', exact: true }).click();
 		await parent.getByLabel('Название', { exact: true }).fill('Week 41: sliding window');
-		await parent.getByLabel('Задание', { exact: true }).fill('Compare two approaches. Explain when the window can shrink.');
+		await parent.getByLabel('Задание', { exact: true }).fill('Explain when the window can shrink.');
 		await parent.getByRole('button', { name: 'Создать домашнюю работу', exact: true }).click();
 		await expect(parent.getByRole('heading', { name: 'Week 41: sliding window', level: 1 })).toBeVisible();
 		await parent.getByRole('group', { name: 'Задача', exact: true }).getByRole('radio', { name: /^Minimum Window Substring/ }).check();
@@ -34,48 +34,38 @@ test('completes learning with two accounts, two approaches, and a linked set', a
 		await student.getByRole('link', { name: 'Перестановки и сочетания', exact: true }).click();
 		await expect(student.getByRole('heading', { name: 'Перестановки и сочетания', level: 1 })).toBeVisible();
 		await student.goBack();
-		await student.getByRole('link', { name: 'Открыть тетрадь', exact: true }).click();
-		await student.getByRole('button', { name: 'Начать новую попытку' }).click();
-		await student.getByLabel('Название подхода', { exact: true }).fill('Brute force');
-		await student.getByLabel('Основная идея', { exact: true }).fill('Try every substring and count its characters.');
-		await student.getByLabel('Код решения', { exact: true }).fill('return brute_force(source, target)');
-		await student.getByRole('button', { name: 'Добавить подход' }).click();
-		const second = student.getByRole('region', { name: 'Подход 2', exact: true });
-		await second.getByLabel('Название подхода', { exact: true }).fill('Sliding window');
-		await second.getByLabel('Основная идея', { exact: true }).fill('Shrink only while all target counts are satisfied.');
-		await second.getByLabel('Код решения', { exact: true }).fill(`return sliding_window(source, target) # ${'long_code_line_'.repeat(40)}`);
+		await student.getByLabel('Основная идея', { exact: true }).fill('Shrink only while all target counts are satisfied.');
+		await student.getByLabel('Код решения', { exact: true }).fill(`return sliding_window(source, target) # ${'long_code_line_'.repeat(40)}`);
 		await student.getByRole('combobox', { name: 'Статус на LeetCode', exact: true }).selectOption('accepted');
 		await student.getByRole('combobox', { name: 'Понимание', exact: true }).selectOption('with_help');
 		await student.getByRole('button', { name: 'Через три дня', exact: true }).click();
 		expect(await student.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 		await student.screenshot({ path: testInfo.outputPath('notebook.png'), fullPage: true });
 		await student.getByRole('button', { name: 'Отправить на проверку', exact: true }).click();
-		await expect(student.getByRole('button', { name: 'Скопировать в новый черновик' })).toBeVisible();
+		await expect(student.getByText('Отправлено', { exact: true })).toBeVisible();
 		await parent.reload();
 		await expect(parent.getByText('Отправлено', { exact: true })).toBeVisible();
 		const firstDetails = await (await parent.request.get(`/leetcode/api/tasks/${taskId}`)).json() as TaskDetails;
 		const firstAttemptId = firstDetails.submissions[0].attemptId;
 		await parent.getByLabel('Отзыв', { exact: true }).fill('Explain why shrinking cannot miss a shorter valid window.');
 		await parent.getByRole('button', { name: 'Вернуть на доработку' }).click();
-		await expect(parent.getByText('Нужны правки', { exact: true }).first()).toBeVisible();
+		await expect(parent.getByText('Нужны правки: Explain why shrinking cannot miss a shorter valid window.', { exact: true })).toBeVisible();
 		await parent.getByRole('link', { name: 'Week 41: sliding window', exact: true }).click();
 		const tasks = parent.getByRole('region', { name: 'Задания' }), title = (await tasks.getByRole('link', { name: 'Minimum Window Substring', exact: true }).boundingBox())!, difficulty = (await tasks.getByText('Сложно', { exact: true }).boundingBox())!;
 		expect(title.x + title.width <= difficulty.x || title.y + title.height <= difficulty.y).toBe(true);
 		await parent.goto(taskURL);
 		await student.reload();
-		await student.getByRole('button', { name: 'Скопировать в новый черновик' }).click();
-		await student.getByLabel('Почему это работает', { exact: true }).nth(1).fill('Each valid left boundary is checked before it is removed.');
-		await student.getByLabel('Код решения', { exact: true }).first().fill('return revised_brute_force(source, target)');
-		await student.getByRole('button', { name: 'Сохранить попытку', exact: true }).click();
-		await expect(student.getByRole('button', { name: 'Скопировать в новый черновик' })).toBeVisible();
-		await student.goto(taskURL);
+		await expect(student.getByText('Нужны правки: Explain why shrinking cannot miss a shorter valid window.', { exact: true })).toBeVisible();
+		await student.getByLabel('Почему это работает', { exact: true }).fill('Each valid left boundary is checked before it is removed.');
+		await student.getByLabel('Код решения', { exact: true }).fill('return revised_sliding_window(source, target)');
 		await student.getByRole('button', { name: 'Отправить на проверку', exact: true }).click();
 		await expect(student.getByText('Отправлено', { exact: true })).toBeVisible();
 		await parent.reload();
+		await expect(parent.getByLabel('Код решения', { exact: true })).toHaveValue('return revised_sliding_window(source, target)');
 		await parent.getByRole('button', { name: 'Завершить' }).click();
 		await expect(parent.getByText('Завершено', { exact: true }).first()).toBeVisible();
 		const original = await (await parent.request.get(`/leetcode/api/problems/${problemId}/attempts/${firstAttemptId}`)).json();
-		expect(original.document.approaches[0].code).toBe('return brute_force(source, target)');
+		expect(original.document.approaches[0].code).toBe(`return sliding_window(source, target) # ${'long_code_line_'.repeat(40)}`);
 		expect(await (await parent.request.get(`/leetcode/api/problems/${problemId}`)).json()).toMatchObject({ solved: true, understanding: 'with_help' });
 		await parent.getByRole('link', { name: 'Сегодня', exact: true }).click();
 		await expect(parent.getByRole('heading', { name: 'Понимание тем' })).toBeVisible();

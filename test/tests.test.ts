@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { login, request } from './client';
-import type { AttemptSummary, Page, ProblemTests } from '../shared/leetcode';
+import type { ProblemTests } from '../shared/leetcode';
 
 let cookie: string;
 beforeEach(async () => { cookie = await login(); });
@@ -118,23 +118,21 @@ it.each([
 const insertRun = env.DB.prepare('INSERT INTO test_runs (id,problem_id,attempt_id,approach_id,code_hash,passed,total,run_on,created_at) VALUES (?,?,?,?,?,?,?,?,?)');
 type Run = { attempt?: 'other'; approachId: string; passed: number; total: number; codeHash: string; createdAt: string };
 const at = (hour: number) => `2026-10-12T${hour}:00:00.000Z`;
-it.each<{ name: string; runs: Run[]; latest: Run[]; testsPassed: boolean }>([
-	{ name: 'no runs', runs: [], latest: [], testsPassed: false },
-	{ name: 'latest run passes with the current code', runs: [{ approachId: x, passed: 5, total: 5, codeHash: abc, createdAt: at(10) }], latest: [{ approachId: x, passed: 5, total: 5, codeHash: abc, createdAt: at(10) }], testsPassed: true },
-	{ name: 'latest run passes with other code', runs: [{ approachId: x, passed: 5, total: 5, codeHash: other, createdAt: at(10) }], latest: [{ approachId: x, passed: 5, total: 5, codeHash: other, createdAt: at(10) }], testsPassed: false },
-	{ name: 'older run passes and latest run fails', runs: [{ approachId: x, passed: 5, total: 5, codeHash: abc, createdAt: at(10) }, { approachId: x, passed: 4, total: 5, codeHash: abc, createdAt: at(11) }], latest: [{ approachId: x, passed: 4, total: 5, codeHash: abc, createdAt: at(11) }], testsPassed: false },
-	{ name: 'older run fails and latest run passes', runs: [{ approachId: x, passed: 4, total: 5, codeHash: abc, createdAt: at(10) }, { approachId: x, passed: 5, total: 5, codeHash: abc, createdAt: at(11) }], latest: [{ approachId: x, passed: 5, total: 5, codeHash: abc, createdAt: at(11) }], testsPassed: true },
-	{ name: 'latest run without a check', runs: [{ approachId: x, passed: 0, total: 0, codeHash: abc, createdAt: at(10) }], latest: [{ approachId: x, passed: 0, total: 0, codeHash: abc, createdAt: at(10) }], testsPassed: false },
-	{ name: 'second approach passes', runs: [{ approachId: x, passed: 4, total: 5, codeHash: abc, createdAt: at(10) }, { approachId: y, passed: 5, total: 5, codeHash: abc, createdAt: at(10) }], latest: [{ approachId: x, passed: 4, total: 5, codeHash: abc, createdAt: at(10) }, { approachId: y, passed: 5, total: 5, codeHash: abc, createdAt: at(10) }], testsPassed: true },
-	{ name: 'passed run of an approach outside the attempt', runs: [{ approachId: z, passed: 5, total: 5, codeHash: abc, createdAt: at(10) }], latest: [{ approachId: z, passed: 5, total: 5, codeHash: abc, createdAt: at(10) }], testsPassed: false },
-	{ name: 'passed run of another attempt', runs: [{ attempt: 'other', approachId: x, passed: 5, total: 5, codeHash: abc, createdAt: at(10) }], latest: [], testsPassed: false },
-])('$name', async ({ runs, latest, testsPassed }) => {
+it.each<{ name: string; runs: Run[]; latest: Run[] }>([
+	{ name: 'no runs', runs: [], latest: [] },
+	{ name: 'latest run passes with the current code', runs: [{ approachId: x, passed: 5, total: 5, codeHash: abc, createdAt: at(10) }], latest: [{ approachId: x, passed: 5, total: 5, codeHash: abc, createdAt: at(10) }] },
+	{ name: 'latest run passes with other code', runs: [{ approachId: x, passed: 5, total: 5, codeHash: other, createdAt: at(10) }], latest: [{ approachId: x, passed: 5, total: 5, codeHash: other, createdAt: at(10) }] },
+	{ name: 'older run passes and latest run fails', runs: [{ approachId: x, passed: 5, total: 5, codeHash: abc, createdAt: at(10) }, { approachId: x, passed: 4, total: 5, codeHash: abc, createdAt: at(11) }], latest: [{ approachId: x, passed: 4, total: 5, codeHash: abc, createdAt: at(11) }] },
+	{ name: 'older run fails and latest run passes', runs: [{ approachId: x, passed: 4, total: 5, codeHash: abc, createdAt: at(10) }, { approachId: x, passed: 5, total: 5, codeHash: abc, createdAt: at(11) }], latest: [{ approachId: x, passed: 5, total: 5, codeHash: abc, createdAt: at(11) }] },
+	{ name: 'latest run without a check', runs: [{ approachId: x, passed: 0, total: 0, codeHash: abc, createdAt: at(10) }], latest: [{ approachId: x, passed: 0, total: 0, codeHash: abc, createdAt: at(10) }] },
+	{ name: 'second approach passes', runs: [{ approachId: x, passed: 4, total: 5, codeHash: abc, createdAt: at(10) }, { approachId: y, passed: 5, total: 5, codeHash: abc, createdAt: at(10) }], latest: [{ approachId: x, passed: 4, total: 5, codeHash: abc, createdAt: at(10) }, { approachId: y, passed: 5, total: 5, codeHash: abc, createdAt: at(10) }] },
+	{ name: 'passed run of an approach outside the attempt', runs: [{ approachId: z, passed: 5, total: 5, codeHash: abc, createdAt: at(10) }], latest: [{ approachId: z, passed: 5, total: 5, codeHash: abc, createdAt: at(10) }] },
+	{ name: 'passed run of another attempt', runs: [{ attempt: 'other', approachId: x, passed: 5, total: 5, codeHash: abc, createdAt: at(10) }], latest: [] },
+])('$name', async ({ runs, latest }) => {
 	const id = crypto.randomUUID(), attemptId = crypto.randomUUID(), otherId = crypto.randomUUID();
 	await env.DB.batch([insertProblem.bind(id, 'cf-1-a'), insertAttempt.bind(attemptId, id, 'draft', runDocument, at(12)), insertAttempt.bind(otherId, id, 'saved', runDocument, at(10)),
 		...runs.map(run => insertRun.bind(crypto.randomUUID(), id, run.attempt ? otherId : attemptId, run.approachId, run.codeHash, run.passed, run.total, '2026-10-12', run.createdAt))]);
 	const response = await request(`/problems/${id}/runs?attemptId=${attemptId}`, 'GET', undefined, cookie);
 	expect(response.status).toBe(200);
 	expect((await response.json() as Run[]).sort((a, b) => a.approachId.localeCompare(b.approachId))).toEqual(latest);
-	const attempts = await (await request(`/problems/${id}/attempts`, 'GET', undefined, cookie)).json() as Page<AttemptSummary>;
-	expect(attempts.items.find(item => item.id === attemptId)?.testsPassed).toBe(testsPassed);
 });
