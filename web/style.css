@@ -77,6 +77,7 @@ main { padding:12px; max-width:1680px; margin:0 auto; }
 .card-head h2,.card-head h2 a,.card-head a,.card.card-pad > h2:first-child a,.pane > section > h2:first-child a { font-size:13px; color:#000; }
 .card-head :focus-visible,.card.card-pad > h2:first-child :focus-visible,.pane > section > h2:first-child :focus-visible,.tutor-head :focus-visible { outline-color:#000; }
 .row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.row input[type="date"] { width:auto; }
 .row:has(> label) { align-items:end; }
 .spread { justify-content:space-between; }
 .tags { display:flex; flex-wrap:wrap; gap:4px; align-items:center; }

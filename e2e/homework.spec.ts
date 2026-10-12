@@ -96,6 +96,19 @@ test('moves the due date by one day once with Сила Бомжа', async ({ pag
 	await expect(page.getByText(`Сила Бомжа: срок перенесён на ${next.slice(8)}.${next.slice(5, 7)}.`, { exact: true })).toBeVisible();
 	await expect(power).toHaveCount(0);
 	await expect(page.locator('[data-poop]')).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Изменить срок', exact: true })).toHaveCount(0);
+});
+
+test('parent changes the due date from the homework header', async ({ page, notebook, server }) => {
+	const { DB } = await server.getWorker<TestEnv>().getEnv(), { homeworkId } = await addTask(DB, notebook.problem.id, 'assigned', '2026-10-20');
+	await signIn(page, 'parent');
+	await page.goto(`/leetcode/homework/${homeworkId}`);
+	await page.getByRole('button', { name: 'Изменить срок', exact: true }).click();
+	await page.getByLabel('Новый срок', { exact: true }).fill('2026-10-25');
+	await page.getByRole('button', { name: 'Сохранить срок', exact: true }).click();
+	await expect(page.getByText('Срок: 2026-10-25', { exact: true })).toBeVisible();
+	await expect(page.getByLabel('Новый срок', { exact: true })).toHaveCount(0);
+	expect(await DB.prepare('SELECT title,instructions,due_date FROM homework WHERE id=?').bind(homeworkId).first()).toEqual({ title: 'Week 41', instructions: 'Explain', due_date: '2026-10-25' });
 });
 
 test('cancels the task from the work window', async ({ page, notebook, server }) => {
