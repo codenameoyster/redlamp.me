@@ -74,6 +74,9 @@ export interface OwnTest { id: string; input: string; createdAt: string }
 // The answer of the reference solution to an own test: null when the task has no reference.
 export type Expected = { value: string } | { error: 'constraints' | 'input' | 'size' } | null;
 export interface ProblemTests { spec: TestSpec | null; source: 'set' | 'leetcode' | 'none'; standard: TestCase[]; own: OwnTest[]; skeleton: string }
+// An output of the student code on a hidden test: the answer text, the error message or a timeout.
+export type JudgeOutput = { value: string } | { error: string } | { timeout: true };
+export type Judgement = { verdict: 'accepted'; failed: null } | { verdict: 'wrong' | 'timeout' | 'error'; failed: { index: number; input: string; expected: string; output: string } };
 export interface TestRun { approachId: string; passed: number; total: number; codeHash: string; createdAt: string }
 export interface SetTask { url: string; number?: number; title: string; difficulty: Difficulty; topics: string[]; note: string; statement?: string; tests?: TaskTests }
 export interface Chapter { title: string; summary: string; tasks: SetTask[]; cards: Card[]; links: { title: string; url: string; source: string }[] }

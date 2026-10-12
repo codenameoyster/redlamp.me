@@ -27,6 +27,10 @@ export const sets: (LearningSet & { lessons: string[] })[] = [
 export type Reference = { mode: 'call'; solve: (...args: unknown[]) => unknown } | { mode: 'stdio'; solve: (stdin: string) => string };
 const references = new Map<string, Reference>(Object.entries({ ...permutationsAndCombinationsSolutions, ...twoPointersSolutions }));
 export const referenceOf = (slug: string): Reference | undefined => references.get(slug);
+// A generator of the hidden tests of a set task: 10 to 16 inputs in the test format of the task. random is a seeded PRNG.
+export type Generator = (random: () => number) => string[];
+const generators = new Map<string, Generator>();
+export const generatorOf = (slug: string): Generator | undefined => generators.get(slug);
 
 export const tasksOf = (set: LearningSet): SetTask[] => set.chapters.flatMap(chapter => chapter.tasks);
 export const taskSlug = (task: SetTask): string => problemSlug(task.url);

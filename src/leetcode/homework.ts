@@ -124,7 +124,7 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		const data = object(await readJson(request), ['version', 'submissionId', 'decision', 'body']);
 		const decision = choice(data.decision, ['changes_requested', 'completed']), body = text(data.body, 8000, decision === 'changes_requested').trim(), feedbackId = crypto.randomUUID();
 		const result = await env.DB.batch([
-			env.DB.prepare("INSERT INTO feedback (id,problem_id,task_id,submission_id,author,kind,body,created_at) SELECT ?,problem_id,id,current_submission_id,'parent',?,?,? FROM homework_tasks WHERE id=? AND version=? AND state='submitted' AND current_submission_id=?").bind(feedbackId, decision, body, now, id, integer(data.version), uuid(data.submissionId)),
+			env.DB.prepare(`INSERT INTO feedback (id,problem_id,task_id,submission_id,author,kind,body,created_at) SELECT ?,problem_id,id,current_submission_id,'parent',?,?,? FROM homework_tasks WHERE id=? AND version=? AND state IN ${decision === 'completed' ? "('submitted')" : "('submitted','completed')"} AND current_submission_id=?`).bind(feedbackId, decision, body, now, id, integer(data.version), uuid(data.submissionId)),
 			env.DB.prepare('UPDATE homework_tasks SET state=?,version=version+1,updated_at=? WHERE id=? AND EXISTS(SELECT 1 FROM feedback WHERE id=?)').bind(decision, now, id, feedbackId),
 		]);
 		changed(result[0]);

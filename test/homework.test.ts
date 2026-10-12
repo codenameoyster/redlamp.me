@@ -129,12 +129,15 @@ it.each([
 	{ name: 'cancel submitted', role: 'parent', from: 'submitted', action: 'cancel', expected: 200, to: 'cancelled' },
 	{ name: 'cancel requested changes', role: 'parent', from: 'changes_requested', action: 'cancel', expected: 200, to: 'cancelled' },
 	{ name: 'completed homework stays complete', role: 'parent', from: 'completed', action: 'cancel', expected: 409, to: 'completed' },
+	{ name: 'parent returns a completed task', role: 'parent', from: 'completed', action: 'changes_requested', expected: 200, to: 'changes_requested' },
+	{ name: 'parent cannot complete a completed task again', role: 'parent', from: 'completed', action: 'completed', expected: 409, to: 'completed' },
 ])('$name', async ({ role, from, action, expected, to }) => {
-	if (from === 'submitted') {
+	const reviewed = ['submitted', 'completed'].includes(from);
+	if (reviewed) {
 		await env.DB.prepare("UPDATE attempts SET state='saved'").run();
 		await env.DB.prepare('INSERT INTO submissions VALUES (?,?,?,?,?)').bind(submissionId, taskId, attemptId, 1, 'now').run();
 	}
-	await env.DB.prepare('UPDATE homework_tasks SET state=?,current_submission_id=?').bind(from, from === 'submitted' ? submissionId : null).run();
+	await env.DB.prepare('UPDATE homework_tasks SET state=?,current_submission_id=?').bind(from, reviewed ? submissionId : null).run();
 	const review = ['changes_requested', 'completed'].includes(action);
 	const body = review ? { version: 1, submissionId, decision: action, body: 'Explain the next step.' } : action === 'submit' ? { version: 1, attemptId, attemptVersion: 1 } : { version: 1 };
 	const response = await request(`/tasks/${taskId}/${review ? 'review' : action}`, 'POST', body, role === 'parent' ? parent : student);

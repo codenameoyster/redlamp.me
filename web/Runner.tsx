@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { sha256, type Expected, type ProblemTests, type TestCase, type TestRun } from '../shared/leetcode';
+import { sha256, type Expected, type Judgement, type ProblemTests, type TestCase, type TestRun } from '../shared/leetcode';
 import { api, message } from './api';
 import { checkCode, runTests, type Diagnostic, type RunResult } from './python';
 
@@ -65,4 +65,13 @@ export function OwnTests({ problemId, tests, changed }: { problemId: string; tes
 			<button disabled={busy}>Добавить тест</button>
 		</form>
 	</section>;
+}
+
+const failures = { wrong: 'Неверный ответ на тесте', timeout: 'Превышено время на тесте', error: 'Ошибка выполнения на тесте' };
+// The first hidden test that the code failed.
+export function Failure({ verdict, failed }: Exclude<Judgement, { failed: null }>) {
+	return <div className="error stack" role="alert" aria-label="Результат проверки">
+		<strong>{failures[verdict]} {failed.index + 1}{verdict === 'error' && `: ${failed.output}`}</strong>
+		{verdict === 'wrong' && <><span className="prose">Ввод: <code>{failed.input}</code></span><span className="prose">Верный ответ: <code>{failed.expected}</code></span><span className="prose">Ваш ответ: <code>{failed.output}</code></span></>}
+	</div>;
 }
