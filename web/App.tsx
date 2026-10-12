@@ -3,6 +3,7 @@ import { Bot, Brain, CalendarCheck, ClipboardCheck, CodeXml, LogOut, Moon, Searc
 import { NOTEBOOK_PAGE, type Game, type SessionUser } from '../shared/leetcode';
 import { api, ApiError, message } from './api';
 import { Login } from './Login';
+import { Music } from './Music';
 import { go } from './navigate';
 import { Problems } from './Problems';
 import { Workspace } from './Workspace';
@@ -33,7 +34,7 @@ export function Layout({ user, visit, children, logout }: { user: SessionUser; v
 			<nav aria-label="Тетрадь">{navigation.map(({ path, label, Icon }) => <a key={path} href={`/leetcode${path}`} aria-current={location.pathname === `/leetcode${path}` ? 'page' : undefined}><Icon size={18} />{label}</a>)}</nav>
 		</aside>
 		<div className="workspace"><header className="topbar"><a className="search" href="/leetcode/problems"><Search size={16} /><span>Поиск по задачам и заметкам</span></a>
-			<div className="account">{game && <div className="xp-chip"><strong>Уровень {game.level}</strong><progress className="xp" aria-label={`Прогресс до уровня ${game.level + 1}`} value={game.xp - game.levelXp} max={game.nextLevelXp - game.levelXp} /></div>}<button className="icon-button" onClick={appearance} aria-label={dark ? 'Светлая тема' : 'Тёмная тема'} data-tip={dark ? 'Включить светлую тему.' : 'Включить тёмную тему.'}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button><div className="user"><span className="avatar" aria-hidden="true">{user.username[0].toUpperCase()}</span><span><strong>{user.username}</strong><small>{user.role === 'parent' ? 'Родитель' : 'Ученик'}</small></span></div><button className="icon-button" onClick={logout} aria-label="Выйти" data-tip="Выйти из аккаунта."><LogOut size={18} /></button></div></header><main id="main">{children}</main></div>
+			<div className="account">{game && <div className="xp-chip"><strong>Уровень {game.level}</strong><progress className="xp" aria-label={`Прогресс до уровня ${game.level + 1}`} value={game.xp - game.levelXp} max={game.nextLevelXp - game.levelXp} /></div>}<Music /><button className="icon-button" onClick={appearance} aria-label={dark ? 'Светлая тема' : 'Тёмная тема'} data-tip={dark ? 'Включить светлую тему.' : 'Включить тёмную тему.'}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button><div className="user"><span className="avatar" aria-hidden="true">{user.username[0].toUpperCase()}</span><span><strong>{user.username}</strong><small>{user.role === 'parent' ? 'Родитель' : 'Ученик'}</small></span></div><button className="icon-button" onClick={logout} aria-label="Выйти" data-tip="Выйти из аккаунта."><LogOut size={18} /></button></div></header><main id="main">{children}</main></div>
 	</div>;
 }
 

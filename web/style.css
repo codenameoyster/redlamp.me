@@ -48,6 +48,11 @@ nav a[aria-current]:focus-visible { outline-color:#000; outline-offset:-3px; }
 .search { flex:0 1 320px; min-width:0; min-height:26px; display:flex; align-items:center; gap:6px; padding:0 8px; background:var(--field); box-shadow:var(--sunken); color:var(--muted); text-decoration:none; }
 .search span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .account { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+.music { display:grid; gap:4px; }
+.music .playing,.music .playing:hover { box-shadow:0 0 0 2px var(--orange); }
+.music input { appearance:none; width:26px; height:2px; min-height:0; padding:0; background:var(--hi); box-shadow:none; }
+.music input::-webkit-slider-thumb { appearance:none; width:4px; height:6px; background:var(--orange); }
+.music input::-moz-range-thumb { width:4px; height:6px; border:0; border-radius:0; background:var(--orange); }
 .icon-button { width:26px; padding:0; background:transparent; box-shadow:none; }
 .icon-button:hover { background:var(--face); box-shadow:var(--raised); }
 .xp-chip { display:flex; align-items:center; gap:6px; font-size:12px; }

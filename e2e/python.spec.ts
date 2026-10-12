@@ -7,7 +7,7 @@ test('loads Python and Ruff from the notebook assets under the page CSP', async 
 	page.on('request', request => requests.push(request.url()));
 	page.on('response', response => { if (response.ok()) loaded.push(new URL(response.url()).pathname); });
 	const shell = await page.goto(`/leetcode/problems/${notebook.problem.id}`);
-	expect(shell!.headers()['content-security-policy']).toBe("default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
+	expect(shell!.headers()['content-security-policy']).toBe("default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; media-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
 	await page.getByLabel('Код решения', { exact: true }).fill('class Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n        return nums2\n');
 	await expect(page.getByRole('list', { name: 'Замечания к коду' }).getByRole('listitem')).toHaveText(['Строка 3: неизвестное имя `nums2`.'], { timeout: 30_000 });
 	expect(loaded).toEqual(expect.arrayContaining(['/leetcode/assets/python.worker.js', '/leetcode/assets/pyodide/pyodide.asm.mjs', '/leetcode/assets/pyodide/pyodide.asm.wasm', '/leetcode/assets/pyodide/python_stdlib.zip', '/leetcode/assets/pyodide/pyodide-lock.json', '/leetcode/assets/ruff/ruff_wasm_bg.wasm']));
