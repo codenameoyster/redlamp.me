@@ -131,3 +131,44 @@ it.each([
 	expect(await env.DB.prepare('SELECT acceptance,understanding FROM attempts').first()).toEqual({ acceptance: 'not_submitted', understanding: 'needs_practice' });
 	expect(await env.DB.prepare('SELECT t.state,(SELECT count(*) FROM submissions) AS submissions,(SELECT count(*) FROM feedback) AS feedback FROM homework_tasks t').first()).toEqual({ state: 'in_progress', submissions: 0, feedback: 0 });
 });
+
+const withNotes = env.DB.prepare("UPDATE attempts SET document=json_set(document,'$.notes',?)");
+it.each([
+	{ name: 'solved without tutor messages', message: false, task: null, understanding: 'independent', after: null },
+	{ name: 'solved after a student message to the tutor', message: true, task: null, understanding: 'with_help', after: null },
+	{ name: 'solved assigned task', message: false, task: 'assigned', understanding: 'independent', after: { state: 'submitted', version: 2, taskVersion: 2, feedback: 0 } },
+	{ name: 'solved task in progress', message: false, task: 'in_progress', understanding: 'independent', after: { state: 'submitted', version: 2, taskVersion: 2, feedback: 0 } },
+	{ name: 'solved task with requested changes', message: false, task: 'changes_requested', understanding: 'independent', after: { state: 'submitted', version: 2, taskVersion: 2, feedback: 0 } },
+	{ name: 'submitted task stays', message: false, task: 'submitted', understanding: 'independent', after: { state: 'submitted', version: 1, taskVersion: null, feedback: 0 } },
+	{ name: 'completed task stays', message: false, task: 'completed', understanding: 'independent', after: { state: 'completed', version: 1, taskVersion: null, feedback: 0 } },
+	{ name: 'cancelled task stays', message: false, task: 'cancelled', understanding: 'independent', after: { state: 'cancelled', version: 1, taskVersion: null, feedback: 0 } },
+])('$name', async ({ message, task, understanding, after }) => {
+	vi.mocked(sets.generatorOf).mockReturnValue(undefined);
+	const homeworkId = crypto.randomUUID();
+	await withNotes.bind('Two pointers.').run();
+	if (message) await insertMessage.bind(crypto.randomUUID(), 'problem', problemId, 'student').run();
+	if (task) await env.DB.batch([insertBundle.bind(homeworkId), insertTask.bind(crypto.randomUUID(), homeworkId, problemId, task)]);
+	const response = await request(`/problems/${problemId}/solved`, 'POST', { attemptId }, student);
+	expect(response.status).toBe(200);
+	expect(await response.json()).toMatchObject({ id: attemptId, state: 'saved', acceptance: 'accepted', understanding, version: 2 });
+	expect(await env.DB.prepare('SELECT understanding,progress_version FROM problems').first()).toEqual({ understanding, progress_version: 2 });
+	expect(await env.DB.prepare('SELECT t.state,t.version,s.task_version AS taskVersion,(SELECT count(*) FROM feedback) AS feedback FROM homework_tasks t LEFT JOIN submissions s ON s.id=t.current_submission_id AND s.attempt_id=?').bind(attemptId).first()).toEqual(after);
+});
+
+it.each([
+	{ name: 'parent cannot mark a problem solved', role: 'parent', judged: false, notes: 'Two pointers.', attempt: 'draft', status: 403, code: 'forbidden' },
+	{ name: 'problem with a judge', role: 'student', judged: true, notes: 'Two pointers.', attempt: 'draft', status: 409, code: 'judged' },
+	{ name: 'empty work', role: 'student', judged: false, notes: ' ', attempt: 'draft', status: 400, code: 'empty_attempt' },
+	{ name: 'solved attempt again', role: 'student', judged: false, notes: 'Two pointers.', attempt: 'saved', status: 409, code: 'conflict' },
+	{ name: 'unknown attempt', role: 'student', judged: false, notes: 'Two pointers.', attempt: 'unknown', status: 404, code: 'not_found' },
+])('$name', async ({ role, judged, notes, attempt, status, code }) => {
+	if (!judged) vi.mocked(sets.generatorOf).mockReturnValue(undefined);
+	const homeworkId = crypto.randomUUID();
+	await env.DB.batch([withNotes.bind(notes), insertBundle.bind(homeworkId), insertTask.bind(crypto.randomUUID(), homeworkId, problemId, 'in_progress')]);
+	if (attempt === 'saved') await env.DB.prepare("UPDATE attempts SET state='saved'").run();
+	const response = await request(`/problems/${problemId}/solved`, 'POST', { attemptId: attempt === 'unknown' ? crypto.randomUUID() : attemptId }, role === 'parent' ? await login('parent') : student);
+	expect(response.status).toBe(status);
+	expect(await response.json()).toMatchObject({ error: { code } });
+	expect(await env.DB.prepare('SELECT acceptance,understanding FROM attempts').first()).toEqual({ acceptance: 'not_submitted', understanding: 'needs_practice' });
+	expect(await env.DB.prepare('SELECT t.state,(SELECT count(*) FROM submissions) AS submissions FROM homework_tasks t').first()).toEqual({ state: 'in_progress', submissions: 0 });
+});

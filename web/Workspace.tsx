@@ -11,10 +11,9 @@ import { CodeField } from './Code';
 import { Tutor } from './Tutor';
 import { Failure, OwnTests, Runner } from './Runner';
 import { runTests } from './python';
-import { addCalendarDays, localDate } from '../shared/dates';
+import { localDate } from '../shared/dates';
 
 export const understandingLabels = { needs_practice: 'Нужно потренироваться', with_help: 'Решил с подсказкой', independent: 'Решил сам' };
-export const acceptanceLabels = { not_submitted: 'Не отправлял', not_accepted: 'Не принято', accepted: 'Принято на LeetCode' };
 const fields = [{ key: 'idea', label: 'Основная идея' }, { key: 'correctness', label: 'Почему это работает' }, { key: 'edgeCases', label: 'Крайние случаи' }, { key: 'mistakes', label: 'Ошибки и выводы' }] as const;
 
 function Panes({ left, right }: { left: ReactNode; right: ReactNode }) {
@@ -42,7 +41,6 @@ export function AttemptContent({ value, change, chapter, problemId, tests, skele
 	function update(patch: Partial<Approach>) { change?.({ ...value, document: { ...value.document, approaches: value.document.approaches.map((a, index) => index ? a : { ...a, ...patch }) } }); }
 	useEffect(() => { if (skeleton && !approach.code.trim()) update({ code: skeleton, language: 'python3' }); }, [skeleton]);
 	const notes = <div className="stack">
-		<div className="row"><label>Статус на LeetCode<select value={value.acceptance} disabled={!change} onChange={event => change?.({ ...value, acceptance: event.target.value as DraftValue['acceptance'] })}>{Object.entries(acceptanceLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label>Понимание<select value={value.understanding} disabled={!change} onChange={event => change?.({ ...value, understanding: event.target.value as DraftValue['understanding'] })}>{Object.entries(understandingLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></div>
 		<label>Общие заметки<textarea aria-label="Общие заметки" value={value.document.notes} readOnly={!change} onChange={event => change?.({ ...value, document: { ...value.document, notes: event.target.value } })} /></label>
 		{fields.map(field => <label key={field.key}>{field.label}<textarea aria-label={field.label} value={approach[field.key]} readOnly={!change} onChange={event => update({ [field.key]: event.target.value })} /></label>)}
 		<div className="editor-grid"><label>Время<input value={approach.timeComplexity} readOnly={!change} onChange={event => update({ timeComplexity: event.target.value })} /></label><label>Память<input value={approach.spaceComplexity} readOnly={!change} onChange={event => update({ spaceComplexity: event.target.value })} /></label></div>
@@ -52,45 +50,28 @@ export function AttemptContent({ value, change, chapter, problemId, tests, skele
 	return <div className="stack"><Panes left={chapter ?? notes} right={code} />{chapter && notes}</div>;
 }
 
-export function DraftEditor({ initial, user, registerGuard, saved, nextReviewDate, task, reloadTask, chapter, onCode }: { initial: Attempt; user: SessionUser; registerGuard: RegisterGuard; saved: (attempt: Attempt, action?: 'save' | 'submit' | 'judge') => Promise<void>; nextReviewDate: string | null; task?: HomeworkTask; reloadTask: () => void; chapter?: ReactNode; onCode: (code: string) => void }) {
+export function DraftEditor({ initial, user, registerGuard, saved, task, chapter, onCode }: { initial: Attempt; user: SessionUser; registerGuard: RegisterGuard; saved: (attempt: Attempt, action?: 'save' | 'submit' | 'judge') => Promise<void>; task?: HomeworkTask; chapter?: ReactNode; onCode: (code: string) => void }) {
 	const draft = useDraft(initial, user), code = draft.value.document.approaches[0].code;
 	useEffect(() => onCode(code), [code]);
 	const tests = useResource<ProblemTests>(`/problems/${initial.problemId}/tests`);
 	const runs = useResource<TestRun[]>(`/problems/${initial.problemId}/runs?attemptId=${initial.id}`);
-	const [busy, setBusy] = useState(false), [error, setError] = useState(''), [date, setDate] = useState(nextReviewDate ?? '');
-	const [dateChanged, setDateChanged] = useState(false), [progress, setProgress] = useState(''), [judgement, setJudgement] = useState<Judgement | null>(null);
-	const [failure, setFailure] = useState<{ action: 'save' | 'submit'; error: unknown } | null>(null);
-	function changeDate(value: string) { setDate(value); setDateChanged(true); }
+	const [busy, setBusy] = useState(false), [error, setError] = useState(''), [progress, setProgress] = useState(''), [judgement, setJudgement] = useState<Judgement | null>(null), [practice, setPractice] = useState('');
 	const editable = user.role === 'student' && initial.state === 'draft';
 	const submittable = editable && task && ['assigned', 'in_progress', 'changes_requested'].includes(task.state);
 	useEffect(() => { registerGuard(draft); return () => registerGuard(null); }, [draft.flush]);
 	async function useServerCopy() { const server = await draft.reload(); if (server) await saved(server); }
-	async function finalize(action: 'save' | 'submit') {
-		setBusy(true); setError(''); setFailure(null);
-		const path = `/problems/${initial.problemId}/attempts/${initial.id}`;
-		let persisted: Attempt | null = null;
+	// The server saves the attempt as accepted. An active homework task goes to the parent for review.
+	async function solve() {
+		setBusy(true); setError('');
 		try {
-			persisted = await draft.flush();
-			if (!persisted) return;
-			if (action === 'save') await saved(await api<Attempt>(`${path}/save`, { method: 'POST', body: JSON.stringify({ version: persisted.version, ...(dateChanged ? { nextReviewDate: date || null } : {}) }) }), action);
-			else {
-				await api(`/tasks/${task!.id}/submit`, { method: 'POST', body: JSON.stringify({ version: task!.version, attemptId: persisted.id, attemptVersion: persisted.version, ...(dateChanged ? { nextReviewDate: date || null } : {}) }) });
-				await saved(await api<Attempt>(path), action);
-			}
-		} catch (error) {
-			if (error instanceof ApiError && error.status === 409 && persisted) {
-				try {
-					const server = await api<Attempt>(path);
-					if (server.state === 'saved' && server.version === persisted.version + 1 && server.acceptance === persisted.acceptance && server.understanding === persisted.understanding && JSON.stringify(server.document) === JSON.stringify(persisted.document)) {
-						const details = action === 'submit' ? await api<TaskDetails>(`/tasks/${task!.id}`) : null;
-						if (!details || details.submissions.some(s => s.attemptId === server.id && s.taskVersion === task!.version + 1)) { await saved(server, action); return; }
-					}
-					if (server.version !== persisted.version) { draft.conflicted(server); return; }
-					if (action === 'submit') reloadTask();
-				} catch (readError) { error = readError; }
-			}
-			setFailure({ action, error });
-		} finally { setBusy(false); }
+			const persisted = await draft.flush();
+			if (persisted) await saved(await api<Attempt>(`/problems/${initial.problemId}/solved`, { method: 'POST', body: JSON.stringify({ attemptId: persisted.id }) }), submittable ? 'submit' : 'save');
+		} catch (error) { setError(message(error)); } finally { setBusy(false); }
+	}
+	async function repeat() {
+		setBusy(true); setError('');
+		try { const { nextReviewDate: day } = await api<{ nextReviewDate: string }>(`/problems/${initial.problemId}/practice`, { method: 'POST', body: JSON.stringify({ today: localDate() }) }); setPractice(`Повторим ${day.slice(8)}.${day.slice(5, 7)}.`); }
+		catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
 	// The server gives the hidden inputs and compares the outputs with its reference solution. The saved code runs here, 3 seconds for each input.
 	async function send() {
@@ -111,23 +92,22 @@ export function DraftEditor({ initial, user, registerGuard, saved, nextReviewDat
 	}
 	async function record(approachId: string, run: Pick<TestRun, 'passed' | 'total' | 'codeHash'>) { await api(`/problems/${initial.problemId}/runs`, { method: 'POST', body: JSON.stringify({ attemptId: initial.id, approachId, ...run, runOn: localDate() }) }); runs.reload(); }
 	async function copyWork() { try { await navigator.clipboard.writeText(JSON.stringify(draft.value, null, 2)); } catch { setError('Выделите и скопируйте текст из редактора вручную.'); } }
-	const loginRequired = draft.status === 'login_required' || (failure?.error instanceof ApiError && failure.error.status === 401);
 	// The starter code waits for the recovery choice, so it does not replace the recovery copy in the session storage.
 	const skeleton = draft.recovery ? undefined : tests.data?.skeleton;
 	return <div className="stack">
 		{editable && <p role="status" aria-label="Состояние сохранения" aria-live="polite">{{ saved: 'Сохранено', saving: 'Сохраняем', unsaved: 'Не сохранено', conflict: 'Конфликт правок', login_required: 'Войдите, чтобы сохранить' }[draft.status]}</p>}
 		{draft.storageError && <p className="notice" role="status">{draft.storageError}</p>}
 		{draft.recovery && <section className="notice stack" aria-label="Копия для восстановления"><p>{draft.recovery.attemptId === initial.id ? 'В этой вкладке есть несохранённая работа.' : 'В этой вкладке есть несохранённая работа из прошлой попытки. Скопируйте её, прежде чем продолжить.'}</p>{draft.recovery.attemptId !== initial.id && <pre>{JSON.stringify(draft.recovery.value, null, 2)}</pre>}<div className="row">{draft.recovery.attemptId === initial.id && <button onClick={draft.recover}>Восстановить несохранённую работу</button>}<button onClick={async () => { try { await navigator.clipboard.writeText(JSON.stringify(draft.recovery!.value, null, 2)); } catch { setError('Выделите и скопируйте текст для восстановления вручную.'); } }}>Скопировать восстановленную работу</button><button onClick={useServerCopy}>Использовать копию с сервера</button></div></section>}
-		{(error || failure || draft.error) && <div className="error" role="alert">{error || (failure ? message(failure.error) : draft.error)}<div className="row">{loginRequired ? <button onClick={draft.signIn}>Войти снова</button> : failure ? (failure.action === 'save' || submittable) && <button disabled={busy} onClick={() => void finalize(failure.action)}>{failure.action === 'save' ? 'Повторить сохранение попытки' : 'Повторить отправку'}</button> : !draft.conflict && <button onClick={() => void draft.flush()}>Повторить сохранение</button>}{!draft.conflict && <button onClick={copyWork}>Скопировать несохранённую работу</button>}</div></div>}
+		{(error || draft.error) && <div className="error" role="alert">{error || draft.error}<div className="row">{draft.status === 'login_required' ? <button onClick={draft.signIn}>Войти снова</button> : !draft.conflict && <button onClick={() => void draft.flush()}>Повторить сохранение</button>}{!draft.conflict && <button onClick={copyWork}>Скопировать несохранённую работу</button>}</div></div>}
 		{draft.conflict && <section className="notice stack"><h2>Копия с сервера</h2><p>В редакторе осталась ваша локальная копия. Скопируйте её, прежде чем заменить.</p><pre>{JSON.stringify(draft.conflict.document, null, 2)}</pre><div className="row"><button onClick={copyWork}>Скопировать несохранённую работу</button><button onClick={useServerCopy}>Использовать копию с сервера</button></div></section>}
 		<fieldset disabled={busy || Boolean(draft.recovery)}><AttemptContent value={draft.value} change={editable ? draft.change : undefined} chapter={chapter} problemId={initial.problemId} tests={tests.data ?? undefined} skeleton={skeleton} runs={runs.data ?? undefined} record={user.role === 'student' ? record : undefined}>
-			{editable && tests.data?.source === 'set' && <button type="button" className="primary" onClick={() => void send()}>Отправить</button>}
+			{editable && tests.data && (tests.data.source === 'set' ? <button type="button" className="primary" onClick={() => void send()}>Отправить</button> : <button type="button" className="primary" onClick={() => void solve()}>Решено</button>)}
 			{progress && <p role="status">{progress}</p>}
 			{judgement?.failed && <Failure {...judgement} />}
-			{task && user.role === 'student' && <button className="primary" disabled={!submittable} onClick={() => void finalize('submit')}>Отправить на проверку</button>}
+			<button type="button" onClick={() => void repeat()}>Нужно потренироваться</button>
+			{practice && <p role="status">{practice}</p>}
 			{tests.data?.spec && <OwnTests problemId={initial.problemId} tests={tests.data} changed={tests.reload} />}
 		</AttemptContent></fieldset>
-		{editable && <div className="card card-pad stack"><div className="row spread"><label>Следующее повторение<input type="date" value={date} disabled={busy} onChange={event => changeDate(event.target.value)} /></label>{!task && <button className="primary" disabled={busy || Boolean(draft.recovery)} onClick={() => void finalize('save')}>Сохранить попытку</button>}</div>{draft.value.acceptance === 'accepted' && <div className="row"><span>Напоминание:</span><button type="button" disabled={busy} onClick={() => changeDate(addCalendarDays(localDate(), 1))}>Завтра</button><button type="button" disabled={busy} onClick={() => changeDate(addCalendarDays(localDate(), 3))}>Через три дня</button><button type="button" disabled={busy} onClick={() => changeDate(addCalendarDays(localDate(), 7))}>Через семь дней</button><button type="button" disabled={busy} onClick={() => changeDate('')}>Без напоминания</button></div>}</div>}
 	</div>;
 }
 
@@ -193,7 +173,7 @@ export function Workspace({ problemId, taskId, user, registerGuard }: { problemI
 		{review && <p className="notice">{review.kind === 'completed' ? 'Завершено' : 'Нужны правки'}{review.body && `: ${review.body}`}</p>}
 		{!task && <div className="row"><a href={`/leetcode/problems/${record.id}/review`}>Повторить задачу</a>{record.archivedAt ? <button onClick={restore}>Вернуть из архива</button> : <button onClick={archive}>В архив</button>}{tasks.data?.items.map(t => <a key={t.id} href={`/leetcode/tasks/${t.id}`}>{t.homeworkTitle}</a>)}</div>}
 		{(error || attempts.error || current.error || reviews.error) && <p className="error" role="alert">{error || attempts.error || current.error || reviews.error}</p>}
-		{current.data ? <DraftEditor key={`${current.data.id}:${current.data.state}`} initial={current.data} user={user} registerGuard={register} nextReviewDate={record.nextReviewDate} task={task} reloadTask={details.reload} saved={saved} chapter={chapterPane} onCode={setCode} /> : <p className="empty">{!student && attempts.data?.items.length === 0 ? 'Ученик ещё не начал работу.' : 'Открываем работу...'}</p>}
+		{current.data ? <DraftEditor key={`${current.data.id}:${current.data.state}`} initial={current.data} user={user} registerGuard={register} task={task} saved={saved} chapter={chapterPane} onCode={setCode} /> : <p className="empty">{!student && attempts.data?.items.length === 0 ? 'Ученик ещё не начал работу.' : 'Открываем работу...'}</p>}
 		{notice && <p role="status">{notice}</p>}
 		{user.role === 'parent' && (task?.state === 'submitted' || task?.state === 'completed') && <section className="card card-pad stack"><h2>Проверка отправки</h2><label>Отзыв<textarea aria-label="Отзыв" value={feedback} onChange={event => setFeedback(event.target.value)} maxLength={8000} /></label><div className="row"><button disabled={busy} onClick={() => void act('review', { submissionId: task.submissionId, decision: 'changes_requested', body: feedback })}>Вернуть на доработку</button>{task.state === 'submitted' && <button className="primary" disabled={busy} onClick={() => void act('review', { submissionId: task.submissionId, decision: 'completed', body: feedback })}>Завершить</button>}</div></section>}
 		<Materials problemId={record.id} homework={details.data?.homework} user={user} changed={details.reload} />

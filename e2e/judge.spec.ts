@@ -1,5 +1,5 @@
 import { test, expect, addTask, signIn, type TestEnv } from './fixtures';
-import type { JudgeOutput, Judgement } from '../shared/leetcode';
+import type { JudgeOutput, Judgement, Problem } from '../shared/leetcode';
 
 const code = "class Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n        if target == 0:\n            raise ValueError('bad')\n        while target == 10:\n            pass\n        return [1, 2]\n";
 const rows: { name: string; inputs: string[]; outputs: JudgeOutput[]; progress: string | null; judgement: Judgement; verdict: string }[] = [
@@ -49,3 +49,12 @@ for (const row of hidden) {
 		await expect(page.getByRole('region', { name: row.section, exact: true }).getByRole('heading', { level: 3 })).toHaveText(['Container With Most Water']);
 	});
 }
+
+test('schedules more practice and shows the review date', async ({ page, notebook }) => {
+	await page.getByRole('button', { name: 'Нужно потренироваться', exact: true }).click();
+	const shown = page.getByText(/^Повторим/);
+	await expect(shown).toBeVisible();
+	const { understanding, nextReviewDate } = await (await page.request.get(`/leetcode/api/problems/${notebook.problem.id}`)).json() as Problem;
+	expect(understanding).toBe('needs_practice');
+	await expect(shown).toHaveText(`Повторим ${nextReviewDate!.slice(8)}.${nextReviewDate!.slice(5, 7)}.`);
+});

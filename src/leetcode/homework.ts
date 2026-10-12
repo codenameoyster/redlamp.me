@@ -1,7 +1,6 @@
 import type { Env } from '../index';
 import type { Feedback, Homework, HomeworkBoard, HomeworkSummary, HomeworkTask, Role, SessionUser, Submission } from '../../shared/leetcode';
 import { requireRole } from './auth';
-import { getAttempt, saveProgress } from './attempts';
 import { getProblem } from './problems';
 import { calendarDate, changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
 
@@ -12,7 +11,6 @@ const unreadSQL = "EXISTS(SELECT 1 FROM feedback f WHERE f.problem_id=t.problem_
 export const taskColumns = `t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,h.instructions,h.due_date AS dueDate,${postponedSQL},t.problem_id AS problemId,p.title AS problemTitle,p.difficulty,t.state,t.current_submission_id AS submissionId,t.version,t.created_at AS createdAt,t.updated_at AS updatedAt,${unreadSQL} AS unread`;
 export const taskTables = 'homework_tasks t JOIN homework h ON h.id=t.homework_id JOIN problems p ON p.id=t.problem_id';
 const feedbackColumns = 'id,problem_id AS problemId,task_id AS taskId,submission_id AS submissionId,author,kind,body,created_at AS createdAt';
-const editableTask = "('assigned','in_progress','changes_requested')";
 export function unreadValue<T extends { unread: boolean }>(row: T): T { return { ...row, unread: Boolean(row.unread) }; }
 export async function getHomework(env: Env, id: string): Promise<Homework> {
 	const row = await env.DB.prepare(`SELECT ${homeworkColumns} FROM homework h WHERE h.id=?`).bind(uuid(id)).first<Homework>();
@@ -77,7 +75,7 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		await env.DB.prepare('INSERT INTO homework (id,title,instructions,due_date,created_at,updated_at) VALUES (?,?,?,?,?,?)').bind(newId, title, instructions, dueDate, now, now).run();
 		return Response.json(await getHomework(env, newId), { status: 201 });
 	}
-	const match = /^\/leetcode\/api\/tasks(?:\/([^/]+)(?:\/(start|submit|review|cancel))?)?$/.exec(url.pathname);
+	const match = /^\/leetcode\/api\/tasks(?:\/([^/]+)(?:\/(start|review|cancel))?)?$/.exec(url.pathname);
 	if (!match) return null;
 	const id = match[1] ? uuid(match[1]) : null, action = match[2];
 	methods(request, action ? ['POST'] : id ? ['GET'] : ['GET', 'POST']);
@@ -98,7 +96,7 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		const rows = await env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE ${where.join(' AND ')} ORDER BY (t.state='submitted') DESC,t.created_at DESC,t.id LIMIT ? OFFSET ?`).bind(user.role, ...args, limit + 1, offset).all<HomeworkTask>();
 		return Response.json(page(rows.results.map(unreadValue), limit, offset));
 	}
-	requireRole(user, action === 'submit' || action === 'start' ? 'student' : 'parent');
+	requireRole(user, action === 'start' ? 'student' : 'parent');
 	if (!id) {
 		const data = object(await readJson(request), ['homeworkId', 'problemId']);
 		const homeworkId = uuid(data.homeworkId), problemId = uuid(data.problemId), newId = crypto.randomUUID();
@@ -107,20 +105,8 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		if (!result.meta.changes) throw (await getProblem(env, problemId)).archivedAt ? new HttpError(409, 'archived', 'Верните задачу из архива, прежде чем назначать домашнюю работу.') : new HttpError(409, 'active_homework', 'У этой задачи уже есть активное задание. Сначала завершите или отмените его.');
 		return Response.json(await getTask(env, newId, user.role), { status: 201 });
 	}
-	const task = await getTask(env, id, user.role);
-	if (action === 'submit') {
-		const data = object(await readJson(request), ['version', 'attemptId', 'attemptVersion', 'nextReviewDate']);
-		const attempt = await getAttempt(env, task.problemId, uuid(data.attemptId));
-		if (![attempt.document.notes, ...attempt.document.approaches.flatMap(a => [a.idea, a.correctness, a.mistakes, a.code])].some(value => value.trim())) throw new HttpError(400, 'empty_attempt', 'Добавьте объяснение, заметки или код перед отправкой.');
-		const submissionId = crypto.randomUUID(), progress = saveProgress(env, task.problemId, attempt.id, data, now);
-		const statements = [env.DB.prepare(`INSERT INTO submissions (id,task_id,attempt_id,task_version,created_at) SELECT ?,t.id,a.id,t.version+1,? FROM homework_tasks t JOIN attempts a ON a.problem_id=t.problem_id WHERE t.id=? AND t.version=? AND t.state IN ${editableTask} AND a.id=? AND a.version=? AND a.state=?`).bind(submissionId, now, id, integer(data.version), attempt.id, integer(data.attemptVersion), attempt.state)];
-		if (attempt.state === 'draft') statements.push(
-			env.DB.prepare("UPDATE attempts SET state='saved',version=version+1,saved_at=?1,updated_at=?1 WHERE id=?2 AND state='draft' AND EXISTS(SELECT 1 FROM submissions WHERE id=?3 AND attempt_id=attempts.id)").bind(now, attempt.id, submissionId),
-			progress,
-		);
-		statements.push(env.DB.prepare("UPDATE homework_tasks SET state='submitted',current_submission_id=?1,version=version+1,updated_at=?2 WHERE id=?3 AND EXISTS(SELECT 1 FROM submissions WHERE id=?1 AND task_id=homework_tasks.id)").bind(submissionId, now, id));
-		changed((await env.DB.batch(statements))[0]);
-	} else if (action === 'review') {
+	await getTask(env, id, user.role);
+	if (action === 'review') {
 		const data = object(await readJson(request), ['version', 'submissionId', 'decision', 'body']);
 		const decision = choice(data.decision, ['changes_requested', 'completed']), body = text(data.body, 8000, decision === 'changes_requested').trim(), feedbackId = crypto.randomUUID();
 		const result = await env.DB.batch([

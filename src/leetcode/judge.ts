@@ -46,28 +46,37 @@ function outputOf(value: unknown): JudgeOutput {
 }
 
 export async function handleJudge(request: Request, env: Env, user: SessionUser): Promise<Response | null> {
-	const match = /^\/leetcode\/api\/problems\/([^/]+)\/judge(\/start)?$/.exec(new URL(request.url).pathname);
+	const match = /^\/leetcode\/api\/problems\/([^/]+)\/(judge\/start|judge|solved)$/.exec(new URL(request.url).pathname);
 	if (!match) return null;
 	methods(request, ['POST']);
 	requireRole(user, 'student');
-	const problem = await getProblem(env, uuid(match[1])), generate = generatorOf(problem.slug);
-	if (!generate) throw new HttpError(404, 'no_judge', 'У этой задачи нет скрытых тестов.');
-	if (match[2]) { const seed = crypto.getRandomValues(new Uint32Array(1))[0]; return Response.json({ seed, inputs: generate(mulberry32(seed)) }); }
-	// 16 outputs of 1,000,000 ASCII characters fit in 16 MiB.
-	const data = object(await readJson(request, 16_777_216), ['seed', 'attemptId', 'outputs']), inputs = generate(mulberry32(integer(data.seed, 0, 2 ** 32 - 1))), attemptId = uuid(data.attemptId);
-	if (!Array.isArray(data.outputs) || data.outputs.length !== inputs.length) throw new HttpError(400, 'invalid_input', 'Проверьте поля запроса.');
-	const result = judge(referenceOf(problem.slug)!, sets.flatMap(tasksOf).find(task => taskSlug(task) === problem.slug)!.tests!, inputs, data.outputs.map(outputOf));
-	if (result.verdict !== 'accepted') return Response.json(result);
-	// The draft becomes the accepted attempt, and the active homework task of the problem is completed. The later statements change rows only when the attempt was a draft.
+	const problem = await getProblem(env, uuid(match[1])), generate = generatorOf(problem.slug), solved = match[2] === 'solved';
+	let attemptId: string, result: Judgement = { verdict: 'accepted', failed: null };
+	if (solved) {
+		if (generate) throw new HttpError(409, 'judged', 'Эту задачу проверяют скрытые тесты. Нажмите «Отправить».');
+		attemptId = uuid(object(await readJson(request), ['attemptId']).attemptId);
+		const { document } = await getAttempt(env, problem.id, attemptId);
+		if (![document.notes, ...document.approaches.flatMap(a => [a.idea, a.correctness, a.mistakes, a.code])].some(value => value.trim())) throw new HttpError(400, 'empty_attempt', 'Добавьте объяснение, заметки или код перед отправкой.');
+	} else {
+		if (!generate) throw new HttpError(404, 'no_judge', 'У этой задачи нет скрытых тестов.');
+		if (match[2] === 'judge/start') { const seed = crypto.getRandomValues(new Uint32Array(1))[0]; return Response.json({ seed, inputs: generate(mulberry32(seed)) }); }
+		// 16 outputs of 1,000,000 ASCII characters fit in 16 MiB.
+		const data = object(await readJson(request, 16_777_216), ['seed', 'attemptId', 'outputs']), inputs = generate(mulberry32(integer(data.seed, 0, 2 ** 32 - 1)));
+		attemptId = uuid(data.attemptId);
+		if (!Array.isArray(data.outputs) || data.outputs.length !== inputs.length) throw new HttpError(400, 'invalid_input', 'Проверьте поля запроса.');
+		result = judge(referenceOf(problem.slug)!, sets.flatMap(tasksOf).find(task => taskSlug(task) === problem.slug)!.tests!, inputs, data.outputs.map(outputOf));
+		if (result.verdict !== 'accepted') return Response.json(result);
+	}
+	// The draft becomes the accepted attempt. The judge completes the active homework task of the problem. The solved route submits the task for the parent review. The later statements change rows only when the attempt was a draft.
 	const now = new Date().toISOString(), submissionId = crypto.randomUUID();
 	const results = await env.DB.batch([
 		env.DB.prepare("UPDATE attempts SET state='saved',acceptance='accepted',understanding=CASE WHEN EXISTS(SELECT 1 FROM tutor_messages WHERE context_kind='problem' AND context_ref=?2 AND author='student') THEN 'with_help' ELSE 'independent' END,version=version+1,saved_at=?3,updated_at=?3 WHERE id=?1 AND problem_id=?2 AND state='draft'").bind(attemptId, problem.id, now),
-		saveProgress(env, problem.id, attemptId, {}, now),
-		env.DB.prepare("INSERT INTO submissions (id,task_id,attempt_id,task_version,created_at) SELECT ?,id,?,version+1,? FROM homework_tasks WHERE problem_id=? AND state IN ('assigned','in_progress','changes_requested','submitted') AND changes()=1").bind(submissionId, attemptId, now, problem.id),
-		env.DB.prepare("INSERT INTO feedback (id,problem_id,task_id,submission_id,author,kind,body,created_at) SELECT ?,?,task_id,id,'student','completed','Принято проверкой.',? FROM submissions WHERE id=?").bind(crypto.randomUUID(), problem.id, now, submissionId),
-		env.DB.prepare("UPDATE homework_tasks SET state='completed',current_submission_id=?1,version=version+1,updated_at=?2 WHERE id=(SELECT task_id FROM submissions WHERE id=?1)").bind(submissionId, now),
+		saveProgress(env, problem.id, attemptId, now),
+		env.DB.prepare(`INSERT INTO submissions (id,task_id,attempt_id,task_version,created_at) SELECT ?,id,?,version+1,? FROM homework_tasks WHERE problem_id=? AND state IN ('assigned','in_progress','changes_requested'${solved ? '' : ",'submitted'"}) AND changes()=1`).bind(submissionId, attemptId, now, problem.id),
+		...solved ? [] : [env.DB.prepare("INSERT INTO feedback (id,problem_id,task_id,submission_id,author,kind,body,created_at) SELECT ?,?,task_id,id,'student','completed','Принято проверкой.',? FROM submissions WHERE id=?").bind(crypto.randomUUID(), problem.id, now, submissionId)],
+		env.DB.prepare('UPDATE homework_tasks SET state=?3,current_submission_id=?1,version=version+1,updated_at=?2 WHERE id=(SELECT task_id FROM submissions WHERE id=?1)').bind(submissionId, now, solved ? 'submitted' : 'completed'),
 	]);
 	if (!results[0].meta.changes) await getAttempt(env, problem.id, attemptId);
 	changed(results[0]);
-	return Response.json(result);
+	return Response.json(solved ? await getAttempt(env, problem.id, attemptId) : result);
 }

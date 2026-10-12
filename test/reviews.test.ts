@@ -96,13 +96,13 @@ it.each([
 	{ name: 'parent edit after a student save', earlier: 'save', later: 'edit', expected: 200, fields: { version: 2, progressVersion: 2 }, reviews: 0 },
 	{ name: 'student review after a parent edit', earlier: 'edit', later: 'review', expected: 201, fields: { version: 2, progressVersion: 2, nextReviewDate: null }, reviews: 1 },
 	{ name: 'second review with the same progress version', earlier: 'review', later: 'review', expected: 409, fields: { version: 1, progressVersion: 2 }, reviews: 1 },
-	{ name: 'parent edit after a homework submission of a draft', earlier: 'submit', later: 'edit', expected: 200, fields: { version: 2, progressVersion: 2 }, reviews: 0 },
+	{ name: 'parent edit after the student marks a draft solved', earlier: 'solved', later: 'edit', expected: 200, fields: { version: 2, progressVersion: 2 }, reviews: 0 },
 ])('$name', async ({ earlier, later, expected, fields, reviews }) => {
 	const draftId = crypto.randomUUID(), parent = await login('parent');
 	await env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'draft',?,'','accepted','with_help','now','now')").bind(draftId, first, JSON.stringify({ notes: 'Explain the invariant.', approaches: [] })).run();
 	const problem = await (await request(`/problems/${first}`, 'GET', undefined, cookie)).json() as Problem;
 	const write = (kind: string) => kind === 'save' ? request(`/problems/${first}/attempts/${draftId}/save`, 'POST', { version: 1 }, cookie)
-		: kind === 'submit' ? request(`/tasks/${taskId}/submit`, 'POST', { version: 1, attemptId: draftId, attemptVersion: 1 }, cookie)
+		: kind === 'solved' ? request(`/problems/${first}/solved`, 'POST', { attemptId: draftId }, cookie)
 		: kind === 'edit' ? request(`/problems/${first}`, 'PATCH', { url: 'https://leetcode.com/problems/one/', number: null, title: 'Edited', difficulty: 'medium', topics: [], summary: '', version: problem.version }, parent)
 		: request(`/problems/${first}/reviews`, 'POST', { version: problem.progressVersion, result: 'with_help', note: '', reviewedOn: '2026-10-07', nextReviewDate: null }, cookie);
 	expect((await write(earlier)).ok).toBe(true);
@@ -138,6 +138,21 @@ it.each([
 	expect(response.status).toBe(expected);
 	expect(await response.json()).toMatchObject(body);
 	expect(await env.DB.prepare('SELECT next_review_date,progress_version FROM problems WHERE id=?').bind(first).first()).toEqual({ next_review_date: date, progress_version: progressVersion });
+});
+
+// The window is [today + 15, today + 45]. The random value 30 gives the last day.
+it.each([
+	{ name: 'student gets the first day of the window', role: 'student', random: 0, today: '2026-10-07', status: 200, body: { nextReviewDate: '2026-10-22' }, after: { understanding: 'needs_practice', next_review_date: '2026-10-22', progress_version: 2 } },
+	{ name: 'parent gets the last day of the window', role: 'parent', random: 30, today: '2026-10-07', status: 200, body: { nextReviewDate: '2026-11-21' }, after: { understanding: 'needs_practice', next_review_date: '2026-11-21', progress_version: 2 } },
+	{ name: 'practice over a year boundary', role: 'student', random: 30, today: '2026-12-20', status: 200, body: { nextReviewDate: '2027-02-03' }, after: { understanding: 'needs_practice', next_review_date: '2027-02-03', progress_version: 2 } },
+	{ name: 'impossible today', role: 'student', random: 0, today: '2026-02-30', status: 400, body: { error: { code: 'invalid_input' } }, after: { understanding: 'independent', next_review_date: '2026-10-07', progress_version: 1 } },
+])('$name', async ({ role, random, today, status, body, after }) => {
+	const account = role === 'student' ? cookie : await login('parent');
+	vi.spyOn(crypto, 'getRandomValues').mockImplementation(array => { (array as Uint32Array)[0] = random; return array; });
+	const response = await request(`/problems/${first}/practice`, 'POST', { today }, account);
+	expect(response.status).toBe(status);
+	expect(await response.json()).toMatchObject(body);
+	expect(await env.DB.prepare('SELECT understanding,next_review_date,progress_version FROM problems WHERE id=?').bind(first).first()).toEqual(after);
 });
 
 it.each([

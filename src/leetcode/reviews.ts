@@ -65,11 +65,17 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 		const earned: Record<BadgeId, boolean> = { 'first-accept': count >= 1, 'three-day-streak': streak.results[0].streak === 1, 'first-hard': hard >= 1, 'ten-accepted': count >= 10, 'independent-five': independent >= 5, 'set-cleared': sets.some(set => tasksOf(set).every(task => accepted.has(taskSlug(task)))) };
 		return Response.json({ xp, level, levelXp: 50 * level * (level - 1), nextLevelXp: 50 * level * (level + 1), late, badges: Object.entries(earned).map(([id, value]) => ({ id, earned: value })) } as Game);
 	}
-	const match = /^\/leetcode\/api\/problems\/([^/]+)\/reviews$/.exec(url.pathname);
+	const match = /^\/leetcode\/api\/problems\/([^/]+)\/(reviews|practice)$/.exec(url.pathname);
 	if (!match) return null;
 	const problemId = uuid(match[1]);
-	methods(request, ['GET', 'POST']);
+	methods(request, match[2] === 'practice' ? ['POST'] : ['GET', 'POST']);
 	await getProblem(env, problemId);
+	if (match[2] === 'practice') {
+		// A random day in [today + 15, today + 45].
+		const nextReviewDate = addCalendarDays(calendarDate(text(object(await readJson(request), ['today']).today, 10, true))!, 15 + crypto.getRandomValues(new Uint32Array(1))[0] % 31);
+		await env.DB.prepare("UPDATE problems SET understanding='needs_practice',next_review_date=?,progress_version=progress_version+1,updated_at=? WHERE id=?").bind(nextReviewDate, new Date().toISOString(), problemId).run();
+		return Response.json({ nextReviewDate });
+	}
 	if (request.method === 'GET') {
 		const { limit, offset } = pagination(url);
 		const rows = await env.DB.prepare(`SELECT ${reviewColumns} FROM reviews WHERE problem_id=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`).bind(problemId, limit + 1, offset).all<Revision>();
