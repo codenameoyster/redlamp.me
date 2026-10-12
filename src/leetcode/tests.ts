@@ -14,9 +14,9 @@ const python = (value: string) => value.replace(/"(?:[^"\\]|\\.)*"|\b(?:true|fal
 async function examples(titleSlug: string): Promise<TaskTests | null> {
 	const value = await question<{ metaData: string; exampleTestcaseList: string[]; content: string | null }>(titleSlug, 'metaData exampleTestcaseList content');
 	if (!value) return null;
-	const meta = JSON.parse(value.metaData) as { name?: string; params: { type: string }[]; return: { type: string }; output?: { paramindex: number } };
-	// The harness gives plain Python values, so a design problem (no name) or a class type such as TreeNode gets no runner.
-	if (!meta.name || [...meta.params, meta.return].some(item => /[A-Z]/.test(item.type))) return null;
+	const meta = JSON.parse(value.metaData) as { name?: string; manual?: boolean; params: { type: string }[]; return: { type: string }; output?: { paramindex: number } };
+	// The harness gives plain Python values, so a design problem (no name), an interactive problem (manual) or a class type such as TreeNode gets no runner.
+	if (!meta.name || meta.manual || [...meta.params, meta.return].some(item => /[A-Z]/.test(item.type))) return null;
 	const statement = (value.content ?? '').replace(/<[^>]*>/g, '').replace(/&(?:quot|#39|lt|gt|amp|nbsp);/g, entity => words[entity]);
 	const outputs = [...statement.matchAll(/^\s*Output:\s*(.+)$/gm)].map(match => python(match[1].trim()));
 	return { mode: 'call', method: meta.name, ...(meta.output?.paramindex === 0 && { check: 'arg0' as const }), cases: value.exampleTestcaseList.map((input, index, list) => ({ input: python(`[${input.split('\n').join(',')}]`), expected: outputs.length === list.length ? outputs[index] : null })) };

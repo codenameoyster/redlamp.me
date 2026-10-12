@@ -49,6 +49,8 @@ export const test = base.extend<{ reset: void; notebook: { problem: Problem; att
 		const response = await page.request.post(`/leetcode/api/problems/${problem.id}/attempts`, { headers, data: {} });
 		expect(response.status()).toBe(201);
 		const attempt = await response.json() as Attempt;
+		// The page gets the two-sum examples from leetcode.com. A test that needs tests adds its own route.
+		await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: null, source: 'none', standard: [], own: [] } }));
 		await page.goto(`/leetcode/problems/${problem.id}`);
 		await expect(page.getByLabel('Основная идея', { exact: true })).toBeVisible();
 		await use({ problem, attempt });

@@ -27,7 +27,13 @@ def check(code):
     return '[]'
 
 
+# LeetCode accepts a tuple where it expects a list.
+def plain(value):
+    return [plain(item) for item in value] if isinstance(value, (list, tuple)) else value
+
+
 def same(value, expected, order):
+    value, expected = plain(value), plain(expected)
     if order == 'any':
         return sorted(value) == sorted(expected)
     if order == 'any-nested':
@@ -44,7 +50,8 @@ def failure(error):
 def run(code, spec, test):
     spec, test = json.loads(spec), json.loads(test)
     stdio, expected, printed, value, error = spec['mode'] == 'stdio', test['expected'], io.StringIO(), None, None
-    sys.stdin = io.StringIO(test['input'] if stdio else '')
+    # Codeforces solutions often read sys.stdin.buffer.
+    sys.stdin = io.TextIOWrapper(io.BytesIO((test['input'] if stdio else '').encode()), encoding='utf-8')
     try:
         with redirect_stdout(printed):
             names = namespace()
@@ -65,6 +72,6 @@ def run(code, spec, test):
         output, printed = '' if error else repr(value), printed.getvalue()
         try:
             ok = None if expected is None else error is None and same(value, ast.literal_eval(expected), spec.get('order', 'exact'))
-        except Exception:
-            ok = False
+        except Exception as exception:
+            ok, error = False, failure(exception)
     return json.dumps({'ok': ok, 'output': output, 'stdout': printed, 'error': error})
