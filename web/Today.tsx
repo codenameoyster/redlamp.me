@@ -15,6 +15,17 @@ const badgeText: Record<BadgeId, [string, string]> = {
 	'ten-accepted': ['Десять принятых', 'Добейтесь принятия десяти задач.'],
 	'independent-five': ['Пять самостоятельных', 'Разберитесь в пяти принятых задачах без подсказок.'],
 	'set-cleared': ['Набор пройден', 'Добейтесь принятия всех задач набора.'],
+	'week-no-miss': ['Неделя без пропусков', 'Открывайте тетрадь 7 дней подряд.'],
+	'month-no-miss': ['Месяц без пропусков', 'Открывайте тетрадь 30 дней подряд.'],
+	'twenty-five-accepted': ['25 принятых', 'Добейтесь принятия 25 задач.'],
+	'fifty-accepted': ['50 принятых', 'Добейтесь принятия 50 задач.'],
+	'fifty-cards': ['50 карточек', 'Ответьте верно на 50 карточек квиза.'],
+	'ten-recalls': ['Десять повторений', 'Повторите задачи 10 раз.'],
+	'first-codeforces': ['Первая с Codeforces', 'Добейтесь принятия задачи с Codeforces.'],
+	'first-try': ['С первого раза', 'Пройдите все тесты задачи первым же запуском.'],
+	'two-sets': ['Два набора', 'Добейтесь принятия всех задач двух наборов.'],
+	'on-time-five': ['Вовремя', 'Отправьте 5 заданий не позже срока.'],
+	'level-five': ['Уровень 5', 'Наберите 1000 XP.'],
 };
 
 export function Today({ user }: { user: SessionUser }) {
@@ -29,7 +40,7 @@ export function Today({ user }: { user: SessionUser }) {
 	const focus = user.role === 'parent' && waiting ? { title: waiting.problemTitle, href: `/leetcode/tasks/${waiting.id}`, label: 'Проверить работу', note: 'Отправленная попытка ждёт вашего отзыва.' } : draft ? { title: draft.problemTitle, href: draftTask ? `/leetcode/tasks/${draftTask.id}` : `/leetcode/problems/${draft.problemId}`, label: user.role === 'student' ? 'Продолжить работу' : 'Открыть тетрадь', note: 'Вернитесь к текущему подходу и объяснению.' } : active ? { title: active.problemTitle, href: `/leetcode/tasks/${active.id}`, label: 'Открыть задание', note: active.instructions } : null;
 	const counts = [{ label: 'Задач записано', value: data.counts.recorded }, { label: 'Принято', value: data.counts.solved }, { label: 'Решено самостоятельно', value: data.counts.independent }, { label: user.role === 'parent' ? 'Ждут проверки' : 'К повторению', value: user.role === 'parent' ? data.counts.waitingReview : data.counts.dueReviews }];
 	return <div className="stack"><div className="heading"><div><p className="small">{new Date().toLocaleDateString('ru-RU', { weekday: 'long', month: 'long', day: 'numeric' })}</p><h1>{user.role === 'student' ? 'Стройте понимание, задача за задачей.' : 'Ясная картина обучения.'}</h1><p>{user.role === 'student' ? 'Объясните идею. Проверьте её на LeetCode. Вернитесь к тому, что нужно потренировать.' : 'Прочитайте рассуждение, задайте полезный вопрос и поставьте следующую цель.'}</p></div><a className="button" href={user.role === 'parent' ? '/leetcode/homework' : '/leetcode/problems'} data-tip={user.role === 'parent' ? 'Перейти к домашним работам.' : 'Перейти к списку задач.'}>{user.role === 'parent' ? 'Назначить домашнюю работу' : 'Открыть задачи'}</a></div>
-		{game && <section className="card card-pad stack"><h2>Уровень {game.level}</h2><p>{game.xp} XP. До уровня {game.level + 1}: {game.nextLevelXp - game.xp} XP.</p>{game.late > 0 && <p>Просрочено: {game.late} (−15 XP каждое)</p>}<progress className="xp" aria-label={`Прогресс до уровня ${game.level + 1}`} value={game.xp - game.levelXp} max={game.nextLevelXp - game.levelXp} />
+		{game && <section className="card card-pad stack"><h2>Уровень {game.level}</h2><p>{game.xp} XP. До уровня {game.level + 1}: {game.nextLevelXp - game.xp} XP.</p>{game.late > 0 && <p>Просрочено: {game.late} (−15 XP каждое)</p>}{game.missed > 0 && <p>Пропущено дней: {game.missed} (−5 XP каждый)</p>}<progress className="xp" aria-label={`Прогресс до уровня ${game.level + 1}`} value={game.xp - game.levelXp} max={game.nextLevelXp - game.levelXp} />
 			<ul className="badges" aria-label="Значки">{game.badges.map(({ id, earned }) => <li className="badge" key={id} data-earned={earned} title={badgeText[id][1]}>{!earned && <Lock size={14} role="img" aria-label="Не получен" />}{badgeText[id][0]}</li>)}</ul></section>}
 		<div className="stats">{counts.map(item => <div className="stat" key={item.label}><strong>{item.value}</strong><span>{item.label}</span></div>)}</div>
 		{error && <p className="error" role="alert">{error} <button onClick={reload} data-tip="Загрузить обзор снова.">Попробовать снова</button></p>}

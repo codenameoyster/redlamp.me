@@ -54,10 +54,10 @@ test('student sees the level and the earned badge after an accepted attempt', as
 	await expect(bar).toHaveAttribute('value', '10');
 	await expect(bar).toHaveAttribute('max', '100');
 	const badges = page.getByRole('list', { name: 'Значки' });
-	await expect(badges.getByRole('listitem')).toHaveCount(6);
+	await expect(badges.getByRole('listitem')).toHaveCount(17);
 	await expect(badges.getByRole('listitem').filter({ hasText: 'Первая принятая' })).toBeVisible();
 	await expect(badges.getByRole('listitem').filter({ hasText: 'Первая принятая' }).getByRole('img', { name: 'Не получен' })).toHaveCount(0);
-	await expect(badges.getByRole('img', { name: 'Не получен' })).toHaveCount(5);
+	await expect(badges.getByRole('img', { name: 'Не получен' })).toHaveCount(16);
 	const chip = page.getByRole('banner').getByRole('progressbar', { name: 'Прогресс до уровня 2', exact: true });
 	await expect(chip).toHaveAttribute('value', '10');
 	await page.setViewportSize({ width: 1024, height: 1000 });
@@ -70,6 +70,15 @@ test('shows the late tasks in the level card', async ({ page, server, notebook }
 	await DB.prepare("UPDATE homework_tasks SET created_at='2019-12-01T00:00:00.000Z' WHERE id=?").bind(taskId).run();
 	await page.goto('/leetcode');
 	await expect(page.getByText('Просрочено: 1 (−15 XP каждое)', { exact: true })).toBeVisible();
+});
+
+test('shows the missed days in the level card', async ({ page, server, notebook }) => {
+	void notebook;
+	const { DB } = await server.getWorker<TestEnv>().getEnv();
+	// The first visit was 3 days ago. The page load records today, so the 2 days between are missed.
+	await DB.prepare("INSERT INTO visits (day) VALUES (date('now','-3 day'))").run();
+	await page.goto('/leetcode');
+	await expect(page.getByText('Пропущено дней: 2 (−5 XP каждый)', { exact: true })).toBeVisible();
 });
 
 const picks = [

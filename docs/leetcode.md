@@ -130,7 +130,7 @@ The notebook uses the Arcade theme. Dark is the default appearance. Use the appe
 
 The top bar shows the level and the progress to the next level. The bar is hidden on screens of 620 px or less. **Today** shows the level, the XP, and the badges.
 
-The notebook calculates XP from saved records. Only failed test runs decrease the XP. The XP is never less than 0. Archived problems keep their XP.
+The notebook calculates XP from saved records. Failed test runs, late homework and missed days decrease the XP. The XP is never less than 0. Archived problems keep their XP. The notebook records a visit day when the student opens a notebook page or moves to another page. A missed day is a UTC day without a visit, from the first visit day to yesterday.
 
 | Source | XP |
 |---|---|
@@ -140,10 +140,12 @@ The notebook calculates XP from saved records. Only failed test runs decrease th
 | A review, one time for each problem and day | 5 |
 | A test run that passed all tests, one time for each problem | 10 |
 | A test run with a failed test, at most three runs for each problem and day | -2 |
+| A homework task without a submission by its due date | -15 |
+| A missed day | -5 |
 
 Level L starts at `50 * L * (L - 1)` XP: level 2 at 100 XP, level 3 at 300 XP, level 4 at 600 XP, and level 5 at 1000 XP.
 
-A badge stays earned. The student and the parent see the same badges.
+A badge stays earned, except Уровень 5: it shows the current level. The student and the parent see the same badges.
 
 | Badge | Rule |
 |---|---|
@@ -153,6 +155,17 @@ A badge stays earned. The student and the parent see the same badges.
 | Ten accepted | Ten problems with an accepted saved attempt. |
 | Independent five | Five accepted problems with the understanding "independent". |
 | Set cleared | An accepted saved attempt for each problem of one learning set. |
+| Неделя без пропусков | Visit days on 7 consecutive days. |
+| Месяц без пропусков | Visit days on 30 consecutive days. |
+| 25 принятых | 25 problems with an accepted saved attempt. |
+| 50 принятых | 50 problems with an accepted saved attempt. |
+| 50 карточек | 50 correct quiz answers. |
+| Десять повторений | 10 reviews, one for each problem and day. |
+| Первая с Codeforces | One Codeforces problem with an accepted saved attempt. |
+| С первого раза | The first test run of a problem passed all tests. |
+| Два набора | An accepted saved attempt for each problem of two learning sets. |
+| Вовремя | 5 homework tasks with a submission by the due date. |
+| Уровень 5 | Level 5, which starts at 1000 XP. |
 
 The hidden tests or **Решено** set the acceptance, and the understanding is automatic. The **Today** counts do not include archived problems, so they can be different from the XP.
 
