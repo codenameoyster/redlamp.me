@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState, type SubmitEvent } from 'react';
 import { LoaderCircle } from 'lucide-react';
-import type { Page, Problem, ProblemDetails } from '../shared/leetcode';
+import type { Page, Problem, ProblemDetails, SessionUser } from '../shared/leetcode';
 import { api, message } from './api';
 import { useResource } from './useResource';
 import { go } from './navigate';
+import { Dictation } from './Dictation';
 
 export const difficultyLabels = { easy: 'Легко', medium: 'Средне', hard: 'Сложно' };
 
 // Auto-fill works for LeetCode only.
 const leetcode = (url: string) => { try { return new URL(url.trim()).hostname === 'leetcode.com'; } catch { return false; } };
-export function ProblemForm({ problem, close, saved }: { problem?: Problem; close: () => void; saved: (problem: Problem) => void }) {
+export function ProblemForm({ problem, student, close, saved }: { problem?: Problem; student: boolean; close: () => void; saved: (problem: Problem) => void }) {
 	const dialog = useRef<HTMLDialogElement>(null);
 	const [error, setError] = useState(''), [busy, setBusy] = useState(false), [lookup, setLookup] = useState(''), looked = useRef('');
 	useEffect(() => {
@@ -42,12 +43,12 @@ export function ProblemForm({ problem, close, saved }: { problem?: Problem; clos
 		<label>Название<input name="title" required maxLength={200} defaultValue={problem?.title} /></label>
 		<div className="editor-grid"><label>Номер задачи<input name="number" type="number" min="1" defaultValue={problem?.number ?? ''} /></label><label>Сложность<select name="difficulty" defaultValue={problem?.difficulty ?? 'medium'}>{Object.entries(difficultyLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></div>
 		<div><label>Темы<input name="topics" aria-describedby="topics-help" defaultValue={problem?.topics.join(', ')} placeholder="Массивы, скользящее окно" /></label><small id="topics-help">Разделяйте темы запятыми. Не больше 12.</small></div>
-		<label>Описание<textarea aria-label="Описание" name="summary" maxLength={8000} defaultValue={problem?.summary} /></label>
+		<label>Описание<textarea aria-label="Описание" name="summary" maxLength={8000} defaultValue={problem?.summary} />{student && <Dictation />}</label>
 		{error && <p className="error" role="alert">{error}</p>}<div className="row spread"><button type="button" onClick={close} data-tip="Закрыть форму без сохранения.">Отмена</button><button className="primary" disabled={busy} data-tip="Сохранить данные задачи.">Сохранить задачу</button></div>
 	</form></dialog>;
 }
 
-export function Problems() {
+export function Problems({ user }: { user: SessionUser }) {
 	const { data, error, reload } = useResource<Page<Problem>>(`/problems${location.search}`);
 	const [adding, setAdding] = useState(false);
 	const query = new URLSearchParams(location.search);
@@ -70,6 +71,6 @@ export function Problems() {
 		{error && <p className="error" role="alert">{error} <button onClick={reload} data-tip="Загрузить список задач снова.">Попробовать снова</button></p>}
 		{data && <section className="card" aria-label="Библиотека задач">{data.items.length ? data.items.map(problem => <article className="list-row" key={problem.id}><span className="small">{problem.number ? `#${problem.number}` : ''}</span><div className="grow"><h2><a href={`/leetcode/problems/${problem.id}`}>{problem.title}</a></h2><p>{problem.topics.join(', ')}</p></div><span className={`tag ${problem.difficulty}`}>{difficultyLabels[problem.difficulty]}</span><span className="tag">{problem.solved ? 'Принято' : 'Ещё не принято'}</span></article>) : <p className="empty">Ничего не найдено. Добавьте задачу или измените фильтры.</p>}</section>}
 		{data?.nextOffset !== null && data?.nextOffset !== undefined && <a className="button" href={`?${new URLSearchParams({ ...Object.fromEntries(query), offset: String(data.nextOffset) })}`} data-tip="Показать следующую страницу задач.">Ещё задачи</a>}
-		{adding && <ProblemForm close={() => setAdding(false)} saved={problem => go(`/leetcode/problems/${problem.id}`)} />}
+		{adding && <ProblemForm student={user.role === 'student'} close={() => setAdding(false)} saved={problem => go(`/leetcode/problems/${problem.id}`)} />}
 	</div>;
 }

@@ -59,6 +59,7 @@ Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and wa
 - Use **Recall this problem** to practise before revealing saved work. Record the result. Choose the next review date.
 - **Today** also shows random recall picks from the library: three problems of the Two Pointers set and two problems of the first permutations homework. The picks change every day. A pick that you recall today leaves the list. The recall page of a pick does not show the summary or the saved work. Use **Start a new attempt** to solve the problem again. If the problem has a draft, the button opens the draft.
 - **Archive problem** moves a problem to **Archived problems** in the library and blocks new homework tasks for it. **Restore problem** returns it.
+- As the student, use **Голосовой ввод** (the microphone button) to dictate Russian text into a notes field, the review note, the tutor message, or the problem description. Select the button again to stop. A recording stops after 2 minutes. The notebook puts the text at the cursor, or at the end when you did not select a position in the field. The Worker sends the audio to Whisper on Cloudflare Workers AI and does not keep it.
 - If a save fails, keep the page open. Use **Retry save** or **Copy unsaved work**. Reload recovery is available in the same tab when browser session storage works. Conflicting edits require an explicit choice of the server copy.
 
 ## Learning sets
@@ -157,7 +158,7 @@ The hidden tests or **Решено** set the acceptance, and the understanding i
 
 ## Cloudflare setup
 
-Use an account with Workers Free and D1 Free. Check the account's existing usage before deployment. The application uses no R2 storage or paid service.
+Use an account with Workers Free and D1 Free. Check the account's existing usage before deployment. The application uses no R2 storage or paid service. Dictation uses Workers AI. Its free allocation is 10,000 neurons a day, about 214 minutes of dictation with `@cf/openai/whisper-large-v3-turbo` ([pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)). `bun run dev` also sends dictation to Workers AI. The tests do not.
 
 Authenticate Wrangler:
 

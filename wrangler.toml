@@ -16,6 +16,10 @@ database_name = "redlamp-leetcode"
 database_id = "a46590bf-fd31-4c67-b162-986f9e55f4da"
 migrations_dir = "migrations"
 
+[ai]
+binding = "AI"
+remote = true
+
 [[ratelimits]]
 name = "LOGIN_LIMITER"
 namespace_id = "1001"
