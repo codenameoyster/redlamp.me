@@ -6,7 +6,6 @@ import { attemptColumns } from './attempts';
 import { taskColumns, taskTables, unreadValue } from './homework';
 import { getProblem, problemColumns, problemValue, solvedSQL } from './problems';
 import { acceptedSetSlugs, sets, taskSlug, tasksOf } from './sets';
-import { cardIds, dueCardsSQL } from './quiz';
 import { recallPicks } from './recall';
 import { calendarDate, changed, choice, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
 
@@ -28,16 +27,15 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 	if (url.pathname === '/leetcode/api/dashboard') {
 		methods(request, ['GET']);
 		const today = calendarDate(text(url.searchParams.get('today'), 10, true));
-		const [[progress, assignments, topics, homework, drafts, dueReviews, dueCards], picks] = await Promise.all([env.DB.batch<Record<string, unknown>>([
+		const [[progress, assignments, topics, homework, drafts, dueReviews], picks] = await Promise.all([env.DB.batch<Record<string, unknown>>([
 			env.DB.prepare(`SELECT count(*) AS recorded,coalesce(sum(${solvedSQL}),0) AS solved,coalesce(sum(${solvedSQL} AND p.understanding='independent'),0) AS independent,coalesce(sum(p.next_review_date<=?),0) AS dueReviews FROM problems p WHERE p.archived_at IS NULL`).bind(today),
 			env.DB.prepare("SELECT count(*) AS waitingReview FROM homework_tasks t JOIN problems p ON p.id=t.problem_id WHERE t.state='submitted' AND p.archived_at IS NULL"),
 			env.DB.prepare(`SELECT t.value AS topic,count(*) AS solved,sum(p.understanding='independent') AS independent FROM problems p,json_each(p.topics) t WHERE p.archived_at IS NULL AND ${solvedSQL} GROUP BY t.value ORDER BY t.value LIMIT 50`),
 			env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE p.archived_at IS NULL AND t.state NOT IN ('completed','cancelled') ORDER BY ${user.role === 'parent' ? "(t.state='submitted') DESC,t.updated_at ASC" : "(t.state='submitted') ASC,h.due_date IS NULL,h.due_date ASC"},t.id LIMIT 10`).bind(user.role),
 			env.DB.prepare(`SELECT ${attemptColumns},(SELECT title FROM problems p WHERE p.id=attempts.problem_id) AS problemTitle FROM attempts WHERE state='draft' AND EXISTS(SELECT 1 FROM problems p WHERE p.id=attempts.problem_id AND p.archived_at IS NULL) ORDER BY updated_at DESC,id LIMIT 5`),
 			env.DB.prepare(`SELECT ${problemColumns},EXISTS(SELECT 1 FROM homework_tasks t WHERE t.problem_id=p.id AND t.state='completed') AS fromHomework FROM problems p WHERE p.archived_at IS NULL AND p.next_review_date<=? ORDER BY p.next_review_date,p.id LIMIT 10`).bind(today),
-			env.DB.prepare(dueCardsSQL).bind(cardIds, today),
 		]), recallPicks(env, today!)]);
-		return Response.json({ counts: { ...progress.results[0], ...assignments.results[0], ...dueCards.results[0] }, topics: topics.results, homework: (homework.results as unknown as HomeworkTask[]).map(unreadValue), drafts: drafts.results, dueReviews: dueReviews.results.map(row => ({ ...problemValue(row as unknown as Parameters<typeof problemValue>[0]), fromHomework: Boolean(row.fromHomework) })), recallPicks: picks } as Dashboard);
+		return Response.json({ counts: { ...progress.results[0], ...assignments.results[0] }, topics: topics.results, homework: (homework.results as unknown as HomeworkTask[]).map(unreadValue), drafts: drafts.results, dueReviews: dueReviews.results.map(row => ({ ...problemValue(row as unknown as Parameters<typeof problemValue>[0]), fromHomework: Boolean(row.fromHomework) })), recallPicks: picks } as Dashboard);
 	}
 	if (url.pathname === '/leetcode/api/reviews/distribute') {
 		methods(request, ['POST']);
@@ -51,11 +49,12 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 		methods(request, ['GET']);
 		// A task is late after its due date in UTC. East of UTC, this gives the student a few more hours. A task added after the due date is not late.
 		// The layout reads the game on each page change, also without a reload, so this records the visit day of the student.
+		// cards are the correct answers of the old single-card quiz plus the best passed attempt of each deck.
 		const visit = user.role === 'student' ? [env.DB.prepare("INSERT OR IGNORE INTO visits (day) VALUES (date('now'))")] : [];
 		const [[totals, streak, visits], accepted] = await Promise.all([env.DB.batch<Record<string, number>>([...visit,
 			env.DB.prepare(`SELECT count(*) AS accepted,coalesce(sum(p.difficulty='hard'),0) AS hard,coalesce(sum(CASE p.difficulty WHEN 'easy' THEN 10 WHEN 'medium' THEN 20 ELSE 40 END),0) AS acceptedXp,
 				coalesce(sum(EXISTS(SELECT 1 FROM attempts a WHERE a.problem_id=p.id AND a.state='saved' AND a.understanding='independent') OR EXISTS(SELECT 1 FROM reviews r WHERE r.problem_id=p.id AND r.result='independent')),0) AS independent,
-				(SELECT count(*) FROM homework_tasks WHERE state='completed') AS completed,(SELECT count(*) FROM (SELECT DISTINCT problem_id,reviewed_on FROM reviews)) AS recalls,(SELECT count(*) FROM card_answers WHERE correct=1) AS cards,
+				(SELECT count(*) FROM homework_tasks WHERE state='completed') AS completed,(SELECT count(*) FROM (SELECT DISTINCT problem_id,reviewed_on FROM reviews)) AS recalls,(SELECT count(*) FROM card_answers WHERE correct=1)+(SELECT coalesce(sum(best),0) FROM (SELECT max(correct) AS best FROM quiz_attempts WHERE passed=1 GROUP BY deck)) AS cards,
 				(SELECT count(DISTINCT problem_id) FROM test_runs WHERE passed=total AND total>0) AS passedTests,(SELECT coalesce(sum(min(fails,3)),0) FROM (SELECT count(*) AS fails FROM test_runs WHERE passed<total GROUP BY problem_id,run_on)) AS failedRuns,
 				(SELECT count(*) FROM homework_tasks t JOIN homework h ON h.id=t.homework_id WHERE t.state<>'cancelled' AND h.due_date<date('now') AND date(t.created_at)<=h.due_date AND NOT EXISTS(SELECT 1 FROM submissions s WHERE s.task_id=t.id AND date(s.created_at)<=h.due_date)) AS late,
 				(SELECT count(*) FROM homework_tasks t JOIN homework h ON h.id=t.homework_id WHERE t.state<>'cancelled' AND EXISTS(SELECT 1 FROM submissions s WHERE s.task_id=t.id AND date(s.created_at)<=h.due_date)) AS onTime,

@@ -95,13 +95,16 @@ export type Card = { id: string; prompt: string; explain: string } & (
 	| { type: 'code'; language: string; code: string; options: string[]; answer: number });
 type Strip<T> = T extends unknown ? Omit<T, 'answer' | 'explain'> : never;
 export type QuizCard = Strip<Card>;
-export interface QuizDeck { slug: string; title: string; cardCount: number; dueCount: number; newCount: number }
-export interface QuizRound { title: string; cards: QuizCard[]; remaining: number }
-export interface QuizResult { correct: boolean; answer: string; explain: string; days: number }
+// best is the most correct answers of a passed attempt, and bestTotal the most cards of a passed attempt: a deck can change its size after a pass.
+// nextAt is the end of the 1 hour pause after the last attempt.
+export interface QuizDeck { slug: string; title: string; cardCount: number; best: number | null; bestTotal: number | null; nextAt: string | null }
+export interface QuizRound { title: string; cards: QuizCard[]; nextAt: string | null }
+// A failed attempt does not show the right answers and the explanations.
+export interface QuizAttempt { correct: number; total: number; passed: boolean; nextAt: string; results: { cardId: string; correct: boolean; answer?: string; explain?: string }[] }
 export interface Distribution { count: number; from: string | null; to: string | null }
 export interface Revision { id: string; problemId: string; result: Understanding; note: string; reviewedOn: string; nextReviewDate: string | null; createdAt: string }
 export interface Dashboard {
-	counts: { recorded: number; solved: number; independent: number; waitingReview: number; dueReviews: number; dueCards: number };
+	counts: { recorded: number; solved: number; independent: number; waitingReview: number; dueReviews: number };
 	topics: { topic: string; solved: number; independent: number }[];
 	homework: HomeworkTask[];
 	drafts: (Omit<Attempt, 'document'> & { problemTitle: string })[];

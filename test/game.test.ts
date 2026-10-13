@@ -13,10 +13,13 @@ const insertTask = env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,pr
 // Сила Бомжа moves the due date by one day.
 const postpone = env.DB.prepare("UPDATE homework SET due_date=date(due_date,'+1 day') WHERE id=?");
 const insertCard = env.DB.prepare("INSERT INTO card_answers VALUES (?,'pc1-factorial',?,3,?,?,'now')");
+const insertQuiz = env.DB.prepare('INSERT INTO quiz_attempts VALUES (?,?,?,?,?,?)');
 const insertSubmission = env.DB.prepare('INSERT INTO submissions (id,task_id,attempt_id,task_version,created_at) VALUES (?,?,?,1,?)');
 const insertRun = env.DB.prepare("INSERT INTO test_runs (id,problem_id,attempt_id,approach_id,code_hash,passed,total,run_on,created_at) VALUES (?,?,?,'approach','hash',?,?,?,?)");
 const insertVisit = env.DB.prepare('INSERT INTO visits (day) VALUES (?)');
 const run = (passed: number, on: string) => ({ passed, total: 5, on });
+// The quizzes list order is the time order of the attempts.
+const quiz = (chapter: number, correct: number, total: number, passed: boolean) => ({ deck: `permutations-and-combinations-${chapter}`, correct, total, passed });
 const accepted = (difficulty: Difficulty, understanding: Understanding = 'with_help'): Spec => ({ difficulty, attempts: [{ acceptance: 'accepted', understanding }] });
 const setTasks = tasksOf(sets.find(set => set.slug === 'permutations-and-combinations')!), twoSetTasks = sets.filter(set => ['permutations-and-combinations', 'two-pointers'].includes(set.slug)).flatMap(tasksOf);
 const today = new Date().toISOString().slice(0, 10);
@@ -31,7 +34,7 @@ const order: BadgeId[] = ['first-accept', 'three-day-streak', 'first-hard', 'ten
 let student: string;
 beforeEach(async () => { student = await login(); });
 
-it.each<{ name: string; role?: Role; problems: Spec[]; cards?: { correct: boolean; on: string }[]; visits?: number[]; xp: number; late?: number; missed?: number; level: number; levelXp: number; nextLevelXp: number; earned: BadgeId[] }>([
+it.each<{ name: string; role?: Role; problems: Spec[]; cards?: { correct: boolean; on: string }[]; quizzes?: ReturnType<typeof quiz>[]; visits?: number[]; xp: number; late?: number; missed?: number; level: number; levelXp: number; nextLevelXp: number; earned: BadgeId[] }>([
 	{ name: 'empty notebook', problems: [], xp: 0, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
 	{ name: 'accepted easy', problems: [accepted('easy')], xp: 10, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
 	{ name: 'two accepted attempts count once', problems: [{ difficulty: 'easy', attempts: [{ acceptance: 'accepted' }, { acceptance: 'accepted' }] }], xp: 10, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
@@ -94,6 +97,14 @@ it.each<{ name: string; role?: Role; problems: Spec[]; cards?: { correct: boolea
 	{ name: '49 correct cards', problems: [], cards: cardDays(49), xp: 98, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
 	{ name: '50 correct cards', problems: [], cards: cardDays(50), xp: 100, level: 2, levelXp: 100, nextLevelXp: 300, earned: ['fifty-cards'] },
 	{ name: '50 cards with one wrong', problems: [], cards: [...cardDays(49), { correct: false, on: '2026-06-01' }], xp: 98, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
+	{ name: 'failed quiz attempt gives no XP', problems: [], quizzes: [quiz(1, 6, 8, false)], xp: 0, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
+	{ name: 'passed quiz attempt gives 2 XP for each correct answer', problems: [], quizzes: [quiz(1, 7, 8, true)], xp: 14, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
+	{ name: 'two passed attempts of one deck count the best', problems: [], quizzes: [quiz(1, 7, 8, true), quiz(1, 8, 8, true)], xp: 16, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
+	{ name: 'a worse second pass keeps the best', problems: [], quizzes: [quiz(1, 8, 8, true), quiz(1, 7, 8, true)], xp: 16, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
+	{ name: 'passed attempts of two decks add up', problems: [], quizzes: [quiz(1, 8, 8, true), quiz(3, 7, 7, true)], xp: 30, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
+	{ name: '49 from passed attempts and old answers', problems: [], cards: cardDays(26), quizzes: [quiz(1, 8, 8, true), quiz(2, 8, 8, true), quiz(3, 7, 7, true)], xp: 98, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
+	{ name: '50 from passed attempts and old answers', problems: [], cards: cardDays(27), quizzes: [quiz(1, 8, 8, true), quiz(2, 8, 8, true), quiz(3, 7, 7, true)], xp: 100, level: 2, levelXp: 100, nextLevelXp: 300, earned: ['fifty-cards'] },
+	{ name: 'failed attempt does not count for 50 cards', problems: [], cards: cardDays(49), quizzes: [quiz(1, 6, 8, false)], xp: 98, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
 	{ name: 'nine recalls', problems: [{ ...accepted('easy'), reviews: recalls(9) }], xp: 55, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
 	{ name: 'ten recalls', problems: [{ ...accepted('easy'), reviews: recalls(10) }], xp: 60, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept', 'ten-recalls'] },
 	{ name: 'accepted Codeforces problem', problems: [{ ...accepted('medium'), slug: 'cf-1538-c' }], xp: 20, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept', 'first-codeforces'] },
@@ -105,7 +116,7 @@ it.each<{ name: string; role?: Role; problems: Spec[]; cards?: { correct: boolea
 	{ name: 'level 4 at 960 XP', problems: Array<Spec>(24).fill(accepted('hard')), xp: 960, level: 4, levelXp: 600, nextLevelXp: 1000, earned: ['first-accept', 'first-hard', 'ten-accepted'] },
 	{ name: 'level 5 at 1000 XP', problems: Array<Spec>(25).fill(accepted('hard')), xp: 1000, level: 5, levelXp: 1000, nextLevelXp: 1500, earned: ['first-accept', 'first-hard', 'ten-accepted', 'twenty-five-accepted', 'level-five'] },
 	{ name: 'failed runs below 0 XP', problems: [{ ...accepted('easy'), runs: [...Array(3).fill(run(0, '2026-10-01')), ...Array(3).fill(run(0, '2026-10-02'))] }], xp: 0, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
-])('$name', async ({ role, problems, cards = [], visits = [], xp, late = 0, missed = 0, level, levelXp, nextLevelXp, earned }) => {
+])('$name', async ({ role, problems, cards = [], quizzes = [], visits = [], xp, late = 0, missed = 0, level, levelXp, nextLevelXp, earned }) => {
 	const statements = problems.flatMap(problem => {
 		const id = crypto.randomUUID(), homeworkId = crypto.randomUUID(), taskId = crypto.randomUUID(), attemptId = crypto.randomUUID();
 		return [
@@ -119,7 +130,7 @@ it.each<{ name: string; role?: Role; problems: Spec[]; cards?: { correct: boolea
 			...(problem.runs ?? []).map((run, i) => insertRun.bind(crypto.randomUUID(), id, attemptId, run.passed, run.total, run.on, `${run.on}T12:00:00.${String(i).padStart(3, '0')}Z`)),
 			...(problem.submitted ? [insertSubmission.bind(crypto.randomUUID(), taskId, attemptId, problem.submitted)] : []),
 		];
-	}).concat(cards.map(card => insertCard.bind(crypto.randomUUID(), Number(card.correct), card.on, card.on)), visits.map(offset => insertVisit.bind(day(offset))));
+	}).concat(cards.map(card => insertCard.bind(crypto.randomUUID(), Number(card.correct), card.on, card.on)), quizzes.map((q, i) => insertQuiz.bind(crypto.randomUUID(), q.deck, q.correct, q.total, Number(q.passed), new Date(Date.parse('2026-10-01T12:00:00.000Z') + i * 60_000).toISOString())), visits.map(offset => insertVisit.bind(day(offset))));
 	if (statements.length) await env.DB.batch(statements);
 	const response = await request('/game', 'GET', undefined, role ? await login(role) : student);
 	expect(response.status).toBe(200);

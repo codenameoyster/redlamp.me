@@ -50,7 +50,7 @@ it.each([
 ])('$name', async ({ today, dueReviews }) => {
 	const response = await request(`/dashboard?today=${today}`, 'GET', undefined, cookie);
 	expect(response.status).toBe(200);
-	expect((await response.json() as Dashboard).counts).toEqual({ recorded: 3, solved: 2, independent: 1, waitingReview: 0, dueReviews, dueCards: 0 });
+	expect((await response.json() as Dashboard).counts).toEqual({ recorded: 3, solved: 2, independent: 1, waitingReview: 0, dueReviews });
 });
 
 it.each([

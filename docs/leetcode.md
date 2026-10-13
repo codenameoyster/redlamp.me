@@ -66,7 +66,7 @@ Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and wa
 
 A learning set is a sequence of chapters about one subject. Each chapter has a lesson, a list of problems and a deck of quiz cards. The sets are content in the repository. A deployment publishes them. The **Бомжарня** page lists the sets. It is read-only for both roles.
 
-A set page shows the reading links and the chapters. A chapter row shows the accepted problem count and the quiz card counts. A chapter page shows the chapter lesson, the problems and a link to the chapter quiz. A lesson can show figures. A figure with more than one step shows **Назад** and **Вперёд**. A problem row shows **Accepted** when the library problem has an accepted saved attempt. A problem row with an active homework task shows the task state. The state links to the task.
+A set page shows the reading links and the chapters. A chapter row shows the accepted problem count and the quiz status. A chapter page shows the chapter lesson, the problems, the quiz status and a link to the chapter quiz. A lesson can show figures. A figure with more than one step shows **Назад** and **Вперёд**. A problem row shows **Accepted** when the library problem has an accepted saved attempt. A problem row with an active homework task shows the task state. The state links to the task.
 
 As the parent, use **Add to homework** on a problem row. The dialog shows the active homework. Use the search box to find homework by title. Use **Assign** to add the problem to that homework. Use **Create and assign** to create new homework with the problem in one step. The notebook adds the problem to the library when the library does not have it. A problem with an active task has no **Add to homework** button.
 
@@ -74,12 +74,14 @@ For the student, a chapter page shows **Explain with AI** below the text that is
 
 The parent can also link a set to a problem or to homework. Choose the set in **Materials**. The link opens the set page.
 
+The **Квиз** page shows one deck for each chapter. An attempt answers all cards of one deck. The page sends the answers to the server after the last card. If the student leaves before the last card, the notebook keeps no answers. An attempt passes with 80 % or more correct answers: 8 cards need 7, 7 cards need 6, 6 cards need 5. After a passed attempt, the page shows each card with the answer of the student, the right answer and the explanation. After a failed attempt, the page shows only the cards with a wrong answer, without the right answers. After each attempt, passed or failed, the notebook closes the deck for 1 hour. The quiz status is **Пройден** with the best passed result, or **Не пройден**, and the time of the next attempt during the pause. The parent sees all cards of a deck with the answers.
+
 To add a set:
 
 1. Create the folder `src/leetcode/sets/<slug>/`. Use lowercase letters, digits, and dashes in the slug.
 2. Write `chapter<N>.ts` for each chapter. Export the chapter data as the default export. Type it with `satisfies Chapter`. Give the chapter a title, a summary, its tasks and its cards. Put the lesson pictures in `figures`, see step 3. For each task, use the problem slug from its LeetCode URL.
 3. Write `chapter<N>.html` for each chapter as an HTML fragment. The chapter page inserts it without changes. Start with `<p class="lead">` and one sentence. Then write sections that start with `<h2 id="sN">`. Use only these elements: `h2 h3 p ul ol li table caption thead tbody tr th td pre code strong em sup blockquote details summary a br figure`, and `<div class="rule">` for a rule. Put a picture as `<figure data-figure="<id>"></figure>` on its own line. Describe it in `figures` of `chapter<N>.ts` in the same order. A figure has an id, a Russian title and one or more frames. A frame has a Russian caption and rows of cells. A row can have a label, marked cells, dimmed cells, pointers under the cells and a window bracket. A row with `tree: true` draws its cells as a binary tree in `heapq` order: the children of place i are places 2i + 1 and 2i + 2. An empty string is an empty place. A tree row has no pointers and no window. A marked cell is a cell that the step works on. A dimmed cell holds a value that a move removed. Do not show a pointer that is past the end of its row. Say in the caption where that pointer is. Make each frame from a trace of the algorithm on the numbers of the picture. Do not use scripts, styles, `style` attributes or event attributes. Write code blocks as `<pre><code class="language-python">`. Write a hint as `<details><summary>Подсказка 1</summary>...</details>`. Give external links `target="_blank" rel="noopener noreferrer"`.
-4. Write `set.ts`. Export the set data as the default export. Type it with `satisfies LearningSet`. Import the chapters into `chapters` in reading order.
+4. Write `set.ts`. Export the set data as the default export. Type it with `satisfies LearningSet`. Import the chapters into `chapters` in reading order. Add a new chapter only after the last chapter of a published set, and do not change the slug of a published set. The quiz attempts keep the deck as `<set slug>-<chapter number>`.
 5. Write `solutions.ts` with a reference solution for each task. Export an object with the task slugs as keys as the default export. Type it with `satisfies Record<string, Reference>`. A reference has the mode of the task tests. A `call` reference returns the value that the tests compare. A `stdio` reference returns the standard output. Check the constraints of the statement first with the functions in `src/leetcode/sets/constraints.ts`. Lint stops an import from `src/` in `web/`, so the reference solutions do not get to the browser.
 6. In `src/leetcode/sets/index.ts`, import the set, its chapter lessons and its reference solutions. Add the set to `sets` with `lessons: [...]` in chapter order. The order of `sets` is the display order. Add the reference solutions to `references`.
 7. Run `bun run test`. `test/sets.test.ts` checks each set: unique set and task slugs, the slug format, a title, a summary and at least one task for each chapter, https links, one lesson for each chapter, the lesson size and format, the figure placeholders, ids and indexes, the card ids, options and answers, and that the reference solution of each task passes the standard tests of the task.
@@ -138,10 +140,13 @@ The notebook calculates XP from saved records. Failed test runs, late homework a
 | An accepted problem with a saved attempt or a review with the understanding "independent", one time for each problem | 10 |
 | A completed homework task | 15 |
 | A review, one time for each problem and day | 5 |
+| A correct answer in the best passed quiz attempt of each deck | 2 |
 | A test run that passed all tests, one time for each problem | 10 |
 | A test run with a failed test, at most three runs for each problem and day | -2 |
 | A homework task without a submission by its due date | -15 |
 | A missed day | -5 |
+
+The correct answers of the earlier quiz, which saved one answer for each card, keep their 2 XP and count for **50 карточек**.
 
 Level L starts at `50 * L * (L - 1)` XP: level 2 at 100 XP, level 3 at 300 XP, level 4 at 600 XP, and level 5 at 1000 XP.
 
@@ -159,7 +164,7 @@ A badge stays earned, except Уровень 5: it shows the current level. The s
 | Месяц без пропусков | Visit days on 30 consecutive days. |
 | 25 принятых | 25 problems with an accepted saved attempt. |
 | 50 принятых | 50 problems with an accepted saved attempt. |
-| 50 карточек | 50 correct quiz answers. |
+| 50 карточек | 50 correct answers in the best passed quiz attempts of the decks. |
 | Десять повторений | 10 reviews, one for each problem and day. |
 | Первая с Codeforces | One Codeforces problem with an accepted saved attempt. |
 | С первого раза | The first test run of a problem passed all tests. |

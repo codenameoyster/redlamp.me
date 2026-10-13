@@ -1,108 +1,137 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
-import type { Dashboard, QuizDeck, QuizRound, Role } from '../shared/leetcode';
+import type { Card, QuizAttempt, QuizDeck, QuizRound, Role } from '../shared/leetcode';
 import { sets } from '../src/leetcode/sets';
-import { nextInterval } from '../src/leetcode/quiz';
 
 const chapters = sets.find(item => item.slug === 'permutations-and-combinations')!.chapters;
 const deck = chapters[0].cards;
-const slug = 'permutations-and-combinations-1', today = '2026-10-11';
-const insert = env.DB.prepare("INSERT INTO card_answers VALUES (?,?,?,?,?,?,'now')");
+const slug = 'permutations-and-combinations-1', HOUR = 3_600_000;
+const insert = env.DB.prepare('INSERT INTO quiz_attempts VALUES (?,?,?,?,?,?)');
+const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+const hourAfter = (time: string) => new Date(Date.parse(time) + HOUR).toISOString();
+const wrong = (card: Card) => card.type === 'short' ? 'нет' : (card.answer + 1) % card.options.length;
+// The first `right` cards of the chapter get the right answer, the other cards get a wrong answer.
+const answers = (chapter: number, right: number) => Object.fromEntries(chapters[chapter - 1].cards.map((card, i) => [card.id, i < right ? card.answer : wrong(card)]));
+const rows = () => env.DB.prepare('SELECT deck,correct,total,passed FROM quiz_attempts ORDER BY created_at').all().then(r => r.results);
 let student: string;
 beforeEach(async () => { student = await login(); });
-const answer = (cardId: string, value: unknown, answeredOn = today, chapter = 1) => request(`/quiz/permutations-and-combinations-${chapter}/answers`, 'POST', { cardId, answer: value, answeredOn }, student);
+const submit = (chapter: number, body: unknown, cookie = student) => request(`/quiz/permutations-and-combinations-${chapter}/attempts`, 'POST', body, cookie);
 
 it.each([
-	{ name: 'new card correct', previous: 0, correct: true, days: 3 },
-	{ name: 'new card wrong', previous: 0, correct: false, days: 1 },
-	{ name: '3 to 7', previous: 3, correct: true, days: 7 },
-	{ name: '7 to 14', previous: 7, correct: true, days: 14 },
-	{ name: '14 to 30', previous: 14, correct: true, days: 30 },
-	{ name: '30 stays 30', previous: 30, correct: true, days: 30 },
-	{ name: 'wrong at 14 gives 1', previous: 14, correct: false, days: 1 },
-	{ name: 'correct after a wrong answer gives 3', previous: 1, correct: true, days: 3 },
-])('ladder: $name', ({ previous, correct, days }) => { expect(nextInterval(previous, correct)).toBe(days); });
+	{ name: '8 of 8 passes', chapter: 1, right: 8, total: 8, passed: true },
+	{ name: '7 of 8 passes', chapter: 1, right: 7, total: 8, passed: true },
+	{ name: '6 of 8 fails', chapter: 1, right: 6, total: 8, passed: false },
+	{ name: '6 of 7 passes', chapter: 3, right: 6, total: 7, passed: true },
+	{ name: '5 of 7 fails', chapter: 3, right: 5, total: 7, passed: false },
+	{ name: '5 of 6 passes', chapter: 4, right: 5, total: 6, passed: true },
+	{ name: '4 of 6 fails', chapter: 4, right: 4, total: 6, passed: false },
+])('pass rule: $name', async ({ chapter, right, total, passed }) => {
+	const response = await submit(chapter, { answers: answers(chapter, right) });
+	expect(response.status).toBe(201);
+	expect(await response.json()).toMatchObject({ correct: right, total, passed });
+	expect(await rows()).toEqual([{ deck: `permutations-and-combinations-${chapter}`, correct: right, total, passed: Number(passed) }]);
+});
+
+it('a passed attempt shows each answer and explanation', async () => {
+	const response = await submit(1, { answers: { ...answers(1, 7), 'pc1-medals': '  126 ' } });
+	expect(response.status).toBe(201);
+	const body = await response.json() as QuizAttempt;
+	const createdAt = await env.DB.prepare('SELECT created_at FROM quiz_attempts').first<string>('created_at');
+	expect(body).toEqual({ correct: 7, total: 8, passed: true, nextAt: hourAfter(createdAt!), results: deck.map(card => ({ cardId: card.id, correct: card.id !== 'pc1-order-matters', answer: card.type === 'short' ? card.answer : card.options[card.answer], explain: card.explain })) });
+});
+
+it('a failed attempt shows the wrong cards without the answers', async () => {
+	const body = await (await submit(1, { answers: answers(1, 5) })).json() as QuizAttempt;
+	expect(body.results).toEqual(deck.map((card, i) => ({ cardId: card.id, correct: i < 5 })));
+});
+
+const all = answers(1, 8), without = (id: string) => Object.fromEntries(Object.entries(all).filter(([key]) => key !== id));
+it.each([
+	{ name: 'missing card', body: { answers: without('pc1-team') } },
+	{ name: 'unknown card id', body: { answers: { ...all, 'pc-missing': 1 } } },
+	{ name: 'card from another deck', body: { answers: { ...without('pc1-team'), 'pc2-no-pop': 1 } } },
+	{ name: 'option index as text', body: { answers: { ...all, 'pc1-product-rule': '0' } } },
+	{ name: 'option index out of range', body: { answers: { ...all, 'pc1-product-rule': 4 } } },
+	{ name: 'empty short answer', body: { answers: { ...all, 'pc1-factorial': ' ' } } },
+	{ name: 'answers not an object', body: { answers: [0, 1, 2, 3, 4, 5, 6, 7] } },
+	{ name: 'unknown field', body: { answers: all, answeredOn: '2026-10-11' } },
+])('refuses $name', async ({ body }) => {
+	expect((await submit(1, body)).status).toBe(400);
+	expect(await rows()).toEqual([]);
+});
 
 it.each([
-	{ name: 'choice right option', cardId: 'pc1-product-rule', value: 0, status: 201, correct: true, days: 3 },
-	{ name: 'choice wrong option', cardId: 'pc1-product-rule', value: 1, status: 201, correct: false, days: 1 },
-	{ name: 'option index out of range', cardId: 'pc1-product-rule', value: 4, status: 400 },
-	{ name: 'option index as text', cardId: 'pc1-product-rule', value: '0', status: 400 },
-	{ name: 'code right line', cardId: 'pc2-undo', chapter: 2, value: 0, status: 201, correct: true, days: 3 },
-	{ name: 'short exact', cardId: 'pc1-factorial', value: '48', status: 201, correct: true, days: 3 },
-	{ name: 'short answer with extra spaces', cardId: 'pc1-medals', value: '  126 ', status: 201, correct: true, days: 3 },
-	{ name: 'short wrong', cardId: 'pc1-factorial', value: '24', status: 201, correct: false, days: 1 },
-	{ name: 'short empty', cardId: 'pc1-factorial', value: '', status: 400 },
-	{ name: 'unknown card', cardId: 'pc-missing', value: 1, status: 400 },
-	{ name: 'card from another chapter', cardId: 'pc2-no-pop', value: 1, status: 400 },
-	{ name: 'bad date', cardId: 'pc1-factorial', value: '48', answeredOn: '2026-13-01', status: 400 },
-])('grades: $name', async ({ cardId, chapter = 1, value, answeredOn, status, correct, days }) => {
-	const response = await answer(cardId, value, answeredOn, chapter);
+	{ name: 'failed attempt 59 min ago', deck: slug, minutes: 59, correct: 5, passed: 0, status: 429 },
+	{ name: 'a passed attempt also starts the cooldown', deck: slug, minutes: 59, correct: 7, passed: 1, status: 429 },
+	{ name: 'attempt 61 min ago', deck: slug, minutes: 61, correct: 5, passed: 0, status: 201 },
+	{ name: 'attempt 1 min ago on another deck', deck: 'permutations-and-combinations-2', minutes: 1, correct: 5, passed: 0, status: 201 },
+])('cooldown: $name', async ({ deck: last, minutes, correct, passed, status }) => {
+	const createdAt = ago(minutes);
+	await insert.bind('a', last, correct, 8, passed, createdAt).run();
+	const response = await submit(1, { answers: all });
 	expect(response.status).toBe(status);
-	if (status !== 201) return;
-	const card = chapters[chapter - 1].cards.find(item => item.id === cardId)!;
-	const shown = card.type === 'short' ? card.answer : card.options[card.answer];
-	expect(await response.json()).toEqual({ correct, answer: shown, explain: card.explain, days });
-	expect(await env.DB.prepare('SELECT card_id,correct,interval_days,answered_on,next_date FROM card_answers').all().then(r => r.results)).toEqual([{ card_id: cardId, correct: Number(correct), interval_days: days, answered_on: today, next_date: days === 3 ? '2026-10-14' : '2026-10-12' }]);
+	expect(await rows()).toHaveLength(status === 201 ? 2 : 1);
+	if (status === 429) expect((await response.json() as { error: { fields: unknown } }).error.fields).toEqual({ nextAt: hourAfter(createdAt) });
 });
 
-it('second answer on the same day keeps the first result', async () => {
-	expect((await answer('pc1-factorial', '24')).status).toBe(201);
-	const retry = await answer('pc1-factorial', '48');
-	expect(retry.status).toBe(201);
-	expect(await retry.json()).toMatchObject({ correct: false, days: 1 });
-	expect(await env.DB.prepare('SELECT count(*) AS n FROM card_answers').first('n')).toBe(1);
+it('of two quick submits only one is stored', async () => {
+	const responses = await Promise.all([submit(1, { answers: all }), submit(1, { answers: all })]);
+	expect(responses.map(response => response.status).sort()).toEqual([201, 429]);
+	expect(await rows()).toHaveLength(1);
 });
 
-it('the next day continues the ladder from the stored interval', async () => {
-	await insert.bind('a', 'pc1-factorial', 1, 3, '2026-10-01', '2026-10-04').run();
-	expect(await (await answer('pc1-factorial', '48')).json()).toMatchObject({ correct: true, days: 7 });
+it.each([
+	{ name: 'no attempt', minutes: null },
+	{ name: 'attempt 30 min ago', minutes: 30 },
+	{ name: 'attempt 61 min ago', minutes: 61 },
+])('round: $name', async ({ minutes }) => {
+	const createdAt = minutes === null ? null : ago(minutes);
+	if (createdAt) await insert.bind('a', slug, 5, 8, 0, createdAt).run();
+	const round = await (await request(`/quiz/${slug}`, 'GET', undefined, student)).json() as QuizRound;
+	expect(round.title).toBe('Перестановки и сочетания, глава 1');
+	expect(round.cards.map(card => card.id)).toEqual(deck.map(card => card.id));
+	expect(round.cards.some(card => 'answer' in card || 'explain' in card)).toBe(false);
+	expect(round.nextAt).toBe(minutes === 30 ? hourAfter(createdAt!) : null);
 });
 
 it.each<{ name: string; role: Role; path: string; method: string; body?: unknown; status: number }>([
-	{ name: 'parent cannot answer', role: 'parent', path: `/quiz/${slug}/answers`, method: 'POST', body: { cardId: 'pc1-factorial', answer: '48', answeredOn: today }, status: 403 },
+	{ name: 'parent cannot submit', role: 'parent', path: `/quiz/${slug}/attempts`, method: 'POST', body: { answers: all }, status: 403 },
 	{ name: 'parent reads the cards', role: 'parent', path: `/quiz/${slug}/cards`, method: 'GET', status: 200 },
 	{ name: 'student cannot read the cards', role: 'student', path: `/quiz/${slug}/cards`, method: 'GET', status: 403 },
-	{ name: 'unknown deck', role: 'student', path: `/quiz/two-sum?today=${today}`, method: 'GET', status: 404 },
-	{ name: 'set slug without a chapter number is not a deck', role: 'student', path: `/quiz/permutations-and-combinations?today=${today}`, method: 'GET', status: 404 },
-	{ name: 'round without today', role: 'student', path: `/quiz/${slug}`, method: 'GET', status: 400 },
+	{ name: 'unknown deck', role: 'student', path: '/quiz/two-sum', method: 'GET', status: 404 },
+	{ name: 'attempt of an unknown deck', role: 'student', path: '/quiz/two-sum/attempts', method: 'POST', body: { answers: all }, status: 404 },
+	{ name: 'set slug without a chapter number is not a deck', role: 'student', path: '/quiz/permutations-and-combinations', method: 'GET', status: 404 },
 ])('$name', async ({ role, path, method, body, status }) => {
 	const response = await request(path, method, body, role === 'student' ? student : await login('parent'));
 	expect(response.status).toBe(status);
 	if (path.endsWith('/cards') && status === 200) expect(await response.json()).toEqual(deck);
 });
 
-it('lists one deck per chapter and builds the round from due cards, then new cards', async () => {
+it('lists one deck per chapter with the best passed attempt and the next attempt time', async () => {
+	const failedAt = ago(30);
 	await env.DB.batch([
-		insert.bind('a', 'pc1-team', 1, 3, '2026-10-05', '2026-10-08'),
-		insert.bind('b', 'pc1-product-rule', 0, 1, '2026-10-09', '2026-10-10'),
-		insert.bind('c', 'pc1-factorial', 1, 7, '2026-10-10', '2026-10-17'),
-		insert.bind('d', 'pc1-sum-rule', 1, 3, '2026-10-11', '2026-10-14'),
-		insert.bind('e', 'pc-removed', 0, 1, '2026-10-01', '2026-10-02'),
-		insert.bind('f', 'pc3-paren-branch', 1, 3, '2026-10-05', '2026-10-08'),
+		insert.bind('a', slug, 7, 8, 1, ago(180)),
+		insert.bind('b', slug, 5, 8, 0, failedAt),
+		insert.bind('c', 'permutations-and-combinations-2', 8, 8, 1, ago(120)),
+		insert.bind('d', 'permutations-and-combinations-2', 7, 8, 1, ago(90)),
+		// The deck had 8 cards at this pass and has 7 now.
+		insert.bind('e', 'permutations-and-combinations-3', 8, 8, 1, ago(240)),
+		insert.bind('f', 'permutations-and-combinations-4', 4, 6, 0, ago(120)),
 	]);
-	const decks = await (await request(`/quiz?today=${today}`, 'GET', undefined, student)).json() as QuizDeck[];
-	expect(decks).toEqual([
-		{ slug, title: 'Перестановки и сочетания, глава 1', cardCount: 8, dueCount: 2, newCount: 4 },
-		{ slug: 'permutations-and-combinations-2', title: 'Перестановки и сочетания, глава 2', cardCount: 8, dueCount: 0, newCount: 8 },
-		{ slug: 'permutations-and-combinations-3', title: 'Перестановки и сочетания, глава 3', cardCount: 7, dueCount: 1, newCount: 6 },
-		{ slug: 'permutations-and-combinations-4', title: 'Перестановки и сочетания, глава 4', cardCount: 6, dueCount: 0, newCount: 6 },
-		{ slug: 'two-pointers-1', title: 'Два указателя, глава 1', cardCount: 8, dueCount: 0, newCount: 8 },
-		{ slug: 'two-pointers-2', title: 'Два указателя, глава 2', cardCount: 7, dueCount: 0, newCount: 7 },
-		{ slug: 'two-pointers-3', title: 'Два указателя, глава 3', cardCount: 8, dueCount: 0, newCount: 8 },
-		{ slug: 'two-pointers-4', title: 'Два указателя, глава 4', cardCount: 8, dueCount: 0, newCount: 8 },
-		{ slug: 'heaps-and-queues-1', title: 'Куча и очереди, глава 1', cardCount: 8, dueCount: 0, newCount: 8 },
-		{ slug: 'heaps-and-queues-2', title: 'Куча и очереди, глава 2', cardCount: 8, dueCount: 0, newCount: 8 },
-		{ slug: 'heaps-and-queues-3', title: 'Куча и очереди, глава 3', cardCount: 8, dueCount: 0, newCount: 8 },
-		{ slug: 'heaps-and-queues-4', title: 'Куча и очереди, глава 4', cardCount: 8, dueCount: 0, newCount: 8 },
+	const empty = { best: null, bestTotal: null, nextAt: null };
+	expect(await (await request('/quiz', 'GET', undefined, student)).json() as QuizDeck[]).toEqual([
+		{ slug, title: 'Перестановки и сочетания, глава 1', cardCount: 8, best: 7, bestTotal: 8, nextAt: hourAfter(failedAt) },
+		{ slug: 'permutations-and-combinations-2', title: 'Перестановки и сочетания, глава 2', cardCount: 8, best: 8, bestTotal: 8, nextAt: null },
+		{ slug: 'permutations-and-combinations-3', title: 'Перестановки и сочетания, глава 3', cardCount: 7, best: 8, bestTotal: 8, nextAt: null },
+		{ slug: 'permutations-and-combinations-4', title: 'Перестановки и сочетания, глава 4', cardCount: 6, ...empty },
+		{ slug: 'two-pointers-1', title: 'Два указателя, глава 1', cardCount: 8, ...empty },
+		{ slug: 'two-pointers-2', title: 'Два указателя, глава 2', cardCount: 7, ...empty },
+		{ slug: 'two-pointers-3', title: 'Два указателя, глава 3', cardCount: 8, ...empty },
+		{ slug: 'two-pointers-4', title: 'Два указателя, глава 4', cardCount: 8, ...empty },
+		{ slug: 'heaps-and-queues-1', title: 'Куча и очереди, глава 1', cardCount: 8, ...empty },
+		{ slug: 'heaps-and-queues-2', title: 'Куча и очереди, глава 2', cardCount: 8, ...empty },
+		{ slug: 'heaps-and-queues-3', title: 'Куча и очереди, глава 3', cardCount: 8, ...empty },
+		{ slug: 'heaps-and-queues-4', title: 'Куча и очереди, глава 4', cardCount: 8, ...empty },
 	]);
-	const round = await (await request(`/quiz/${slug}?today=${today}`, 'GET', undefined, student)).json() as QuizRound;
-	expect(round.title).toBe('Перестановки и сочетания, глава 1');
-	expect(round.cards.map(card => card.id)).toEqual(['pc1-team', 'pc1-product-rule', 'pc1-medals', 'pc1-symmetry', 'pc1-subsets', 'pc1-order-matters']);
-	expect(round.remaining).toBe(0);
-	expect(round.cards.some(card => 'answer' in card || 'explain' in card)).toBe(false);
-	expect(round.cards.find(card => card.id === 'pc1-team')).toMatchObject({ type: 'code', code: expect.any(String), options: expect.any(Array) });
-	const dashboard = await (await request(`/dashboard?today=${today}`, 'GET', undefined, student)).json() as Dashboard;
-	expect(dashboard.counts.dueCards).toBe(3);
 });
