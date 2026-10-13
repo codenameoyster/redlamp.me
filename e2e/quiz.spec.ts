@@ -4,7 +4,7 @@ test('plays a round and sees the counts change', async ({ page }) => {
 	await signIn(page);
 	await page.getByRole('link', { name: 'Квиз', exact: true }).click();
 	const deck = page.getByRole('article').filter({ hasText: 'Перестановки и сочетания, глава 1' }), second = page.getByRole('article').filter({ hasText: 'Перестановки и сочетания, глава 2' }), result = page.getByRole('status', { name: 'Результат' });
-	await expect(page.getByRole('article')).toHaveCount(10);
+	await expect(page.getByRole('article')).toHaveCount(11);
 	await expect(deck.getByText('К повторению: 0')).toBeVisible();
 	await expect(deck.getByText('Новых: 8')).toBeVisible();
 	await expect(page.getByRole('article').filter({ hasText: 'глава 3' }).getByText('Новых: 7')).toBeVisible();

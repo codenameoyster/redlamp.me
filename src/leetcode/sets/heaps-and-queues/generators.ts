@@ -91,4 +91,26 @@ export default {
 		...Array.from({ length: 4 }, () => words(random, between(random, 2, 60), between(random, 1, 15))),
 		words(random, 500, 50), words(random, 500, 500),
 	]),
+	'sliding-window-maximum': (random: Random) => call([
+		[[1], 1], [[-10000], 1], [[10000, -10000], 1], [[10000, -10000], 2], [[5, 5, 5, 5], 2], [[1, 2, 3, 4, 5], 3], [[5, 4, 3, 2, 1], 3],
+		...Array.from({ length: 4 }, () => { const n = between(random, 2, 60); return [list(random, n, -between(random, 0, 20), between(random, 0, 20)), between(random, 1, n)]; }),
+		// k = n / 2 makes a scan of each window cost 2.5 * 10^9 reads.
+		[list(random, 100000, -10000, 10000), 50000], [list(random, 100000, -10000, 10000), between(random, 1, 100000)],
+	]),
+	'longest-continuous-subarray-with-absolute-diff-less-than-or-equal-to-limit': (random: Random) => call([
+		[[1], 0], [[1000000000], 1000000000], [[1, 1000000000], 999999999], [[1, 1000000000], 999999998], [[7, 7, 7, 7], 0], [[1, 2, 1, 2], 0], [[5, 1, 5, 1], 4],
+		...Array.from({ length: 4 }, () => [list(random, between(random, 2, 60), 1, between(random, 2, 30)), between(random, 0, 10)]),
+		[list(random, 100000, 1, 1000000000), between(random, 0, 1000000000)], [list(random, 100000, 1, 10), 9],
+	]),
+	'continuous-subarrays': (random: Random) => call([
+		[[1]], [[1000000000]], [[1, 3]], [[1, 4]], [[2, 2, 2, 2]], [[1, 1000000000, 1]],
+		...Array.from({ length: 4 }, () => [list(random, between(random, 2, 60), 1, between(random, 3, 8))]),
+		// Values in a range of 2 make every subarray continuous: 100000 * 100001 / 2 = 5000050000.
+		[list(random, 100000, 1, 1000000000)], [list(random, 100000, 999999998, 1000000000)],
+	]),
+	'maximum-number-of-robots-within-budget': (random: Random) => call([
+		[[1], [1], 1], [[1], [1], 2], [[100000], [100000], 1000000000000000], [[3, 1], [1, 1], 4], [[1, 1, 1, 1], [1, 1, 1, 1], 17], [[10, 1, 1, 1], [1, 1, 1, 1], 13],
+		...Array.from({ length: 4 }, () => { const n = between(random, 2, 60); return [list(random, n, 1, 100000), list(random, n, 1, 100000), between(random, 1, 100000 + n * n * 100000)]; }),
+		[list(random, 50000, 1, 100000), list(random, 50000, 1, 100000), between(random, 1e9, 1e12)], [Array(50000).fill(100000), Array(50000).fill(100000), 1000000000000000],
+	]),
 } satisfies Record<string, Generator>;

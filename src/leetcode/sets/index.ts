@@ -7,6 +7,7 @@ import { getProblem, slug as problemSlug, solvedSQL } from '../problems';
 import heapsAndQueues from './heaps-and-queues/set';
 import heapsAndQueues1 from './heaps-and-queues/chapter1.html';
 import heapsAndQueues2 from './heaps-and-queues/chapter2.html';
+import heapsAndQueues3 from './heaps-and-queues/chapter3.html';
 import heapsAndQueuesGenerators from './heaps-and-queues/generators';
 import heapsAndQueuesSolutions from './heaps-and-queues/solutions';
 import permutationsAndCombinations from './permutations-and-combinations/set';
@@ -27,7 +28,7 @@ import twoPointersSolutions from './two-pointers/solutions';
 export const sets: (LearningSet & { lessons: string[] })[] = [
 	{ ...permutationsAndCombinations, lessons: [permutationsAndCombinations1, permutationsAndCombinations2, permutationsAndCombinations3, permutationsAndCombinations4] },
 	{ ...twoPointers, lessons: [twoPointers1, twoPointers2, twoPointers3, twoPointers4] },
-	{ ...heapsAndQueues, lessons: [heapsAndQueues1, heapsAndQueues2] },
+	{ ...heapsAndQueues, lessons: [heapsAndQueues1, heapsAndQueues2, heapsAndQueues3] },
 ];
 
 // A reference solution of a set task. A call input gives solve.length arguments. solve returns the value that the harness compares and throws RangeError('constraints') for an input outside the statement constraints.

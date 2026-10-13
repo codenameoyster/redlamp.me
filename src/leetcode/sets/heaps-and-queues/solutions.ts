@@ -24,6 +24,20 @@ const maxHeap = () => {
 	};
 	return { push, pop, size: (): number => h.length };
 };
+// For each right border r, the smallest left border l with max - min <= limit on a[l..r]. Two deques of indexes keep the maximum and the minimum of the window. O(n).
+const lefts = (a: number[], limit: number): number[] => {
+	const hi: number[] = [], lo: number[] = [], out: number[] = [];
+	let l = 0, h = 0, m = 0;
+	for (let r = 0; r < a.length; r++) {
+		while (hi.length > h && a[hi[hi.length - 1]] <= a[r]) hi.pop();
+		while (lo.length > m && a[lo[lo.length - 1]] >= a[r]) lo.pop();
+		hi.push(r);
+		lo.push(r);
+		while (a[hi[h]] - a[lo[m]] > limit) { l++; if (hi[h] < l) h++; if (lo[m] < l) m++; }
+		out.push(l);
+	}
+	return out;
+};
 
 export default {
 	// O(n): before person k ends, a person in front of k or k buys min(tickets[i], tickets[k]) tickets, and a person after k buys one ticket less.
@@ -111,5 +125,37 @@ export default {
 		for (const w of words) { const word = str(w, /^[a-z]{1,10}$/); count.set(word, (count.get(word) ?? 0) + 1); }
 		const top = int(k, 1, count.size);
 		return [...count].sort(([a, x], [b, y]) => y - x || (a < b ? -1 : 1)).slice(0, top).map(([word]) => word);
+	} },
+	// O(n): a deque of indexes with decreasing values. The back drops the values not greater than the new one, the front drops the index that left the window.
+	'sliding-window-maximum': { mode: 'call', solve: (nums: unknown, k: unknown) => {
+		const a = ints(nums, 1, 1e5, -1e4, 1e4), size = int(k, 1, a.length), dq: number[] = [], out: number[] = [];
+		let head = 0;
+		for (let i = 0; i < a.length; i++) {
+			while (dq.length > head && a[dq[dq.length - 1]] <= a[i]) dq.pop();
+			dq.push(i);
+			if (dq[head] <= i - size) head++;
+			if (i >= size - 1) out.push(a[dq[head]]);
+		}
+		return out;
+	} },
+	// O(n): the longest window r - l + 1 over the left borders of lefts.
+	'longest-continuous-subarray-with-absolute-diff-less-than-or-equal-to-limit': { mode: 'call', solve: (nums: unknown, limit: unknown) => {
+		const a = ints(nums, 1, 1e5, 1, 1e9);
+		return lefts(a, int(limit, 0, 1e9)).reduce((best, l, r) => Math.max(best, r - l + 1), 0);
+	} },
+	// O(n): for each right border r, the subarrays l..r, ..., r..r fit, so add r - l + 1.
+	'continuous-subarrays': { mode: 'call', solve: (nums: unknown) => lefts(ints(nums, 1, 1e5, 1, 1e9), 2).reduce((count, l, r) => count + r - l + 1, 0) },
+	// O(n): a window with a deque of indexes for the maximum charge and the running sum of the costs. The left border moves while the cost is above the budget.
+	'maximum-number-of-robots-within-budget': { mode: 'call', solve: (chargeTimes: unknown, runningCosts: unknown, budget: unknown) => {
+		const charge = ints(chargeTimes, 1, 5e4, 1, 1e5), cost = ints(runningCosts, charge.length, charge.length, 1, 1e5), limit = int(budget, 1, 1e15), dq: number[] = [];
+		let l = 0, head = 0, sum = 0, best = 0;
+		for (let r = 0; r < charge.length; r++) {
+			while (dq.length > head && charge[dq[dq.length - 1]] <= charge[r]) dq.pop();
+			dq.push(r);
+			sum += cost[r];
+			while (l <= r && charge[dq[head]] + (r - l + 1) * sum > limit) { sum -= cost[l++]; if (dq[head] < l) head++; }
+			best = Math.max(best, r - l + 1);
+		}
+		return best;
 	} },
 } satisfies Record<string, Reference>;
