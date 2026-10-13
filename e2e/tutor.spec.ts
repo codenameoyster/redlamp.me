@@ -391,6 +391,7 @@ const highlights = [
 	{ name: 'marks the longest quote prefix after a drift', from: 'tutor', quotes: ['Тогда следующий шаг цикла начинает и потом …'], marks: ['Тогда следующий шаг цикла начинает'], status: marked },
 	{ name: 'tells that a quote is not in the lesson', from: 'tutor', quotes: ['A heap keeps the smallest item at the root.'], marks: [], status: notFound },
 	{ name: 'does not mark hidden lesson text', from: 'tutor', quotes: ['Скрытый текст урока.'], marks: [], status: notFound },
+	{ name: 'does not mark the text of a figure', from: 'tutor', quotes: ['Подпись рисунка урока.'], marks: [], status: notFound },
 	{ name: 'removes the marks of the first quote', from: 'tutor', quotes: ['Третий шаг нужен, чтобы вернуть path в то состояние, какое было до выбора.', 'Тогда следующий шаг цикла начинает'], marks: ['Тогда следующий шаг цикла начинает'], status: marked },
 	{ name: 'ignores a highlight message that the page posts', from: 'page', quotes: ['Третий шаг нужен, чтобы вернуть path в то состояние, какое было до выбора.'], marks: [], status: '' },
 ] as const;
@@ -402,7 +403,7 @@ for (const row of highlights) {
 		await page.goto(chapterPath);
 		await expect(page.locator('.lesson-ai')).toHaveCount(1);
 		await expect(lesson(page).locator('p', { hasText: 'Третий шаг нужен' })).toBeVisible();
-		await lesson(page).evaluate(article => article.insertAdjacentHTML('beforeend', '<p hidden>Скрытый текст урока.</p>'));
+		await lesson(page).evaluate(article => article.insertAdjacentHTML('beforeend', '<p hidden>Скрытый текст урока.</p><figure data-figure="test"><p>Подпись рисунка урока.</p></figure>'));
 		if (row.from === 'tutor') await page.getByRole('button', { name: 'Спросить ИИ', exact: true }).click();
 		for (const [i, quote] of row.quotes.entries()) {
 			if (row.from === 'tutor') await page.getByRole('dialog', { name: 'ИИ-репетитор' }).getByRole('button', { name: 'Показать в уроке', exact: true }).nth(i).click();

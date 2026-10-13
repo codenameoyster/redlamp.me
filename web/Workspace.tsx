@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import type { Approach, Attempt, AttemptSummary, ChapterRef, DraftValue, Feedback, HomeworkTask, JudgeOutput, Judgement, Page, Problem, ProblemTests, SessionUser, TaskDetails, TestRun } from '../shared/leetcode';
+import type { Approach, Attempt, AttemptSummary, ChapterRef, DraftValue, Feedback, Figure, HomeworkTask, JudgeOutput, Judgement, Page, Problem, ProblemTests, SessionUser, TaskDetails, TestRun } from '../shared/leetcode';
 import { api, ApiError, message } from './api';
 import { useResource } from './useResource';
 import { useDraft, type LeaveGuard, type RegisterGuard } from './useDraft';
@@ -126,7 +126,7 @@ export function Workspace({ problemId, taskId, user, registerGuard }: { problemI
 	// The first page also records the read marker of the unread dot.
 	const reviews = useResource<Page<Feedback>>(task ? `/problems/${task.problemId}/feedback` : null, task?.version);
 	const chapter = useResource<{ chapters: ChapterRef[] }>(id ? `/problems/${id}/sets` : null).data?.chapters[0];
-	const lesson = useResource<{ html: string }>(chapter ? `/sets/${chapter.set}/lesson/${chapter.number}` : null);
+	const lesson = useResource<{ html: string; figures: Figure[] }>(chapter ? `/sets/${chapter.set}/lesson/${chapter.number}` : null);
 	const statement = useResource<{ html: string | null; text: string | null }>(id ? `/problems/${id}/statement` : null).data;
 	// A submitted or completed task shows the submitted attempt. Otherwise the student works in the draft and the parent reads the newest attempt.
 	const frozen = task && ['submitted', 'completed'].includes(task.state) ? details.data!.submissions.find(s => s.id === task.submissionId)?.attemptId : undefined;
@@ -169,7 +169,7 @@ export function Workspace({ problemId, taskId, user, registerGuard }: { problemI
 	const record = problem.data;
 	if (!record) return <p role="status">{details.error || problem.error || 'Открываем задачу...'}</p>;
 	const review = reviews.data?.items.find(f => f.taskId === task?.id && f.kind !== 'reply');
-	const chapterPane = chapter && lesson.data && <section className="stack"><h2><a href={`/leetcode/sets/${chapter.set}/${chapter.number}`}>Глава {chapter.number}. {chapter.title}</a></h2><Lesson html={lesson.data.html} ref={article} /></section>;
+	const chapterPane = chapter && lesson.data && <section className="stack"><h2><a href={`/leetcode/sets/${chapter.set}/${chapter.number}`}>Глава {chapter.number}. {chapter.title}</a></h2><Lesson html={lesson.data.html} figures={lesson.data.figures} ref={article} /></section>;
 	return <div className="stack">
 		<div className="heading"><div>{task && <p className="small"><a href={`/leetcode/homework/${task.homeworkId}`}>{task.homeworkTitle}</a></p>}<h1>{record.title}</h1><div className="tags"><span className={`tag ${record.difficulty}`}>{difficultyLabels[record.difficulty]}</span>{task && <><span className="tag">{homeworkLabels[task.state]}</span><span className="small">{task.dueDate ? `Срок: ${task.dueDate}` : 'Без срока'}</span></>}{record.topics.map(topic => <span className="tag" key={topic}>{topic}</span>)}{record.archivedAt && <span className="tag">В архиве</span>}</div></div>
 			<div className="row"><a href={record.url} target="_blank" rel="noopener noreferrer">{record.slug.startsWith('cf-') ? 'Codeforces' : 'LeetCode'} ↗</a><Tutor context={{ kind: 'problem', id: record.id }} title={record.title} user={user} flush={() => guard.current?.flush()} lesson={chapterPane && current.data ? article : undefined} evaluate={student && Boolean(code.trim())} />{!task && <button onClick={() => setEditing(true)} data-tip="Открыть форму изменения задачи.">Изменить задачу</button>}{user.role === 'parent' && task && !['completed', 'cancelled'].includes(task.state) && <button disabled={busy} onClick={() => { if (confirm('Отменить это задание?')) void act('cancel'); }} data-tip="Отменить это задание домашней работы.">Отменить задание</button>}</div></div>

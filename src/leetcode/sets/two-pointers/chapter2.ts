@@ -24,4 +24,20 @@ export default {
 		{ title: 'Топовые подходы к решению алгоритмических задач', url: 'https://habr.com/ru/companies/avito/articles/806711/', source: 'Хабр' },
 		{ title: 'Два указателя в массивах: быстрый и медленный указатели', url: 'https://labuladong.online/en/algo/essential-technique/array-two-pointers-summary/', source: 'labuladong (англ.)' },
 	],
+	figures: [
+		{ id: 'tp2-dedup', title: 'LeetCode 26: ответ, мусор и непрочитанное', frames: [
+			{ caption: 'Первое число остаётся всегда, поэтому write = 1. read = 1: число 1 равно последнему оставленному. Повтор, не пишем.', rows: [{ cells: [1, 1, 2, 3, 3], marked: [0, 1], window: [0, 0], pointers: { write: 1, read: 1 } }] },
+			{ caption: 'read = 2: число 2, последнее оставленное 1. Пишем 2 в ячейку 1, потом write = 2.', rows: [{ cells: [1, 1, 2, 3, 3], marked: [0, 2], window: [0, 0], dimmed: [1], pointers: { write: 1, read: 2 } }] },
+			{ caption: 'read = 3: число 3, последнее оставленное 2. Пишем 3 в ячейку 2, потом write = 3.', rows: [{ cells: [1, 2, 2, 3, 3], marked: [1, 3], window: [0, 1], dimmed: [2], pointers: { write: 2, read: 3 } }] },
+			{ caption: 'read = 4: число 3 равно последнему оставленному. Повтор, не пишем.', rows: [{ cells: [1, 2, 3, 3, 3], marked: [2, 4], window: [0, 2], dimmed: [3], pointers: { write: 3, read: 4 } }] },
+			{ caption: 'read прошёл весь массив. Ответ k = 3, в начале [1, 2, 3]. Ячейки 3 и 4 это мусор.', rows: [{ cells: [1, 2, 3, 3, 3], window: [0, 2], dimmed: [3, 4], pointers: { write: 3 } }] },
+		] },
+		{ id: 'tp2-remove', title: 'LeetCode 27: тот же шаблон, другое условие', frames: [
+			{ caption: 'read = 0: 3 равно val = 3. Не пишем.', rows: [{ cells: [3, 2, 2, 3], marked: [0], pointers: { write: 0, read: 0 } }] },
+			{ caption: 'read = 1: 2 не равно val = 3. Пишем 2 в ячейку 0, потом write = 1.', rows: [{ cells: [3, 2, 2, 3], marked: [1], dimmed: [0], pointers: { write: 0, read: 1 } }] },
+			{ caption: 'read = 2: 2 не равно val = 3. Пишем 2 в ячейку 1, потом write = 2.', rows: [{ cells: [2, 2, 2, 3], marked: [2], window: [0, 0], dimmed: [1], pointers: { write: 1, read: 2 } }] },
+			{ caption: 'read = 3: 3 равно val = 3. Не пишем.', rows: [{ cells: [2, 2, 2, 3], marked: [3], window: [0, 1], dimmed: [2], pointers: { write: 2, read: 3 } }] },
+			{ caption: 'read прошёл весь массив. Ответ k = 2, в начале [2, 2]. Это шаблон выше с условием nums[read] != val.', rows: [{ cells: [2, 2, 2, 3], window: [0, 1], dimmed: [2, 3], pointers: { write: 2 } }] },
+		] },
+	],
 } satisfies Chapter;

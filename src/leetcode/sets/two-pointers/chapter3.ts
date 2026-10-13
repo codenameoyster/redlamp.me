@@ -24,4 +24,27 @@ export default {
 		{ title: 'Сортировка слиянием', url: 'https://ru.wikipedia.org/wiki/Сортировка_слиянием', source: 'Википедия' },
 		{ title: 'Гид по алгоритмам: два указателя по разным массивам', url: 'https://habr.com/ru/articles/883030/', source: 'Хабр' },
 	],
+	figures: [
+		{ id: 'tp3-merge', title: 'Слияние a и b', frames: [
+			{ caption: 'a[0] = 1, b[0] = 2. Берём меньшее, 1 из a, i += 1.', rows: [{ label: 'a', cells: [1, 3, 5, 8], marked: [0], pointers: { i: 0 } }, { label: 'b', cells: [2, 3, 6, 7, 9], marked: [0], pointers: { j: 0 } }, { label: 'out', cells: ['', '', '', '', '', '', '', '', ''] }] },
+			{ caption: 'a[1] = 3, b[0] = 2. Берём меньшее, 2 из b, j += 1.', rows: [{ label: 'a', cells: [1, 3, 5, 8], marked: [1], dimmed: [0], pointers: { i: 1 } }, { label: 'b', cells: [2, 3, 6, 7, 9], marked: [0], pointers: { j: 0 } }, { label: 'out', cells: [1, '', '', '', '', '', '', '', ''] }] },
+			{ caption: 'a[1] = 3, b[1] = 3. Числа равны, условие a[i] <= b[j] берёт 3 из a, i += 1.', rows: [{ label: 'a', cells: [1, 3, 5, 8], marked: [1], dimmed: [0], pointers: { i: 1 } }, { label: 'b', cells: [2, 3, 6, 7, 9], marked: [1], dimmed: [0], pointers: { j: 1 } }, { label: 'out', cells: [1, 2, '', '', '', '', '', '', ''] }] },
+			{ caption: 'a[2] = 5, b[1] = 3. Берём меньшее, 3 из b, j += 1.', rows: [{ label: 'a', cells: [1, 3, 5, 8], marked: [2], dimmed: [0, 1], pointers: { i: 2 } }, { label: 'b', cells: [2, 3, 6, 7, 9], marked: [1], dimmed: [0], pointers: { j: 1 } }, { label: 'out', cells: [1, 2, 3, '', '', '', '', '', ''] }] },
+			{ caption: 'a[2] = 5, b[2] = 6. Берём меньшее, 5 из a, i += 1.', rows: [{ label: 'a', cells: [1, 3, 5, 8], marked: [2], dimmed: [0, 1], pointers: { i: 2 } }, { label: 'b', cells: [2, 3, 6, 7, 9], marked: [2], dimmed: [0, 1], pointers: { j: 2 } }, { label: 'out', cells: [1, 2, 3, 3, '', '', '', '', ''] }] },
+			{ caption: 'a[3] = 8, b[2] = 6. Берём меньшее, 6 из b, j += 1.', rows: [{ label: 'a', cells: [1, 3, 5, 8], marked: [3], dimmed: [0, 1, 2], pointers: { i: 3 } }, { label: 'b', cells: [2, 3, 6, 7, 9], marked: [2], dimmed: [0, 1], pointers: { j: 2 } }, { label: 'out', cells: [1, 2, 3, 3, 5, '', '', '', ''] }] },
+			{ caption: 'a[3] = 8, b[3] = 7. Берём меньшее, 7 из b, j += 1.', rows: [{ label: 'a', cells: [1, 3, 5, 8], marked: [3], dimmed: [0, 1, 2], pointers: { i: 3 } }, { label: 'b', cells: [2, 3, 6, 7, 9], marked: [3], dimmed: [0, 1, 2], pointers: { j: 3 } }, { label: 'out', cells: [1, 2, 3, 3, 5, 6, '', '', ''] }] },
+			{ caption: 'a[3] = 8, b[4] = 9. Берём меньшее, 8 из a, i += 1.', rows: [{ label: 'a', cells: [1, 3, 5, 8], marked: [3], dimmed: [0, 1, 2], pointers: { i: 3 } }, { label: 'b', cells: [2, 3, 6, 7, 9], marked: [4], dimmed: [0, 1, 2, 3], pointers: { j: 4 } }, { label: 'out', cells: [1, 2, 3, 3, 5, 6, 7, '', ''] }] },
+			{ caption: 'Массив a закончился. Остаток b это [9], его дописываем целиком.', rows: [{ label: 'a', cells: [1, 3, 5, 8], dimmed: [0, 1, 2, 3] }, { label: 'b', cells: [2, 3, 6, 7, 9], marked: [4], dimmed: [0, 1, 2, 3], pointers: { j: 4 } }, { label: 'out', cells: [1, 2, 3, 3, 5, 6, 7, 8, ''] }] },
+			{ caption: 'Готово: i и j прошли свои массивы до конца. 9 чисел за 9 шагов, каждый указатель шёл только вперёд.', rows: [{ label: 'a', cells: [1, 3, 5, 8], dimmed: [0, 1, 2, 3] }, { label: 'b', cells: [2, 3, 6, 7, 9], dimmed: [0, 1, 2, 3, 4] }, { label: 'out', cells: [1, 2, 3, 3, 5, 6, 7, 8, 9] }] },
+		] },
+		{ id: 'tp3-count', title: 'Сколько чисел a меньше b[j]', frames: [
+			{ caption: '1 < 2: берём 1 из a, i += 1.', rows: [{ label: 'a', cells: [1, 3, 5, 8], marked: [0], pointers: { i: 0 } }, { label: 'b', cells: [2, 3, 6], marked: [0], pointers: { j: 0 } }, { label: 'ответ', cells: ['', '', ''] }] },
+			{ caption: '3 < 2 неверно: берём 2 из b. Ответ для 2 это i = 1, столько чисел a левее i.', rows: [{ label: 'a', cells: [1, 3, 5, 8], marked: [1], dimmed: [0], pointers: { i: 1 }, window: [0, 0] }, { label: 'b', cells: [2, 3, 6], marked: [0], pointers: { j: 0 } }, { label: 'ответ', cells: ['', '', ''] }] },
+			{ caption: '3 < 3 неверно, числа равны: при равенстве берём из b. Ответ для 3 это i = 1, столько чисел a левее i.', rows: [{ label: 'a', cells: [1, 3, 5, 8], marked: [1], dimmed: [0], pointers: { i: 1 }, window: [0, 0] }, { label: 'b', cells: [2, 3, 6], marked: [1], dimmed: [0], pointers: { j: 1 } }, { label: 'ответ', cells: [1, '', ''] }] },
+			{ caption: '3 < 6: берём 3 из a, i += 1.', rows: [{ label: 'a', cells: [1, 3, 5, 8], marked: [1], dimmed: [0], pointers: { i: 1 } }, { label: 'b', cells: [2, 3, 6], marked: [2], dimmed: [0, 1], pointers: { j: 2 } }, { label: 'ответ', cells: [1, 1, ''] }] },
+			{ caption: '5 < 6: берём 5 из a, i += 1.', rows: [{ label: 'a', cells: [1, 3, 5, 8], marked: [2], dimmed: [0, 1], pointers: { i: 2 } }, { label: 'b', cells: [2, 3, 6], marked: [2], dimmed: [0, 1], pointers: { j: 2 } }, { label: 'ответ', cells: [1, 1, ''] }] },
+			{ caption: '8 < 6 неверно: берём 6 из b. Ответ для 6 это i = 3, столько чисел a левее i.', rows: [{ label: 'a', cells: [1, 3, 5, 8], marked: [3], dimmed: [0, 1, 2], pointers: { i: 3 }, window: [0, 2] }, { label: 'b', cells: [2, 3, 6], marked: [2], dimmed: [0, 1], pointers: { j: 2 } }, { label: 'ответ', cells: [1, 1, ''] }] },
+			{ caption: 'Массив b закончился. Ответы: [1, 1, 3].', rows: [{ label: 'a', cells: [1, 3, 5, 8], marked: [3], dimmed: [0, 1, 2], pointers: { i: 3 } }, { label: 'b', cells: [2, 3, 6], dimmed: [0, 1, 2] }, { label: 'ответ', cells: [1, 1, 3] }] },
+		] },
+	],
 } satisfies Chapter;

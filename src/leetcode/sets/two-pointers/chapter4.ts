@@ -26,4 +26,16 @@ export default {
 		{ title: 'Задачи с тегом «два указателя», рейтинг от 800 до 1200', url: 'https://codeforces.com/problemset?tags=two+pointers,800-1200', source: 'Codeforces' },
 		{ title: 'ITMO Academy: метод двух указателей', url: 'https://codeforces.com/edu/course/2/lesson/9', source: 'Codeforces EDU (нужен вход)' },
 	],
+	figures: [
+		{ id: 'tp4-compress', title: 'LeetCode 443: read только растёт', frames: [
+			{ caption: 'Круг 1 внешнего цикла. Группа начинается в ячейке 0.', rows: [{ cells: ['a', 'a', 'a', 'b', 'b'], pointers: { write: 0, read: 0 } }] },
+			{ caption: 'Внутренний цикл съел группу a a a. read прошёл ячейки 0, 1 и 2 и стоит на ячейке 3.', rows: [{ cells: ['a', 'a', 'a', 'b', 'b'], pointers: { write: 0, read: 3 }, window: [0, 2] }] },
+			{ caption: 'Пишем a и 3 в ячейки 0 и 1, write = 2. Ячейка 2 это мусор.', rows: [{ cells: ['a', '3', 'a', 'b', 'b'], marked: [0, 1], dimmed: [2], pointers: { write: 2, read: 3 } }] },
+			{ caption: 'Круг 2. Внутренний цикл съел группу b b, read дошёл до конца массива.', rows: [{ cells: ['a', '3', 'a', 'b', 'b'], dimmed: [2], pointers: { write: 2 }, window: [3, 4] }] },
+			{ caption: 'Пишем b и 2, write = 4. Ответ 4. Внешний цикл сделал 2 круга, а read прошёл 5 ячеек, по одному разу каждую.', rows: [{ cells: ['a', '3', 'b', '2', 'b'], marked: [2, 3], dimmed: [4], pointers: { write: 4 } }] },
+		] },
+		{ id: 'tp4-wrong-move', title: 'Верный и неверный ход', frames: [
+			{ caption: 'До хода l = 1, r = 4: 4 + 10 = 14, меньше 15. Строка «верно» показывает окно после хода l += 1: число 4 выброшено, с числами окна оно даёт не больше 14. Строка «ошибка» показывает окно после хода r -= 1: выброшено число 10, а пара 5 + 10 = 15 и есть ответ.', rows: [{ label: 'верно', cells: [1, 4, 5, 7, 10, 12, 16], marked: [2, 4], dimmed: [0, 1, 5, 6], pointers: { l: 2, r: 4 }, window: [2, 4] }, { label: 'ошибка', cells: [1, 4, 5, 7, 10, 12, 16], marked: [4], dimmed: [0, 5, 6], pointers: { l: 1, r: 3 }, window: [1, 3] }] },
+		] },
+	],
 } satisfies Chapter;

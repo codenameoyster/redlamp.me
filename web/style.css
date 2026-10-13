@@ -185,6 +185,18 @@ progress::-moz-progress-bar { background:repeating-linear-gradient(90deg,var(--o
 .lesson details[open] > summary { margin-bottom:6px; }
 .lesson blockquote { padding-left:10px; border-left:3px solid var(--shade); }
 .lesson mark { background:var(--amber-bg); color:inherit; }
+.lesson figure { margin:0 0 8px; display:grid; gap:4px; justify-items:start; }
+.lesson figure > p { margin:0; }
+.lesson figcaption { font-weight:700; }
+.lesson figure svg { max-width:100%; height:auto; font:14px var(--mono); }
+.lesson figure rect { fill:var(--face); stroke:var(--shade); }
+.lesson figure text { fill:var(--ink); text-anchor:middle; dominant-baseline:central; }
+.lesson .figure-mark rect { fill:var(--amber-bg); stroke:var(--orange); stroke-width:2; }
+.lesson .figure-dim { opacity:.35; }
+.lesson .figure-window { fill:none; stroke:var(--link); stroke-width:2; }
+.lesson figure .figure-label { fill:var(--muted); text-anchor:start; font-family:var(--sans); }
+.lesson figure .figure-pointer { fill:var(--orange-text); text-anchor:start; dominant-baseline:auto; }
+.lesson button[aria-disabled="true"] { color:var(--disabled); cursor:default; }
 .lesson-ai { position:absolute; z-index:5; }
 .lesson-ai[hidden] { display:none; }
 .filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:8px; }
