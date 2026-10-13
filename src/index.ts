@@ -1,6 +1,7 @@
 import { handleNotebook, isNotebookPath } from './leetcode/router';
 
 export interface Env {
+	AI: Ai;
 	ASSETS: Fetcher;
 	DB: D1Database;
 	LOGIN_LIMITER: RateLimit;

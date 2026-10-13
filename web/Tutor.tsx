@@ -5,6 +5,7 @@ import { api, apiError, message } from './api';
 import { Answer } from './Answer';
 import { highlightIn, watchSelection } from './lessonTools';
 import { useResource } from './useResource';
+import { Dictation } from './Dictation';
 
 const wide = () => matchMedia('(min-width: 1400px)').matches;
 function remember(open: boolean) {
@@ -92,7 +93,7 @@ export function Tutor({ context, title, user, flush, quote, lesson, evaluate }: 
 				{(error || messages.error) && <p className="error" role="alert">{error || messages.error}</p>}
 			</div>
 			{student && <form className="tutor-compose" onSubmit={event => { event.preventDefault(); input.current!.focus(); void ask(text, quote ?? null); }}>
-				<label>Сообщение<textarea ref={input} value={text} onChange={event => setText(event.target.value)} maxLength={4000} required onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form!.requestSubmit(); } }} /></label>
+				<label>Сообщение<textarea aria-label="Сообщение" ref={input} value={text} onChange={event => setText(event.target.value)} maxLength={4000} required onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form!.requestSubmit(); } }} /><Dictation /></label>
 				<div className="row spread"><small>Работает через подписку ChatGPT. Родитель может читать этот чат.</small><button className="primary" disabled={Boolean(pending)} data-tip="Отправить сообщение ИИ-репетитору.">Отправить</button></div>
 			</form>}
 			<p role="status" className="visually-hidden">{status}</p>

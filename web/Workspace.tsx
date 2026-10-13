@@ -9,6 +9,7 @@ import { Materials } from './Materials';
 import { Lesson } from './Sets';
 import { CodeField } from './Code';
 import { Tutor } from './Tutor';
+import { Dictation } from './Dictation';
 import { Failure, OwnTests, Runner } from './Runner';
 import { runTests } from './python';
 import { localDate } from '../shared/dates';
@@ -41,8 +42,8 @@ export function AttemptContent({ value, change, chapter, problemId, tests, skele
 	function update(patch: Partial<Approach>) { change?.({ ...value, document: { ...value.document, approaches: value.document.approaches.map((a, index) => index ? a : { ...a, ...patch }) } }); }
 	useEffect(() => { if (skeleton && !approach.code.trim()) update({ code: skeleton, language: 'python3' }); }, [skeleton]);
 	const notes = <div className="stack">
-		<label>Общие заметки<textarea aria-label="Общие заметки" value={value.document.notes} readOnly={!change} onChange={event => change?.({ ...value, document: { ...value.document, notes: event.target.value } })} /></label>
-		{fields.map(field => <label key={field.key}>{field.label}<textarea aria-label={field.label} value={approach[field.key]} readOnly={!change} onChange={event => update({ [field.key]: event.target.value })} /></label>)}
+		<label>Общие заметки<textarea aria-label="Общие заметки" value={value.document.notes} readOnly={!change} onChange={event => change?.({ ...value, document: { ...value.document, notes: event.target.value } })} />{change && <Dictation />}</label>
+		{fields.map(field => <label key={field.key}>{field.label}<textarea aria-label={field.label} value={approach[field.key]} readOnly={!change} onChange={event => update({ [field.key]: event.target.value })} />{change && <Dictation />}</label>)}
 		<div className="editor-grid"><label>Время<input value={approach.timeComplexity} readOnly={!change} onChange={event => update({ timeComplexity: event.target.value })} /></label><label>Память<input value={approach.spaceComplexity} readOnly={!change} onChange={event => update({ spaceComplexity: event.target.value })} /></label></div>
 	</div>;
 	const code = <div className="stack"><label>Код решения<CodeField language="python" value={approach.code} readOnly={!change} onChange={code => update({ code, language: 'python3' })} /></label><button type="button" onClick={async () => { try { await navigator.clipboard.writeText(approach.code); setCopyState('Код скопирован.'); } catch { setCopyState('Выделите и скопируйте код вручную.'); } }} data-tip="Скопировать код решения в буфер обмена.">Скопировать код</button>{copyState && <p role="status">{copyState}</p>}
@@ -181,6 +182,6 @@ export function Workspace({ problemId, taskId, user, registerGuard }: { problemI
 		{current.data ? <DraftEditor key={`${current.data.id}:${current.data.state}`} initial={current.data} user={user} registerGuard={register} task={task} saved={saved} chapter={chapterPane} onCode={setCode} notice={notice} /> : <p className="empty">{!student && attempts.data?.items.length === 0 ? 'Ученик ещё не начал работу.' : 'Открываем работу...'}</p>}
 		{user.role === 'parent' && (task?.state === 'submitted' || task?.state === 'completed') && <section className="card card-pad stack"><h2>Проверка отправки</h2><label>Отзыв<textarea aria-label="Отзыв" value={feedback} onChange={event => setFeedback(event.target.value)} maxLength={8000} /></label><div className="row"><button disabled={busy} onClick={() => void act('review', { submissionId: task.submissionId, decision: 'changes_requested', body: feedback })} data-tip="Вернуть задание ученику с вашим отзывом.">Вернуть на доработку</button>{task.state === 'submitted' && <button className="primary" disabled={busy} onClick={() => void act('review', { submissionId: task.submissionId, decision: 'completed', body: feedback })} data-tip="Принять работу и завершить задание.">Завершить</button>}</div></section>}
 		<Materials problemId={record.id} homework={details.data?.homework} user={user} changed={details.reload} />
-		{editing && <ProblemForm problem={record} close={() => setEditing(false)} saved={() => { setEditing(false); problem.reload(); }} />}
+		{editing && <ProblemForm problem={record} student={user.role === 'student'} close={() => setEditing(false)} saved={() => { setEditing(false); problem.reload(); }} />}
 	</div>;
 }

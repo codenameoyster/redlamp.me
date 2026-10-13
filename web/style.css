@@ -50,6 +50,11 @@ nav a[aria-current]:focus-visible { outline-color:#000; outline-offset:-3px; }
 .account { display:flex; align-items:center; gap:4px; flex-shrink:0; }
 .icon-button { width:26px; padding:0; background:transparent; box-shadow:none; }
 .icon-button:hover { background:var(--face); box-shadow:var(--raised); }
+/* The mic button sits at the right of the label text, above its textarea. */
+label:has(> .dictation) { grid-template-columns:1fr auto; align-items:end; }
+label:has(> .dictation) > :not(.dictation) { grid-column:1 / -1; }
+.dictation { grid-area:1 / 2; }
+.dictation[aria-pressed="true"] { width:auto; padding:0 6px; font-variant-numeric:tabular-nums; }
 .xp-chip { display:flex; align-items:center; gap:6px; font-size:12px; }
 .xp-chip progress { width:96px; }
 .user { display:flex; align-items:center; gap:6px; margin-left:4px; padding-left:8px; border-left:1px solid var(--shade); box-shadow:inset 1px 0 var(--hi); line-height:1.2; }
