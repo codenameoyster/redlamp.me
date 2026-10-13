@@ -1,5 +1,6 @@
 import { cp, rm } from 'node:fs/promises';
 
+const { version } = await Bun.file('package.json').json() as { version: string };
 await rm('dist', { recursive: true, force: true });
 await cp('public', 'dist', { recursive: true });
 const result = await Bun.build({
@@ -11,7 +12,7 @@ const result = await Bun.build({
 	minify: true,
 	external: ['/leetcode/assets/*'],
 	env: 'disable',
-	define: { 'process.env.NODE_ENV': JSON.stringify('production') },
+	define: { 'process.env.NODE_ENV': JSON.stringify('production'), __APP_VERSION__: JSON.stringify(version) },
 });
 if (!result.success) throw new Error(result.logs.map(log => log.message).join('\n'));
 await cp('node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2', 'dist/leetcode/assets/jetbrains-mono-latin-wght-normal.woff2');

@@ -30,7 +30,7 @@ export function Layout({ user, visit, children, logout }: { user: SessionUser; v
 	return <div className="app">
 		<a className="skip-link" href="#main">К содержимому</a>
 		<aside className="sidebar">
-			<a className="logo" href="/leetcode"><span className="logo-mark" aria-hidden="true">r.</span><span><strong>redlamp</strong><small>Тетрадь LeetCode</small></span></a>
+			<a className="logo" href="/leetcode"><span className="logo-mark" aria-hidden="true">r.</span><span><strong>redlamp <span className="version">{__APP_VERSION__}</span></strong><small>Тетрадь LeetCode</small></span></a>
 			<nav aria-label="Тетрадь">{navigation.map(({ path, label, Icon }) => <a key={path} href={`/leetcode${path}`} aria-current={location.pathname === `/leetcode${path}` ? 'page' : undefined}><Icon size={18} />{label}</a>)}</nav>
 		</aside>
 		<div className="workspace"><header className="topbar"><a className="search" href="/leetcode/problems"><Search size={16} /><span>Поиск по задачам и заметкам</span></a>
