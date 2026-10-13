@@ -211,4 +211,6 @@ it.each(sets.flatMap(item => item.chapters.map((chapter, index) => ({ name: `${i
 	expect(cards.filter(card => (card.type === 'choice' || card.type === 'code') && !(card.answer >= 0 && card.answer < card.options.length))).toEqual([]);
 	// A code card shows code to read, or code with one blank to fill.
 	expect(cards.filter(card => card.type === 'code' && card.code.split('___').length > 2)).toEqual([]);
+	// The grader compares the whole answer string, so a short answer is one integer: "3, 1, 4" typed as "3,1,4" would be wrong.
+	expect(cards.filter(card => card.type === 'short' && !/^-?\d+$/.test(card.answer))).toEqual([]);
 });
