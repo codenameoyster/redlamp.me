@@ -114,20 +114,18 @@ legend { margin-bottom:2px; }
 .stat { padding:4px 8px; box-shadow:var(--sunken); }
 .stat strong { display:block; font:700 20px/1.2 var(--mono); font-variant-numeric:tabular-nums; }
 .stat span { font-size:12px; color:var(--muted); }
-.code,pre { background:var(--code); color:var(--code-text); font:12.5px/1.5 var(--mono); tab-size:4; overflow:auto; max-width:100%; box-shadow:var(--sunken); }
-pre { margin:0; padding:8px 10px; }
+pre { margin:0; padding:8px 10px; background:var(--code); color:var(--code-text); font:12.5px/1.5 var(--mono); tab-size:4; overflow:auto; max-width:100%; box-shadow:var(--sunken); }
 pre code { font:inherit; }
-.code-field { position:relative; }
-.code-field pre,.code-field .code,.code-field .lines { min-height:300px; padding:6px 8px 6px 44px; white-space:pre-wrap; overflow-wrap:anywhere; overflow:hidden; }
-.code-field .lines { position:absolute; inset:0; min-height:0; font:12.5px/1.5 var(--mono); tab-size:4; color:transparent; counter-reset:line; pointer-events:none; }
-.code-field .lines > div { position:relative; counter-increment:line; }
-.code-field .lines > div::before { content:counter(line); position:absolute; right:100%; margin-right:10px; white-space:nowrap; color:#808080; }
-.code-field .code { position:absolute; inset:0; height:100%; min-height:0; resize:none; background:transparent; color:transparent; caret-color:var(--code-text); }
-.hljs-keyword,.hljs-selector-tag,.hljs-meta { color:#f38020; }
-.hljs-string,.hljs-regexp { color:#55ff55; }
-.hljs-number,.hljs-literal { color:#ffff55; }
-.hljs-comment { color:#aaa; font-style:italic; }
-.hljs-title,.hljs-built_in,.hljs-type,.hljs-attr,.hljs-variable { color:#55ffff; }
+.code-field { background:var(--code); color:var(--code-text); box-shadow:var(--sunken); }
+.code-field .cm-scroller { font:12.5px/1.5 var(--mono); }
+.code-field .cm-content { min-height:300px; caret-color:var(--code-text); }
+.code-field .cm-gutters { background:none; border:0; color:#808080; }
+.code-field .cm-focused { outline:1px dotted var(--ink); outline-offset:1px; }
+.hljs-keyword,.hljs-selector-tag,.hljs-meta,.tok-keyword,.tok-meta { color:#f38020; }
+.hljs-string,.hljs-regexp,.tok-string,.tok-string2 { color:#55ff55; }
+.hljs-number,.hljs-literal,.tok-number,.tok-bool { color:#ffff55; }
+.hljs-comment,.tok-comment { color:#aaa; font-style:italic; }
+.hljs-title,.hljs-built_in,.hljs-type,.hljs-attr,.hljs-variable,.tok-definition,.tok-className { color:#55ffff; }
 .prose { white-space:pre-wrap; overflow-wrap:anywhere; color:var(--ink); }
 .quiz-card > .prose:first-child { font-size:15px; }
 .quiz-card .stack > button { justify-content:start; text-align:left; }

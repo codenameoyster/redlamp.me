@@ -8,7 +8,7 @@ test('reveals saved work on request and keeps acceptance after a failed review',
 	await expect(page.getByRole('button', { name: 'Показать сохранённую работу' })).toBeVisible();
 	await expect(page.getByLabel('Код решения', { exact: true })).toHaveCount(0);
 	await page.getByRole('button', { name: 'Показать сохранённую работу' }).click();
-	await expect(page.getByLabel('Код решения', { exact: true })).toHaveValue('return saved_solution');
+	await expect(page.getByLabel('Код решения', { exact: true })).toHaveText('return saved_solution');
 	await page.getByRole('button', { name: 'Нужно потренироваться', exact: true }).click();
 	await page.getByLabel('Следующее повторение', { exact: true }).fill('2026-12-31');
 	await page.getByRole('button', { name: 'Сохранить повторение', exact: true }).click();
