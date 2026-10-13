@@ -31,12 +31,12 @@ export function LessonFigure({ figure }: { figure: Figure }) {
 				{Object.entries(row.pointers ?? {}).map(([name, i]) => <text key={name} className="figure-pointer" x={label + (i + 0.5) * cell - CHAR / 2} y={CELL + bracket(k) + (names(k).indexOf(name) + 1) * LINE - 3}>↑ {name}</text>)}
 			</g>)}
 		</svg>
-		<p aria-live="polite">{frame.caption}</p>
 		{last > 0 && <div className="row">
 			{/* aria-disabled keeps the focus on the button at the first and the last frame. */}
 			<button type="button" aria-disabled={step === 0} onClick={() => setStep(value => Math.max(value - 1, 0))} data-tip="Показать предыдущий шаг рисунка.">Назад</button>
 			<span>Шаг {step + 1} из {last + 1}</span>
 			<button type="button" aria-disabled={step === last} onClick={() => setStep(value => Math.min(value + 1, last))} data-tip="Показать следующий шаг рисунка.">Вперёд</button>
 		</div>}
+		<p aria-live="polite">{frame.caption}</p>
 	</>;
 }

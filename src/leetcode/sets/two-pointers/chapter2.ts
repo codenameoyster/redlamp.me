@@ -37,7 +37,7 @@ export default {
 			{ caption: 'read = 1: 2 не равно val = 3. Пишем 2 в ячейку 0, потом write = 1.', rows: [{ cells: [3, 2, 2, 3], marked: [1], dimmed: [0], pointers: { write: 0, read: 1 } }] },
 			{ caption: 'read = 2: 2 не равно val = 3. Пишем 2 в ячейку 1, потом write = 2.', rows: [{ cells: [2, 2, 2, 3], marked: [2], window: [0, 0], dimmed: [1], pointers: { write: 1, read: 2 } }] },
 			{ caption: 'read = 3: 3 равно val = 3. Не пишем.', rows: [{ cells: [2, 2, 2, 3], marked: [3], window: [0, 1], dimmed: [2], pointers: { write: 2, read: 3 } }] },
-			{ caption: 'Ответ k = 2, в начале [2, 2]. От задачи 26 изменилось только условие «нужно оставить».', rows: [{ cells: [2, 2, 2, 3], window: [0, 1], dimmed: [2, 3], pointers: { write: 2 } }] },
+			{ caption: 'read прошёл весь массив. Ответ k = 2, в начале [2, 2]. Это шаблон выше с условием nums[read] != val.', rows: [{ cells: [2, 2, 2, 3], window: [0, 1], dimmed: [2, 3], pointers: { write: 2 } }] },
 		] },
 	],
 } satisfies Chapter;
