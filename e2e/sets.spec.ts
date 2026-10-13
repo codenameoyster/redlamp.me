@@ -13,6 +13,11 @@ const steps: Figure = { id: 'test-steps', title: 'Указатели идут н
 ] };
 const single: Figure = { id: 'test-single', title: 'Один кадр', frames: [{ caption: 'Массив из трёх чисел.', rows: [{ label: 'a', cells: [2, 3, 5] }] }] };
 const wide: Figure = { id: 'test-wide', title: 'Шестнадцать чисел', frames: [{ caption: 'Числа от 100 до 115.', rows: [{ label: 'nums', cells: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115], pointers: { write: 0, read: 15 }, window: [0, 15] }] }] };
+const heap: Figure = { id: 'test-heap', title: 'Куча в массиве', frames: [
+	{ caption: 'Куча [1, 3, 2, 5, 9, 8]. Дети места 1: места 3 и 4.', rows: [{ label: 'куча', tree: true, cells: [1, 3, 2, 5, 9, 8], marked: [1, 3, 4] }, { label: 'h', cells: [1, 3, 2, 5, 9, 8], marked: [1, 3, 4] }] },
+	{ caption: 'heappop забрал 1, число 8 спустилось на место 2. Место 5 пустое.', rows: [{ label: 'куча', tree: true, cells: [2, 3, 8, 5, 9, ''], marked: [0, 2] }, { label: 'h', cells: [2, 3, 8, 5, 9] }] },
+] };
+const wideHeap: Figure = { id: 'test-wide-heap', title: 'Куча кортежей', frames: [{ caption: 'Пятнадцать кортежей.', rows: [{ tree: true, cells: Array.from({ length: 15 }, (_, i) => `(${10 + i}, 1, 2)`) }] }] };
 // Gives chapter 2 a lesson with these figures.
 const lessonWith = (page: Page, figures: Figure[]) => page.route('**/leetcode/api/sets/permutations-and-combinations/lesson/2', route => route.fulfill({ json: { html: `<p class="lead">Урок с рисунками.</p>\n${figures.map(figure => `<figure data-figure="${figure.id}"></figure>`).join('\n')}\n<p>Текст после рисунков.</p>`, figures } }));
 
@@ -167,6 +172,52 @@ test('steps through a lesson figure', async ({ page }) => {
 	await expect.poll(fill).toBe('rgb(192, 192, 192)');
 });
 
+test('draws a heap row as a tree in heapq order', async ({ page }) => {
+	await signIn(page);
+	await lessonWith(page, [heap]);
+	await page.goto(chapterPath);
+	const figure = page.locator('figure').filter({ hasText: heap.title }), nodes = figure.locator('circle');
+	await expect(nodes).toHaveCount(6);
+	await expect(figure.locator('.figure-edge')).toHaveCount(5);
+	await expect(figure.locator('.figure-index')).toHaveText(['0', '1', '2', '3', '4', '5']);
+	// heapq order: place 0 is the root, places 1 and 2 are its children, places 3 and 4 are the children of place 1, place 5 is a child of place 2.
+	const at = await nodes.evaluateAll(circles => circles.map(circle => ({ x: Number(circle.getAttribute('cx')), y: Number(circle.getAttribute('cy')), r: Number(circle.getAttribute('r')) })));
+	expect(at[0].y).toBeLessThan(at[1].y);
+	expect(at[1].y).toBe(at[2].y);
+	expect(at[1].y).toBeLessThan(at[3].y);
+	const inOrder = [at[3].x, at[1].x, at[4].x, at[0].x, at[5].x, at[2].x];
+	expect(inOrder).toEqual([...inOrder].sort((a, b) => a - b));
+	// The parent of place i is place (i - 1) >> 1, so the lines join the places (0, 1), (0, 2), (1, 3), (1, 4), (2, 5). A line runs from the border of one circle to the border of the other.
+	const lines = await figure.locator('.figure-edge').evaluateAll(items => items.map(item => ['x1', 'y1', 'x2', 'y2'].map(name => Number(item.getAttribute(name)))));
+	const border = ([from, to]: number[]) => {
+		const length = Math.hypot(at[to].x - at[from].x, at[to].y - at[from].y), ux = (at[to].x - at[from].x) / length, uy = (at[to].y - at[from].y) / length;
+		return [at[from].x + ux * at[from].r, at[from].y + uy * at[from].r, at[to].x - ux * at[to].r, at[to].y - uy * at[to].r].map(value => expect.closeTo(value, 3));
+	};
+	expect(lines).toEqual([[0, 1], [0, 2], [1, 3], [1, 4], [2, 5]].map(border));
+	// A marked node has the amber color of the theme: #3a3018 in the dark theme, #fff2c2 in the light theme.
+	const fill = () => figure.locator('.figure-mark circle').first().evaluate(circle => getComputedStyle(circle).fill);
+	await expect.poll(fill).toBe('rgb(58, 48, 24)');
+	await figure.getByRole('button', { name: 'Вперёд', exact: true }).click();
+	await expect(nodes).toHaveCount(5);
+	await expect(figure.locator('.figure-edge')).toHaveCount(4);
+	await page.getByRole('button', { name: 'Светлая тема', exact: true }).click();
+	await expect.poll(fill).toBe('rgb(255, 242, 194)');
+});
+
+test('keeps the nodes of a wide tree apart', async ({ page }) => {
+	await signIn(page);
+	await lessonWith(page, [wideHeap]);
+	await page.goto(chapterPath);
+	const nodes = page.locator('figure').filter({ hasText: wideHeap.title }).locator('circle');
+	await expect(nodes).toHaveCount(15);
+	// A positive gap between each two circles leaves a visible part of each line between a parent and a child.
+	const gaps = await nodes.evaluateAll(circles => {
+		const all = circles.map(circle => ({ x: Number(circle.getAttribute('cx')), y: Number(circle.getAttribute('cy')), r: Number(circle.getAttribute('r')) }));
+		return all.flatMap((a, i) => all.slice(i + 1).map(b => Math.hypot(a.x - b.x, a.y - b.y) - a.r - b.r));
+	});
+	expect(Math.min(...gaps)).toBeGreaterThan(0);
+});
+
 test('shows the figures of the new chapter after client navigation', async ({ page }) => {
 	await signIn(page);
 	await page.goto('/leetcode/sets/two-pointers/1');
@@ -186,9 +237,10 @@ test('fits the set pages at the mobile width', async ({ page }, testInfo) => {
 	await page.goto(setPath);
 	await expect(page.getByRole('link', { name: 'Открыть главу', exact: true })).toHaveCount(4);
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-	await lessonWith(page, [wide]);
+	await lessonWith(page, [wide, wideHeap]);
 	await page.goto(chapterPath);
 	await expect(page.getByRole('img', { name: wide.frames[0].caption, exact: true })).toBeVisible();
+	await expect(page.getByRole('img', { name: wideHeap.frames[0].caption, exact: true })).toBeVisible();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 	await row(page, 'Subsets').getByRole('button', { name: 'Добавить в домашнюю работу', exact: true }).click();
 	await expect(page.getByRole('dialog')).toBeVisible();
