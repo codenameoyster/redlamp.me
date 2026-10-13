@@ -1,7 +1,7 @@
 import type { Generator } from '..';
 
-// The hidden tests of the set "heaps-and-queues". Each generator gives the edge cases of the statement, then random medium inputs, then 2 inputs at the maximum sizes.
-// A call input is a Python literal list of the arguments. JSON of integers is a Python literal too.
+// The hidden tests of the set "heaps-and-queues". Each generator gives the edge cases of the statement, then random medium inputs, then the inputs at the maximum sizes.
+// A call input is a Python literal list of the arguments. JSON of integers and lowercase words is a Python literal too.
 
 type Random = () => number;
 
@@ -21,6 +21,9 @@ const distinct = (random: Random, n: number, lo: number, hi: number): number[] =
 	return [...seen];
 };
 const call = (cases: unknown[][]): string[] => cases.map(args => JSON.stringify(args));
+// block writes a Codeforces array to stdin: the length is on one line, and the numbers are on the next line. A multi-test input starts with the count of the tests.
+const block = (a: number[]): string => `${a.length}\n${a.join(' ')}\n`;
+const tests = (blocks: string[]): string => `${blocks.length}\n${blocks.join('')}`;
 // A random word of 1..10 lowercase letters.
 const word = (random: Random): string => Array.from({ length: between(random, 1, 10) }, () => String.fromCharCode(between(random, 97, 122))).join('');
 // n words from a vocabulary of `size` words, so the words repeat. The second argument k is from 1 to the number of unique words.
@@ -45,18 +48,18 @@ export default {
 		[list(random, 100, 1, 100), between(random, 0, 99)], [Array(100).fill(100), 99],
 	]),
 	'number-of-students-unable-to-eat-lunch': (random: Random) => call([
-		[[0], [0]], [[0], [1]], [[1], [1]], [[1], [0]], [[0, 1], [1, 0]], [[1, 1, 0, 0], [0, 1, 0, 1]], [[0, 0, 1], [1, 1, 0]], [[1, 1, 1, 0, 0, 1], [1, 0, 0, 0, 1, 1]],
+		[[0], [0]], [[0], [1]], [[1], [1]], [[1], [0]], [[0, 1], [1, 0]], [[1, 1, 0, 0], [0, 1, 0, 1]], [[1, 0, 0, 0], [0, 0, 1, 1]], [[1, 1, 1, 0, 0, 1], [1, 0, 0, 0, 1, 1]],
 		...Array.from({ length: 4 }, () => { const n = between(random, 2, 60); return [list(random, n, 0, 1), list(random, n, 0, 1)]; }),
 		[list(random, 100, 0, 1), list(random, 100, 0, 1)], [Array(100).fill(1), Array(100).fill(0)],
 	]),
 	'cf-1579-e1': (random: Random) => {
-		const block = (p: number[]): string => `${p.length}\n${p.join(' ')}\n`;
-		const input = (blocks: string[]): string => `${blocks.length}\n${blocks.join('')}`;
 		// The answer of n = 2 * 10^5 has about 1.3 million characters, more than the judge route accepts. n = 150000 gives about 940 thousand.
+		// In the decreasing permutation each number goes to the front, so list.insert(0, x) makes about 1.1 * 10^10 moves.
 		return [
 			'1\n1\n1\n', '1\n2\n1 2\n', '1\n2\n2 1\n', '1\n5\n1 2 3 4 5\n', '1\n5\n5 4 3 2 1\n', '3\n4\n3 1 2 4\n1\n1\n6\n4 6 2 5 1 3\n',
-			...Array.from({ length: 4 }, () => input(Array.from({ length: between(random, 1, 5) }, () => block(permutation(random, between(random, 1, 30)))))),
-			input(Array.from({ length: 1000 }, () => block(permutation(random, 200)))), input([block(permutation(random, 150000))]),
+			...Array.from({ length: 4 }, () => tests(Array.from({ length: between(random, 1, 5) }, () => block(permutation(random, between(random, 1, 30)))))),
+			tests(Array.from({ length: 1000 }, () => block(permutation(random, 200)))), tests([block(permutation(random, 150000))]),
+			tests([block(Array.from({ length: 150000 }, (_, i) => 150000 - i))]),
 		];
 	},
 	'find-the-winner-of-the-circular-game': (random: Random) => call([
@@ -80,14 +83,14 @@ export default {
 		[list(random, 100, 1, 100), 10, between(random, 2, 5)], [Array(100).fill(100), 10, 5],
 	]),
 	'cf-1800-c2': (random: Random) => {
-		const block = (s: number[]): string => `${s.length}\n${s.join(' ')}\n`;
-		const input = (blocks: string[]): string => `${blocks.length}\n${blocks.join('')}`;
 		// A card is a hero with the chance of one half, else a bonus up to hi.
 		const deck = (n: number, hi: number): number[] => Array.from({ length: n }, () => random() < 0.5 ? 0 : between(random, 1, hi));
 		return [
 			'1\n1\n0\n', '1\n1\n1000000000\n', '1\n2\n0 5\n', '1\n2\n5 0\n', '1\n5\n0 0 0 0 0\n', '1\n6\n1000000000 1000000000 1000000000 0 0 0\n',
-			...Array.from({ length: 4 }, () => input(Array.from({ length: between(random, 1, 5) }, () => block(deck(between(random, 1, 30), between(random, 1, 1e9)))))),
-			input(Array.from({ length: 10000 }, () => block(deck(20, 1e9)))), input([block(deck(200000, 1e9))]),
+			...Array.from({ length: 4 }, () => tests(Array.from({ length: between(random, 1, 5) }, () => block(deck(between(random, 1, 30), between(random, 1, 1e9)))))),
+			tests(Array.from({ length: 10000 }, () => block(deck(20, 1e9)))), tests([block(deck(200000, 1e9))]),
+			// All bonuses come before all heroes: a scan of the unused bonuses for each hero reads about 5 * 10^9 numbers.
+			tests([block([...list(random, 100000, 1, 1e9), ...Array(100000).fill(0)])]),
 		];
 	},
 	'kth-largest-element-in-an-array': (random: Random) => call([
@@ -103,8 +106,8 @@ export default {
 	'sliding-window-maximum': (random: Random) => call([
 		[[1], 1], [[-10000], 1], [[10000, -10000], 1], [[10000, -10000], 2], [[5, 5, 5, 5], 2], [[1, 2, 3, 4, 5], 3], [[5, 4, 3, 2, 1], 3],
 		...Array.from({ length: 4 }, () => { const n = between(random, 2, 60); return [list(random, n, -between(random, 0, 20), between(random, 0, 20)), between(random, 1, n)]; }),
-		// k = n / 2 makes a scan of each window cost 2.5 * 10^9 reads.
-		[list(random, 100000, -10000, 10000), 50000], [list(random, 100000, -10000, 10000), between(random, 1, 100000)],
+		// k = n / 2 makes a scan of each window cost 2.5 * 10^9 reads. In descending order the maximum leaves each window, so a new scan only when the maximum leaves costs the same.
+		[list(random, 100000, -10000, 10000).sort((x, y) => y - x), 50000], [list(random, 100000, -10000, 10000), between(random, 1, 100000)],
 	]),
 	'longest-continuous-subarray-with-absolute-diff-less-than-or-equal-to-limit': (random: Random) => call([
 		[[1], 0], [[1000000000], 1000000000], [[1, 1000000000], 999999999], [[1, 1000000000], 999999998], [[7, 7, 7, 7], 0], [[1, 2, 1, 2], 0], [[5, 1, 5, 1], 4],
@@ -134,15 +137,12 @@ export default {
 		// A new sum(h) on each step with k numbers in the heap reads about 2.5 * 10^9 numbers for k = n / 2. The second input has many equal nums2.
 		[list(random, 100000, 0, 100000), list(random, 100000, 0, 100000), 50000], [list(random, 100000, 0, 100000), list(random, 100000, 1, 10), 70000],
 	]),
-	'cf-1526-c2': (random: Random) => {
-		const input = (a: number[]): string => `${a.length}\n${a.join(' ')}\n`;
-		return [
-			'1\n0\n', '1\n-1000000000\n', '1\n1000000000\n', '2\n-1 1\n', '2\n1 -1\n', '5\n-1 -2 -3 -4 -5\n', '3\n1000000000 -1000000000 -1000000000\n',
-			...Array.from({ length: 4 }, () => input(list(random, between(random, 2, 60), -20, 20))),
-			// The pattern 2, -2, -2 drops one potion in each three, and the drunk list grows by two: a scan of the list for the worst potion reads about 4 * 10^9 numbers.
-			input(list(random, 200000, -1000000000, 1000000000)), input(Array.from({ length: 200000 }, (_, i) => i % 3 ? -2 : 2)),
-		];
-	},
+	'cf-1526-c2': (random: Random) => [
+		'1\n0\n', '1\n-1000000000\n', '1\n1000000000\n', '2\n-1 1\n', '2\n1 -1\n', '5\n-1 -2 -3 -4 -5\n', '3\n1000000000 -1000000000 -1000000000\n',
+		...Array.from({ length: 4 }, () => block(list(random, between(random, 2, 60), -20, 20))),
+		// The pattern 2, -2, -2 drops one potion in each three, and the drunk list grows by two: a scan of the list for the worst potion reads about 4 * 10^9 numbers.
+		block(list(random, 200000, -1000000000, 1000000000)), block(Array.from({ length: 200000 }, (_, i) => i % 3 ? -2 : 2)),
+	],
 	'single-threaded-cpu': (random: Random) => call([
 		[[[1, 1]]], [[[1000000000, 1000000000]]], [[[1, 5], [1, 5], [1, 5]]], [[[5, 1], [1, 10]]], [[[1, 1], [1000000000, 1]]], [[[2, 3], [1, 3], [2, 1]]],
 		...Array.from({ length: 2 }, () => [cpuTasks(random, between(random, 2, 60), 30, 10)]),
@@ -151,7 +151,7 @@ export default {
 		[cpuTasks(random, 100000, 1, 10)], [cpuTasks(random, 100000, 1000000000, 10000)],
 	]),
 	'total-cost-to-hire-k-workers': (random: Random) => call([
-		[[1], 1, 1], [[100000], 1, 1], [[1, 2], 2, 1], [[2, 1], 1, 1], [[3, 2, 7, 7, 1, 2], 2, 2], [[1, 1, 1, 1], 4, 4], [[5, 4, 3, 2, 1], 5, 1],
+		[[1], 1, 1], [[100000], 1, 1], [[1, 2], 2, 1], [[2, 1], 1, 1], [[3, 2, 7, 7, 1, 2], 2, 2], [[1, 1, 1, 1], 4, 4], [[5, 4, 3, 2, 1], 5, 1], [[1, 2], 2, 2],
 		...Array.from({ length: 4 }, () => { const n = between(random, 2, 60); return [list(random, n, 1, 20), between(random, 1, n), between(random, 1, n)]; }),
 		// A scan of both groups on each hire costs about 3.75 * 10^9 reads on each of the two inputs. The second input has 2 * candidates = n, so the groups meet at once.
 		[list(random, 100000, 1, 100000), 100000, 25000], [list(random, 100000, 1, 10), 50000, 50000],

@@ -15,6 +15,7 @@ const single: Figure = { id: 'test-single', title: 'Один кадр', frames: 
 const wide: Figure = { id: 'test-wide', title: 'Шестнадцать чисел', frames: [{ caption: 'Числа от 100 до 115.', rows: [{ label: 'nums', cells: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115], pointers: { write: 0, read: 15 }, window: [0, 15] }] }] };
 const heap: Figure = { id: 'test-heap', title: 'Куча в массиве', frames: [
 	{ caption: 'Куча [1, 3, 2, 5, 9, 8]. Дети места 1: места 3 и 4.', rows: [{ label: 'куча', tree: true, cells: [1, 3, 2, 5, 9, 8], marked: [1, 3, 4] }, { label: 'h', cells: [1, 3, 2, 5, 9, 8], marked: [1, 3, 4] }] },
+	{ caption: 'heappop заберёт 1 из корня.', rows: [{ label: 'куча', tree: true, cells: [1, 3, 2, 5, 9, 8], dimmed: [0] }, { label: 'h', cells: [1, 3, 2, 5, 9, 8], dimmed: [0] }] },
 	{ caption: 'heappop забрал 1, число 8 спустилось на место 2. Место 5 пустое.', rows: [{ label: 'куча', tree: true, cells: [2, 3, 8, 5, 9, ''], marked: [0, 2] }, { label: 'h', cells: [2, 3, 8, 5, 9] }] },
 ] };
 const wideHeap: Figure = { id: 'test-wide-heap', title: 'Куча кортежей', frames: [{ caption: 'Пятнадцать кортежей.', rows: [{ tree: true, cells: Array.from({ length: 15 }, (_, i) => `(${10 + i}, 1, 2)`) }] }] };
@@ -197,7 +198,11 @@ test('draws a heap row as a tree in heapq order', async ({ page }) => {
 	// A marked node has the amber color of the theme: #3a3018 in the dark theme, #fff2c2 in the light theme.
 	const fill = () => figure.locator('.figure-mark circle').first().evaluate(circle => getComputedStyle(circle).fill);
 	await expect.poll(fill).toBe('rgb(58, 48, 24)');
-	await figure.getByRole('button', { name: 'Вперёд', exact: true }).click();
+	const forward = figure.getByRole('button', { name: 'Вперёд', exact: true });
+	await forward.click();
+	await expect(figure.locator('.figure-dim circle')).toHaveCount(1);
+	await expect(figure.locator('.figure-dim').first()).toHaveCSS('opacity', '0.35');
+	await forward.click();
 	await expect(nodes).toHaveCount(5);
 	await expect(figure.locator('.figure-edge')).toHaveCount(4);
 	await page.getByRole('button', { name: 'Светлая тема', exact: true }).click();

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Figure, FigureRow } from '../shared/leetcode';
 
-// SVG units. CELL is the cell height and the smallest cell width. CHAR is the width of one character of the 14px monospace font. LEVEL is the smallest height of one tree level, INDEX the line of the place numbers under a node.
+// SVG units. CELL is the cell height and the smallest cell width. CHAR is the width of one character of the 14px monospace font. LEVEL is the smallest height of one tree level. INDEX is the height of the line with the place number under a node.
 const CELL = 36, GAP = 10, LINE = 16, BRACKET = 10, CHAR = 8.5, LEVEL = 56, INDEX = 12;
 const textWidth = (value: number | string) => String(value).length * CHAR;
 const tone = (row: FigureRow, i: number) => row.marked?.includes(i) ? 'figure-mark' : row.dimmed?.includes(i) ? 'figure-dim' : undefined;

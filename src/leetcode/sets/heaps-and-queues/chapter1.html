@@ -33,7 +33,7 @@ d.popleft()       # вернёт 1, d = [2, 4, 7]</code></pre>
 <tr><td><code>d.pop()</code></td><td>забирает с конца</td><td>O(1)</td></tr>
 <tr><td><code>d.popleft()</code></td><td>забирает из начала</td><td>O(1)</td></tr>
 <tr><td><code>d[0]</code>, <code>d[-1]</code></td><td>читает концы</td><td>O(1)</td></tr>
-<tr><td><code>d[i]</code> в середине</td><td>идёт к середине по блокам</td><td>O(n)</td></tr>
+<tr><td><code>d[i]</code> в середине</td><td>дек хранит числа кусками, до середины идёт кусок за куском</td><td>O(n)</td></tr>
 </tbody>
 </table>
 <p><code>len(d)</code> даёт длину, а цикл <code>while d:</code> идёт, пока дек не пуст. Вызов <code>popleft()</code> у пустого дека даёт ошибку, поэтому сначала проверяйте дек.</p>
@@ -60,17 +60,17 @@ while True:
 d.rotate(-2)   # d = [3, 4, 5, 6, 1, 2]
 d.popleft()    # вернёт 3, d = [4, 5, 6, 1, 2]</code></pre>
 <figure data-figure="hq1-rotate"></figure>
-<div class="rule"><p><strong>Правило.</strong> <code>d.rotate(-m)</code> переносит m элементов из начала в конец. <code>d.rotate(m)</code> переносит m элементов из конца в начало.</p></div>
+<div class="rule"><p><strong>Правило.</strong> <code>d.rotate(-m)</code> переносит m элементов из начала в конец. <code>d.rotate(m)</code> переносит m элементов из конца в начало. <code>d.rotate(-m)</code> делает m переносов, поэтому стоит O(m).</p></div>
 <p>Следующие круги сделайте сами в задаче 1823. Кто победит при n = 6 и k = 3?</p>
 <h2 id="s6">6. Что нужно запомнить</h2>
 <ul>
 <li>Очередь: <code>append</code> кладёт в конец, <code>popleft</code> берёт из начала.</li>
-<li><code>q.pop()</code> берёт с конца, как стек: <code>deque([5, 8, 2]).pop()</code> вернёт 2.</li>
+<li><code>q.pop()</code> берёт с конца: последний пришёл, первым ушёл. <code>deque([5, 8, 2]).pop()</code> вернёт 2.</li>
 <li><code>list.pop(0)</code> сдвигает все числа. 100 000 вызовов делают почти 5 миллиардов сдвигов.</li>
 <li>Дек работает с обоими концами за O(1), с серединой за O(n).</li>
 <li><code>popleft()</code> у пустого дека даёт ошибку. Проверяйте: <code>while q:</code> или <code>if q:</code>.</li>
 <li>Следите за знаком у <code>rotate</code>: минус переносит из начала в конец.</li>
-<li><code>queue.Queue</code> нужен для потоков. В задачах берите <code>deque</code>.</li>
+<li><code>queue.Queue</code> нужен, когда несколько частей программы работают одновременно. В задачах берите <code>deque</code>.</li>
 </ul>
 <h2 id="s7">7. Как решать задачи этой главы</h2>
 <ol>

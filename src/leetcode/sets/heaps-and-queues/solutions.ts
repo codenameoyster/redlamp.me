@@ -1,13 +1,12 @@
 import type { Reference } from '..';
 import { int, ints, need, reader, str } from '../constraints';
 
-const distinct = (list: number[]): number[] => { need(new Set(list).size === list.length); return list; };
-// A binary max-heap of numbers in an array: the children of place i are places 2i + 1 and 2i + 2.
-const maxHeap = () => {
+// A binary min-heap of numbers in an array: the children of place i are places 2i + 1 and 2i + 2.
+const minHeap = () => {
 	const h: number[] = [];
 	const push = (x: number): void => {
 		let i = h.push(x) - 1;
-		for (let parent = (i - 1) >> 1; i > 0 && h[parent] < x; i = parent, parent = (i - 1) >> 1) h[i] = h[parent];
+		for (let parent = (i - 1) >> 1; i > 0 && h[parent] > x; i = parent, parent = (i - 1) >> 1) h[i] = h[parent];
 		h[i] = x;
 	};
 	const pop = (): number => {
@@ -15,8 +14,8 @@ const maxHeap = () => {
 		if (!h.length) return top;
 		let i = 0;
 		for (let child = 1; child < h.length; i = child, child = 2 * i + 1) {
-			if (child + 1 < h.length && h[child + 1] > h[child]) child++;
-			if (h[child] <= last) break;
+			if (child + 1 < h.length && h[child + 1] < h[child]) child++;
+			if (h[child] >= last) break;
 			h[i] = h[child];
 		}
 		h[i] = last;
@@ -40,7 +39,7 @@ const lefts = (a: number[], limit: number): number[] => {
 };
 
 export default {
-	// O(n): before person k ends, a person in front of k or k buys min(tickets[i], tickets[k]) tickets, and a person after k buys one ticket less.
+	// O(n): before person k ends, a person in front of k or k buys min(tickets[i], tickets[k]) tickets, and a person after k buys min(tickets[i], tickets[k] - 1).
 	'time-needed-to-buy-tickets': { mode: 'call', solve: (tickets: unknown, k: unknown) => {
 		const t = ints(tickets, 1, 100, 1, 100), at = int(k, 0, t.length - 1);
 		return t.reduce((time, x, i) => time + Math.min(x, i <= at ? t[at] : t[at] - 1), 0);
@@ -81,7 +80,8 @@ export default {
 	} },
 	// O(n log n): sort, then repeat the reveal on a queue of the places. The next smallest card goes to the place that opens next.
 	'reveal-cards-in-increasing-order': { mode: 'call', solve: (deck: unknown) => {
-		const d = distinct(ints(deck, 1, 1000, 1, 1e6)), places = Array.from(d, (_, i) => i), out: number[] = [];
+		const d = ints(deck, 1, 1000, 1, 1e6), places = Array.from(d, (_, i) => i), out: number[] = [];
+		need(new Set(d).size === d.length);
 		let head = 0;
 		for (const x of [...d].sort((a, b) => a - b)) { out[places[head++]] = x; if (head < places.length) places.push(places[head++]); }
 		return out;
@@ -98,16 +98,16 @@ export default {
 		for (let t = 0; t < times; t++) a[a.indexOf(Math.min(...a))] *= m;
 		return a;
 	} },
-	// O(n log n) for each test: keep the bonuses in a max-heap. A hero takes the largest bonus above it that is not used yet.
+	// O(n log n) for each test: keep the bonuses negated in a min-heap, so the top is the largest bonus. A hero takes the largest bonus above it that is not used yet.
 	'cf-1800-c2': { mode: 'stdio', solve: (stdin: string) => {
 		const input = reader(stdin), out: string[] = [];
 		let total = 0;
 		for (let t = input.int(1, 1e4); t > 0; t--) {
-			const n = input.int(1, 2e5), bonuses = maxHeap();
+			const n = input.int(1, 2e5), bonuses = minHeap();
 			total += n;
 			need(total <= 2e5);
 			let army = 0;
-			for (let i = 0; i < n; i++) { const s = input.int(0, 1e9); if (s) bonuses.push(s); else if (bonuses.size()) army += bonuses.pop(); }
+			for (let i = 0; i < n; i++) { const s = input.int(0, 1e9); if (s) bonuses.push(-s); else if (bonuses.size()) army -= bonuses.pop(); }
 			out.push(String(army));
 		}
 		input.end();
@@ -165,29 +165,27 @@ export default {
 		need(m.every((row, i) => row.every((x, j) => (!j || row[j - 1] <= x) && (!i || m[i - 1][j] <= x))));
 		return m.flat().sort((x, y) => x - y)[int(k, 1, n * n) - 1];
 	} },
-	// O(n log n): go over the pairs by nums2 from large to small. A min-heap keeps the k largest nums1 so far and their sum, and the current nums2 is the minimum of the best choice that ends here.
+	// O(n log n): go over the pairs by nums2 from large to small. A min-heap keeps the k largest nums1 so far and their sum. sum * nums2[i] is at most the real score of the k numbers in the heap, and at the last pair of the best choice it equals the best score.
 	'maximum-subsequence-score': { mode: 'call', solve: (nums1: unknown, nums2: unknown, k: unknown) => {
-		const a = ints(nums1, 1, 1e5, 0, 1e5), b = ints(nums2, a.length, a.length, 0, 1e5), size = int(k, 1, a.length), chosen = maxHeap();
+		const a = ints(nums1, 1, 1e5, 0, 1e5), b = ints(nums2, a.length, a.length, 0, 1e5), size = int(k, 1, a.length), chosen = minHeap();
 		let sum = 0, best = 0;
 		for (const i of a.map((_, i) => i).sort((x, y) => b[y] - b[x])) {
-			// The max-heap of negated numbers pops the negated smallest number.
-			chosen.push(-a[i]);
+			chosen.push(a[i]);
 			sum += a[i];
-			if (chosen.size() > size) sum += chosen.pop();
+			if (chosen.size() > size) sum -= chosen.pop();
 			if (chosen.size() === size) best = Math.max(best, sum * b[i]);
 		}
 		return best;
 	} },
 	// O(n log n): drink every potion and keep the drunk potions in a min-heap. When the health is below 0, drop the most harmful drunk potion.
 	'cf-1526-c2': { mode: 'stdio', solve: (stdin: string) => {
-		const input = reader(stdin), n = input.int(1, 2e5), drunk = maxHeap();
+		const input = reader(stdin), n = input.int(1, 2e5), drunk = minHeap();
 		let health = 0;
 		for (let i = 0; i < n; i++) {
 			const a = int(Number(input.word(/^-?\d+$/)), -1e9, 1e9);
-			// The max-heap of negated potions pops the negated smallest potion.
-			drunk.push(-a);
+			drunk.push(a);
 			health += a;
-			if (health < 0) health += drunk.pop();
+			if (health < 0) health -= drunk.pop();
 		}
 		input.end();
 		return `${drunk.size()}\n`;
@@ -195,30 +193,30 @@ export default {
 	// O(n log n): sort the task numbers by the enqueue time. A pointer puts the arrived tasks in a heap of (processing time, number). An empty heap moves the time to the next arrival.
 	'single-threaded-cpu': { mode: 'call', solve: (tasks: unknown) => {
 		need(Array.isArray(tasks) && tasks.length >= 1 && tasks.length <= 1e5);
-		const t = tasks.map(task => ints(task, 2, 2, 1, 1e9)), ready = maxHeap(), order: number[] = [];
+		const t = tasks.map(task => ints(task, 2, 2, 1, 1e9)), ready = minHeap(), order: number[] = [];
 		// The key enqueue time * 10^5 + number sorts without a compare function, so the reference stays far under 100 ms for n = 10^5.
 		const byArrival = Array.from(Float64Array.from(t, ([at], i) => at * 1e5 + i).sort(), key => key % 1e5);
 		let time = 0, next = 0;
 		while (order.length < t.length) {
 			if (!ready.size()) time = Math.max(time, t[byArrival[next]][0]);
-			// The key is processing time * 10^5 + number, negated for the max-heap: a shorter task wins, then a smaller number.
-			for (; next < t.length && t[byArrival[next]][0] <= time; next++) ready.push(-(t[byArrival[next]][1] * 1e5 + byArrival[next]));
-			const i = -ready.pop() % 1e5;
+			// The key is processing time * 10^5 + number: a shorter task wins, then a smaller number.
+			for (; next < t.length && t[byArrival[next]][0] <= time; next++) ready.push(t[byArrival[next]][1] * 1e5 + byArrival[next]);
+			const i = ready.pop() % 1e5;
 			order.push(i);
 			time += t[i][1];
 		}
 		return order;
 	} },
-	// O(n log n): one heap of (cost, number) holds the first and the last candidates workers. Each number of the first group is smaller than each number of the last group, so the smallest key follows the tie rule. The pointers l and r refill the group of the hired worker until they meet.
+	// O(n log n): one heap of (cost, number) holds the first and the last candidates workers. Each number of the first group is smaller than each number of the last group, so the smallest key follows the tie rule. The pointers l and r refill the group of the hired worker while l <= r.
 	'total-cost-to-hire-k-workers': { mode: 'call', solve: (costs: unknown, k: unknown, candidates: unknown) => {
-		const c = ints(costs, 1, 1e5, 1, 1e5), hires = int(k, 1, c.length), m = int(candidates, 1, c.length), workers = maxHeap();
-		// The key is cost * 10^5 + number, negated for the max-heap.
-		const add = (i: number): void => workers.push(-(c[i] * 1e5 + i));
+		const c = ints(costs, 1, 1e5, 1, 1e5), hires = int(k, 1, c.length), m = int(candidates, 1, c.length), workers = minHeap();
+		// The key is cost * 10^5 + number.
+		const add = (i: number): void => workers.push(c[i] * 1e5 + i);
 		let l = 0, r = c.length - 1, total = 0;
 		for (; l < m && l <= r; l++) add(l);
 		for (; c.length - 1 - r < m && l <= r; r--) add(r);
 		for (let hired = 0; hired < hires; hired++) {
-			const i = -workers.pop() % 1e5;
+			const i = workers.pop() % 1e5;
 			total += c[i];
 			if (l <= r) add(i < l ? l++ : r--);
 		}
