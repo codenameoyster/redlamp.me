@@ -1,6 +1,8 @@
 import { test, expect, signIn } from './fixtures';
 import type { Page } from '@playwright/test';
 import type { Figure, Homework, HomeworkTask, Problem } from '../shared/leetcode';
+import twoPointers1 from '../src/leetcode/sets/two-pointers/chapter1';
+import twoPointers2 from '../src/leetcode/sets/two-pointers/chapter2';
 
 const setPath = '/leetcode/sets/permutations-and-combinations', chapterPath = `${setPath}/2`;
 function row(page: Page, title: string) { return page.getByRole('article').filter({ has: page.getByRole('heading', { name: title, exact: true }) }); }
@@ -156,6 +158,16 @@ test('steps through a lesson figure', async ({ page }) => {
 	await expect.poll(fill).toBe('rgb(60, 60, 60)');
 	await page.getByRole('button', { name: 'Светлая тема', exact: true }).click();
 	await expect.poll(fill).toBe('rgb(192, 192, 192)');
+});
+
+test('shows the figures of the new chapter after client navigation', async ({ page }) => {
+	await signIn(page);
+	await page.goto('/leetcode/sets/two-pointers/1');
+	const titles = page.locator('article.lesson figcaption');
+	await expect(titles).toHaveText(twoPointers1.figures!.map(figure => figure.title));
+	await page.getByRole('link', { name: 'Следующая глава', exact: true }).click();
+	await expect(page).toHaveURL('/leetcode/sets/two-pointers/2');
+	await expect(titles).toHaveText(twoPointers2.figures!.map(figure => figure.title));
 });
 
 test('fits the set pages at the mobile width', async ({ page }, testInfo) => {

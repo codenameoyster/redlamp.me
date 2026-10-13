@@ -10,6 +10,7 @@ import { htmlText } from '../src/leetcode/tutor';
 
 let student: string;
 const set = sets.find(item => item.slug === 'permutations-and-combinations')!;
+const twoPointers = sets.find(item => item.slug === 'two-pointers')!;
 const insertProblem = env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,?,'Problem','medium','[]','','','now','now')");
 const insertAttempt = env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,?,'{}','',?,'with_help','now','now')");
 const insertBundle = env.DB.prepare("INSERT INTO homework (id,title,instructions,created_at,updated_at) VALUES (?,?,'','now','now')");
@@ -67,14 +68,15 @@ it.each([
 });
 
 it.each([
-	{ name: 'student chapter 1 lesson', role: 'student', chapter: '1', body: { html: set.lessons[0], figures: [] } },
-	{ name: 'parent chapter 4 lesson', role: 'parent', chapter: '4', body: { html: set.lessons[3], figures: [] } },
-	{ name: 'chapter 5 is missing', role: 'parent', chapter: '5', body: null },
-	{ name: 'chapter 0 is missing', role: 'parent', chapter: '0', body: null },
-	{ name: 'chapter x is missing', role: 'parent', chapter: 'x', body: null },
-	{ name: 'lesson without a chapter number is missing', role: 'parent', chapter: '', body: null },
-])('$name', async ({ role, chapter, body }) => {
-	const response = await request(`/sets/${set.slug}/lesson${chapter && `/${chapter}`}`, 'GET', undefined, role === 'parent' ? await login('parent') : student);
+	{ name: 'student chapter 1 lesson', role: 'student', item: set, chapter: '1', body: { html: set.lessons[0], figures: [] } },
+	{ name: 'parent chapter 4 lesson', role: 'parent', item: set, chapter: '4', body: { html: set.lessons[3], figures: [] } },
+	{ name: 'lesson with figures', role: 'student', item: twoPointers, chapter: '1', body: { html: twoPointers.lessons[0], figures: twoPointers.chapters[0].figures } },
+	{ name: 'chapter 5 is missing', role: 'parent', item: set, chapter: '5', body: null },
+	{ name: 'chapter 0 is missing', role: 'parent', item: set, chapter: '0', body: null },
+	{ name: 'chapter x is missing', role: 'parent', item: set, chapter: 'x', body: null },
+	{ name: 'lesson without a chapter number is missing', role: 'parent', item: set, chapter: '', body: null },
+])('$name', async ({ role, item, chapter, body }) => {
+	const response = await request(`/sets/${item.slug}/lesson${chapter && `/${chapter}`}`, 'GET', undefined, role === 'parent' ? await login('parent') : student);
 	if (body === null) { expect(response.status).toBe(404); expect(await response.json()).toMatchObject({ error: { code: 'not_found' } }); return; }
 	expect(response.status).toBe(200);
 	expect(await response.json()).toEqual(body);
