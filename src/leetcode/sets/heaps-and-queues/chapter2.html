@@ -12,32 +12,41 @@
 <pre><code class="language-python">import heapq
 
 h = [1, 3, 2, 5, 9, 8]
-heapq.heappush(h, 0)   # h = [0, 3, 1, 5, 9, 8, 2]
-heapq.heappop(h)       # вернёт 0, h = [1, 3, 2, 5, 9, 8]</code></pre>
+heapq.heappush(h, 0)
+print(h)                  # [0, 3, 1, 5, 9, 8, 2]
+print(heapq.heappop(h))   # 0
+print(h)                  # [1, 3, 2, 5, 9, 8]</code></pre>
 <p><code>heappush</code> кладёт число в конец и поднимает его: пока число меньше родителя, они меняются местами. <code>heappop</code> забирает корень, ставит туда последний элемент и спускает его: меняет с меньшим ребёнком, пока этот ребёнок меньше. Правого ребёнка может не быть, поэтому спуск сначала проверяет, что место 2i + 2 есть в списке.</p>
 <figure data-figure="hq2-push-pop"></figure>
 <p><code>heapq.heapify(a)</code> делает кучу из списка на месте за O(n): <code>[5, 3, 8, 1, 9, 2]</code> станет <code>[1, 3, 2, 5, 9, 8]</code>. Функция возвращает None, поэтому пишите <code>heapq.heapify(a)</code>, а не <code>a = heapq.heapify(a)</code>.</p>
 <div class="rule"><p><strong>Правило.</strong> Подъём и спуск идут по одному пути дерева, поэтому <code>heappush</code> и <code>heappop</code> стоят O(log n). <code>heapify</code> строит кучу за O(n).</p></div>
 <h2 id="s4">4. Куча на максимум через минус</h2>
 <p>В <code>heapq</code> есть только куча на минимум. Возьмите числа 6, 4, 9: наибольшее из них 9. Среди −6, −4, −9 наименьшее −9. Значит, если класть числа с минусом, в корне окажется наибольшее число со знаком минус.</p>
-<pre><code class="language-python">h = []
+<pre><code class="language-python">import heapq
+
+h = []
 for x in [6, 4, 9]:
     heapq.heappush(h, -x)
-# h = [-9, -4, -6]
+print(h)                 # [-9, -4, -6]
 top = -h[0]              # 9
-y = -heapq.heappop(h)    # 9, h = [-6, -4]</code></pre>
+y = -heapq.heappop(h)    # 9, h = [-6, -4]
+print(top, y, h)         # 9 9 [-6, -4]</code></pre>
 <div class="rule"><p><strong>Правило.</strong> Куча на максимум: кладите −x, читайте −h[0], доставайте −heappop(h). Минус нужен при записи, при чтении и при каждом heappop.</p></div>
 <p><code>queue.PriorityQueue</code> нужен, когда несколько частей программы работают одновременно. В задачах берите <code>heapq</code>.</p>
 <h2 id="s5">5. Камни: модель главы</h2>
 <p>LeetCode 1046. Камни [6, 4, 9, 2]. Каждый ход берёт два самых тяжёлых камня. Если веса разные, разница возвращается в кучу.</p>
 <figure data-figure="hq2-stones"></figure>
-<pre><code class="language-python">h = [-s for s in stones]
+<pre><code class="language-python">import heapq
+
+stones = [6, 4, 9, 2]
+h = [-s for s in stones]
 heapq.heapify(h)
 while len(h) &gt; 1:
     y = -heapq.heappop(h)
     x = -heapq.heappop(h)
     if y != x:
-        heapq.heappush(h, -(y - x))</code></pre>
+        heapq.heappush(h, -(y - x))
+print(h)   # [-1]</code></pre>
 <p>Допишите ответ сами: что вернуть, если в куче остался один камень, и что, если куча пуста?</p>
 <h2 id="s6">6. Кортежи: приоритет и ничья</h2>
 <p>Сравните (2, 'b') и (2, 'c'). Первые элементы равны, поэтому Python сравнивает вторые: 'b' &lt; 'c'. Значит, (2, 'b') &lt; (2, 'c'). А (1, 'z') &lt; (2, 'a'): 1 &lt; 2, и до букв сравнение не доходит.</p>

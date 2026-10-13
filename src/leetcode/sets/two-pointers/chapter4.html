@@ -25,7 +25,7 @@
 <h2 id="s4">4. Практика: Codeforces 1538C</h2>
 <p>Number of Pairs, раунд Div. 3, задача C. Дан массив <code>a</code> из n чисел и два числа <code>l</code> и <code>r</code>. Посчитайте пары номеров (i, j), где i &lt; j и l ≤ a[i] + a[j] ≤ r.</p>
 <p>Во входе до 10 000 тестов. Сумма n по всем тестам до 200 000. Числа, l и r до 1 000 000 000. В каждом тесте первая строка это n, l, r, вторая строка это массив.</p>
-<pre><code class="language-python">4
+<pre><code class="language-plaintext">4
 3 4 7
 5 1 2
 5 5 8
@@ -39,7 +39,7 @@
 <details><summary>Подсказка 1</summary><p>В условии i &lt; j, но сумма не зависит от порядка чисел. Изменится ли количество пар, если массив отсортировать?</p></details>
 <details><summary>Подсказка 2</summary><p>Сначала решите задачу попроще: сколько пар с суммой не больше x? Назовите это count(x). Как из двух таких чисел получить ответ?</p></details>
 <details><summary>Подсказка 3</summary><p>Вернитесь к таблице сумм из главы 1. Сумма в клетке (lo, hi) не больше x. Что можно сказать про всю строку lo внутри окна? Сколько в ней клеток?</p></details>
-<details><summary>Подсказка 4: скелет</summary><pre><code class="language-python">import sys
+<details><summary>Подсказка 4: скелет</summary><pre class="no-run"><code class="language-python">import sys
 
 def count(a, x):  # пары с суммой &lt;= x, массив a отсортирован
     lo, hi = 0, len(a) - 1

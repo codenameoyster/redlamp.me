@@ -9,6 +9,7 @@ import { difficultyLabels, homeworkLabels } from './Homework';
 import { Tutor } from './Tutor';
 import { deckStatus } from './Quiz';
 import { LessonFigure } from './LessonFigure';
+import { runTests, type RunResult } from './python';
 
 const taskCount = (count: number) => plural(count, ['задание', 'задания', 'заданий']);
 export const addProblem = (task: SetTask) => api<Problem>('/problems', { method: 'POST', body: JSON.stringify({ url: task.url, number: task.number ?? null, title: task.title, difficulty: task.difficulty, topics: task.topics, summary: task.note }) });
@@ -54,13 +55,30 @@ function ChapterPage({ slug, number, user }: { slug: string; number: number; use
 }
 
 // The lesson HTML is repository content: src/leetcode/sets/<set>/chapter<N>.html. Each figure draws into its placeholder <figure data-figure="id">.
+// Each Python sample without the class no-run gets a run button and an output inside its <pre>.
 export function Lesson({ html, figures, ref }: { html: string; figures?: Figure[]; ref: RefObject<HTMLElement | null> }) {
-	const [slots, setSlots] = useState<[Figure, Element][]>([]);
+	const [slots, setSlots] = useState<[Figure, Element][]>([]), [samples, setSamples] = useState<[string, Element][]>([]);
 	useEffect(() => {
 		for (const code of ref.current?.querySelectorAll('pre code') ?? []) code.innerHTML = highlight(/\blanguage-(\S+)/.exec(code.className)?.[1] ?? 'python', code.textContent ?? '').html;
 		setSlots((figures ?? []).flatMap(figure => { const slot = ref.current?.querySelector(`figure[data-figure="${figure.id}"]`); return slot ? [[figure, slot] as [Figure, Element]] : []; }));
+		setSamples([...ref.current?.querySelectorAll('pre:not(.no-run) > code.language-python') ?? []].map(code => [code.textContent ?? '', code.parentElement!]));
 	}, [html, figures]);
-	return <><article className="lesson" ref={ref} dangerouslySetInnerHTML={{ __html: html }} />{slots.map(([figure, slot]) => createPortal(<LessonFigure figure={figure} />, slot, figure.id))}</>;
+	return <><article className="lesson" ref={ref} dangerouslySetInnerHTML={{ __html: html }} />{slots.map(([figure, slot]) => createPortal(<LessonFigure figure={figure} />, slot, figure.id))}{samples.map(([code, pre], index) => createPortal(<Sample code={code} />, pre, `sample-${index}`))}</>;
+}
+
+// A sample runs as a stdio program with no input. The run is not saved.
+// The tip of the button shows below it, so the output is above the button. The old output stays until the new one comes, so the button does not jump.
+// The output is a live region before the first run, so a screen reader reads the first result too.
+function Sample({ code }: { code: string }) {
+	const [busy, setBusy] = useState(false), [result, setResult] = useState<Pick<RunResult, 'output' | 'error'> | null>(null);
+	async function run() {
+		setBusy(true);
+		try { await runTests(code, { mode: 'stdio' }, [{ input: '', expected: null }], setResult); } catch (error) { setResult({ output: '', error: { message: message(error), line: null } }); } finally { setBusy(false); }
+	}
+	return <span className="sample">
+		<output>{result && <>{result.output}{result.error ? <span className="error">{result.error.line ? `Строка ${result.error.line}: ` : ''}{result.error.message}</span> : !result.output && 'Программа ничего не напечатала.'}</>}</output>
+		<button type="button" disabled={busy} onClick={() => void run()} data-tip="Выполнить этот код в браузере и показать, что он печатает.">{busy ? 'Запускаем…' : 'Запустить'}</button>
+	</span>;
 }
 
 function AddToHomework({ task, title, close, added }: { task: SetTaskRow; title: string; close: () => void; added: () => void }) {
