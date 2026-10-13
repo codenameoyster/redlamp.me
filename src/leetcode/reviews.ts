@@ -50,20 +50,33 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 	if (url.pathname === '/leetcode/api/game') {
 		methods(request, ['GET']);
 		// A task is late after its due date in UTC. East of UTC, this gives the student a few more hours. A task added after the due date is not late.
-		const [[totals, streak], accepted] = await Promise.all([env.DB.batch<Record<string, number>>([
+		// The layout reads the game on each page change, also without a reload, so this records the visit day of the student.
+		const visit = user.role === 'student' ? [env.DB.prepare("INSERT OR IGNORE INTO visits (day) VALUES (date('now'))")] : [];
+		const [[totals, streak, visits], accepted] = await Promise.all([env.DB.batch<Record<string, number>>([...visit,
 			env.DB.prepare(`SELECT count(*) AS accepted,coalesce(sum(p.difficulty='hard'),0) AS hard,coalesce(sum(CASE p.difficulty WHEN 'easy' THEN 10 WHEN 'medium' THEN 20 ELSE 40 END),0) AS acceptedXp,
 				coalesce(sum(EXISTS(SELECT 1 FROM attempts a WHERE a.problem_id=p.id AND a.state='saved' AND a.understanding='independent') OR EXISTS(SELECT 1 FROM reviews r WHERE r.problem_id=p.id AND r.result='independent')),0) AS independent,
 				(SELECT count(*) FROM homework_tasks WHERE state='completed') AS completed,(SELECT count(*) FROM (SELECT DISTINCT problem_id,reviewed_on FROM reviews)) AS recalls,(SELECT count(*) FROM card_answers WHERE correct=1) AS cards,
 				(SELECT count(DISTINCT problem_id) FROM test_runs WHERE passed=total AND total>0) AS passedTests,(SELECT coalesce(sum(min(fails,3)),0) FROM (SELECT count(*) AS fails FROM test_runs WHERE passed<total GROUP BY problem_id,run_on)) AS failedRuns,
-				(SELECT count(*) FROM homework_tasks t JOIN homework h ON h.id=t.homework_id WHERE t.state<>'cancelled' AND h.due_date<date('now') AND date(t.created_at)<=h.due_date AND NOT EXISTS(SELECT 1 FROM submissions s WHERE s.task_id=t.id AND date(s.created_at)<=h.due_date)) AS late FROM problems p WHERE ${solvedSQL}`),
+				(SELECT count(*) FROM homework_tasks t JOIN homework h ON h.id=t.homework_id WHERE t.state<>'cancelled' AND h.due_date<date('now') AND date(t.created_at)<=h.due_date AND NOT EXISTS(SELECT 1 FROM submissions s WHERE s.task_id=t.id AND date(s.created_at)<=h.due_date)) AS late,
+				(SELECT count(*) FROM homework_tasks t JOIN homework h ON h.id=t.homework_id WHERE t.state<>'cancelled' AND EXISTS(SELECT 1 FROM submissions s WHERE s.task_id=t.id AND date(s.created_at)<=h.due_date)) AS onTime,
+				(SELECT count(*) FROM test_runs r WHERE r.passed=r.total AND r.total>0 AND r.created_at=(SELECT min(created_at) FROM test_runs WHERE problem_id=r.problem_id)) AS firstTry,
+				coalesce(sum(p.slug LIKE 'cf-%'),0) AS codeforces FROM problems p WHERE ${solvedSQL}`),
 			env.DB.prepare("WITH days AS (SELECT DISTINCT date(saved_at) AS day FROM attempts WHERE state='saved') SELECT EXISTS(SELECT 1 FROM days WHERE date(day,'+1 day') IN (SELECT day FROM days) AND date(day,'+2 day') IN (SELECT day FROM days)) AS streak"),
-		]), acceptedSetSlugs(env)]);
-		const { accepted: count, hard, acceptedXp, independent, completed, recalls, cards, passedTests, failedRuns, late } = totals.results[0];
-		const xp = Math.max(0, acceptedXp + 10 * independent + 15 * completed + 5 * recalls + 2 * cards + 10 * passedTests - 2 * failedRuns - 15 * late);
+			// Missed days run from the first visit to yesterday. Consecutive days have the same day number minus row number.
+			env.DB.prepare(`SELECT CAST(coalesce(julianday(date('now'))-julianday(min(day))-sum(day<date('now')),0) AS INTEGER) AS missed,
+				(SELECT coalesce(max(n),0) FROM (SELECT count(*) AS n FROM (SELECT julianday(day)-row_number() OVER (ORDER BY day) AS run FROM visits) GROUP BY run)) AS longest FROM visits`),
+		]).then(results => results.slice(visit.length)), acceptedSetSlugs(env)]);
+		const { accepted: count, hard, acceptedXp, independent, completed, recalls, cards, passedTests, failedRuns, late, onTime, firstTry, codeforces } = totals.results[0], { missed, longest } = visits.results[0];
+		const xp = Math.max(0, acceptedXp + 10 * independent + 15 * completed + 5 * recalls + 2 * cards + 10 * passedTests - 2 * failedRuns - 15 * late - 5 * missed);
 		let level = 1;
 		while (xp >= 50 * level * (level + 1)) level++;
-		const earned: Record<BadgeId, boolean> = { 'first-accept': count >= 1, 'three-day-streak': streak.results[0].streak === 1, 'first-hard': hard >= 1, 'ten-accepted': count >= 10, 'independent-five': independent >= 5, 'set-cleared': sets.some(set => tasksOf(set).every(task => accepted.has(taskSlug(task)))) };
-		return Response.json({ xp, level, levelXp: 50 * level * (level - 1), nextLevelXp: 50 * level * (level + 1), late, badges: Object.entries(earned).map(([id, value]) => ({ id, earned: value })) } as Game);
+		const cleared = sets.filter(set => tasksOf(set).every(task => accepted.has(taskSlug(task)))).length;
+		const earned: Record<BadgeId, boolean> = {
+			'first-accept': count >= 1, 'three-day-streak': streak.results[0].streak === 1, 'first-hard': hard >= 1, 'ten-accepted': count >= 10, 'independent-five': independent >= 5, 'set-cleared': cleared >= 1,
+			'week-no-miss': longest >= 7, 'month-no-miss': longest >= 30, 'twenty-five-accepted': count >= 25, 'fifty-accepted': count >= 50, 'fifty-cards': cards >= 50, 'ten-recalls': recalls >= 10,
+			'first-codeforces': codeforces >= 1, 'first-try': firstTry >= 1, 'two-sets': cleared >= 2, 'on-time-five': onTime >= 5, 'level-five': level >= 5,
+		};
+		return Response.json({ xp, level, levelXp: 50 * level * (level - 1), nextLevelXp: 50 * level * (level + 1), late, missed, badges: Object.entries(earned).map(([id, value]) => ({ id, earned: value })) } as Game);
 	}
 	const match = /^\/leetcode\/api\/problems\/([^/]+)\/(reviews|practice)$/.exec(url.pathname);
 	if (!match) return null;
