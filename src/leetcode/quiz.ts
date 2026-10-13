@@ -16,7 +16,6 @@ export const dueCardsSQL = `SELECT count(*) AS dueCards FROM (${STATE}) WHERE ne
 const strip = (card: Card) => Object.fromEntries(Object.entries(card).filter(([key]) => key !== 'answer' && key !== 'explain')) as QuizCard;
 
 function grade(card: Card, answer: unknown): { correct: boolean; shown: string } {
-	if (card.type === 'flip') return { correct: choice(answer, ['got_it', 'not_yet']) === 'got_it', shown: card.back };
 	if (card.type === 'short') return { correct: normalize(text(answer, 200, true)) === normalize(card.answer), shown: card.answer };
 	return { correct: integer(answer, 0, card.options.length - 1) === card.answer, shown: card.options[card.answer] };
 }

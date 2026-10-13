@@ -195,5 +195,6 @@ it.each(sets.flatMap(item => item.chapters.map((chapter, index) => ({ name: `${i
 	expect(cards.length).toBeGreaterThan(0);
 	expect(cards.filter(card => !card.explain.trim())).toEqual([]);
 	expect(cards.filter(card => (card.type === 'choice' || card.type === 'code') && !(card.answer >= 0 && card.answer < card.options.length))).toEqual([]);
-	expect(cards.filter(card => card.type === 'code' && card.code.split('___').length !== 2)).toEqual([]);
+	// A code card shows code to read, or code with one blank to fill.
+	expect(cards.filter(card => card.type === 'code' && card.code.split('___').length > 2)).toEqual([]);
 });
