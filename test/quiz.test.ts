@@ -95,6 +95,7 @@ it('lists one deck per chapter and builds the round from due cards, then new car
 		{ slug: 'heaps-and-queues-1', title: 'Куча и очереди, глава 1', cardCount: 8, dueCount: 0, newCount: 8 },
 		{ slug: 'heaps-and-queues-2', title: 'Куча и очереди, глава 2', cardCount: 8, dueCount: 0, newCount: 8 },
 		{ slug: 'heaps-and-queues-3', title: 'Куча и очереди, глава 3', cardCount: 8, dueCount: 0, newCount: 8 },
+		{ slug: 'heaps-and-queues-4', title: 'Куча и очереди, глава 4', cardCount: 8, dueCount: 0, newCount: 8 },
 	]);
 	const round = await (await request(`/quiz/${slug}?today=${today}`, 'GET', undefined, student)).json() as QuizRound;
 	expect(round.title).toBe('Перестановки и сочетания, глава 1');

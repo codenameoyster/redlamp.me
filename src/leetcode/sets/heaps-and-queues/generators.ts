@@ -29,6 +29,15 @@ const words = (random: Random, n: number, size: number): unknown[] => {
 	return [list, between(random, 1, new Set(list).size)];
 };
 
+// An n x n matrix with non-decreasing rows and columns: each value is the larger of its upper and left neighbours plus a random step from 0 to `step`. The largest value is start + (2n - 1) * step.
+const sortedMatrix = (random: Random, n: number, start: number, step: number): number[][] => {
+	const m: number[][] = [];
+	for (let i = 0; i < n; i++) { m.push([]); for (let j = 0; j < n; j++) m[i].push(Math.max(i ? m[i - 1][j] : start, j ? m[i][j - 1] : start) + between(random, 0, step)); }
+	return m;
+};
+// n tasks [enqueueTime, processingTime] with enqueue times in [1, last] and processing times in [1, longest].
+const cpuTasks = (random: Random, n: number, last: number, longest: number): number[][] => Array.from({ length: n }, () => [between(random, 1, last), between(random, 1, longest)]);
+
 export default {
 	'time-needed-to-buy-tickets': (random: Random) => call([
 		[[1], 0], [[100], 0], [[1, 100], 0], [[100, 1], 1], [[2, 3, 2], 2], [[5, 1, 1, 1], 0], [Array(100).fill(1), 99], [Array(100).fill(100), 0],
@@ -112,5 +121,39 @@ export default {
 		[[1], [1], 1], [[1], [1], 2], [[100000], [100000], 1000000000000000], [[3, 1], [1, 1], 4], [[1, 1, 1, 1], [1, 1, 1, 1], 17], [[10, 1, 1, 1], [1, 1, 1, 1], 13],
 		...Array.from({ length: 4 }, () => { const n = between(random, 2, 60); return [list(random, n, 1, 100000), list(random, n, 1, 100000), between(random, 1, 100000 + n * n * 100000)]; }),
 		[list(random, 50000, 1, 100000), list(random, 50000, 1, 100000), between(random, 1e9, 1e12)], [Array(50000).fill(100000), Array(50000).fill(100000), 1000000000000000],
+	]),
+	'kth-smallest-element-in-a-sorted-matrix': (random: Random) => call([
+		[[[-5]], 1], [[[1000000000]], 1], [[[-1000000000]], 1], [[[1, 1], [1, 1]], 3], [[[1, 2], [3, 4]], 4], [[[-1000000000, 1000000000], [1000000000, 1000000000]], 1],
+		...Array.from({ length: 4 }, () => { const n = between(random, 2, 40); return [sortedMatrix(random, n, between(random, -50, 50), between(random, 0, 3)), between(random, 1, n * n)]; }),
+		// 599 steps of at most 3338898 keep the values in [-10^9, 10^9].
+		[sortedMatrix(random, 300, -1000000000, 3338898), between(random, 1, 90000)], [sortedMatrix(random, 300, 0, 1), 45000],
+	]),
+	'maximum-subsequence-score': (random: Random) => call([
+		[[0], [0], 1], [[100000], [100000], 1], [[1, 2], [2, 1], 2], [[0, 0, 0], [1, 2, 3], 2], [[3, 3, 3], [3, 3, 3], 3], [[9, 1, 1], [1, 9, 9], 2],
+		...Array.from({ length: 4 }, () => { const n = between(random, 2, 60), hi = between(random, 1, 100000); return [list(random, n, 0, hi), list(random, n, 0, hi), between(random, 1, n)]; }),
+		// A new sum(h) on each step with k numbers in the heap reads about 2.5 * 10^9 numbers for k = n / 2. The second input has many equal nums2.
+		[list(random, 100000, 0, 100000), list(random, 100000, 0, 100000), 50000], [list(random, 100000, 0, 100000), list(random, 100000, 1, 10), 70000],
+	]),
+	'cf-1526-c2': (random: Random) => {
+		const input = (a: number[]): string => `${a.length}\n${a.join(' ')}\n`;
+		return [
+			'1\n0\n', '1\n-1000000000\n', '1\n1000000000\n', '2\n-1 1\n', '2\n1 -1\n', '5\n-1 -2 -3 -4 -5\n', '3\n1000000000 -1000000000 -1000000000\n',
+			...Array.from({ length: 4 }, () => input(list(random, between(random, 2, 60), -20, 20))),
+			// The pattern 2, -2, -2 drops one potion in each three, and the drunk list grows by two: a scan of the list for the worst potion reads about 4 * 10^9 numbers.
+			input(list(random, 200000, -1000000000, 1000000000)), input(Array.from({ length: 200000 }, (_, i) => i % 3 ? -2 : 2)),
+		];
+	},
+	'single-threaded-cpu': (random: Random) => call([
+		[[[1, 1]]], [[[1000000000, 1000000000]]], [[[1, 5], [1, 5], [1, 5]]], [[[5, 1], [1, 10]]], [[[1, 1], [1000000000, 1]]], [[[2, 3], [1, 3], [2, 1]]],
+		...Array.from({ length: 2 }, () => [cpuTasks(random, between(random, 2, 60), 30, 10)]),
+		...Array.from({ length: 2 }, () => [cpuTasks(random, between(random, 2, 60), 1000, 20)]),
+		// All tasks arrive at 1: a scan of the arrived tasks on each step costs about 5 * 10^9 reads. Arrivals up to 10^9 leave idle gaps: a clock that steps by 1 makes about 5 * 10^8 idle steps.
+		[cpuTasks(random, 100000, 1, 10)], [cpuTasks(random, 100000, 1000000000, 10000)],
+	]),
+	'total-cost-to-hire-k-workers': (random: Random) => call([
+		[[1], 1, 1], [[100000], 1, 1], [[1, 2], 2, 1], [[2, 1], 1, 1], [[3, 2, 7, 7, 1, 2], 2, 2], [[1, 1, 1, 1], 4, 4], [[5, 4, 3, 2, 1], 5, 1],
+		...Array.from({ length: 4 }, () => { const n = between(random, 2, 60); return [list(random, n, 1, 20), between(random, 1, n), between(random, 1, n)]; }),
+		// A scan of both groups on each hire costs about 3.75 * 10^9 reads on each of the two inputs. The second input has 2 * candidates = n, so the groups meet at once.
+		[list(random, 100000, 1, 100000), 100000, 25000], [list(random, 100000, 1, 10), 50000, 50000],
 	]),
 } satisfies Record<string, Generator>;

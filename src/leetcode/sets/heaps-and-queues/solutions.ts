@@ -158,4 +158,70 @@ export default {
 		}
 		return best;
 	} },
+	// O(n^2 log n): sort all n^2 values. The k-th smallest counts the repeats.
+	'kth-smallest-element-in-a-sorted-matrix': { mode: 'call', solve: (matrix: unknown, k: unknown) => {
+		need(Array.isArray(matrix) && matrix.length >= 1 && matrix.length <= 300);
+		const n = matrix.length, m = matrix.map(row => ints(row, n, n, -1e9, 1e9));
+		need(m.every((row, i) => row.every((x, j) => (!j || row[j - 1] <= x) && (!i || m[i - 1][j] <= x))));
+		return m.flat().sort((x, y) => x - y)[int(k, 1, n * n) - 1];
+	} },
+	// O(n log n): go over the pairs by nums2 from large to small. A min-heap keeps the k largest nums1 so far and their sum, and the current nums2 is the minimum of the best choice that ends here.
+	'maximum-subsequence-score': { mode: 'call', solve: (nums1: unknown, nums2: unknown, k: unknown) => {
+		const a = ints(nums1, 1, 1e5, 0, 1e5), b = ints(nums2, a.length, a.length, 0, 1e5), size = int(k, 1, a.length), chosen = maxHeap();
+		let sum = 0, best = 0;
+		for (const i of a.map((_, i) => i).sort((x, y) => b[y] - b[x])) {
+			// The max-heap of negated numbers pops the negated smallest number.
+			chosen.push(-a[i]);
+			sum += a[i];
+			if (chosen.size() > size) sum += chosen.pop();
+			if (chosen.size() === size) best = Math.max(best, sum * b[i]);
+		}
+		return best;
+	} },
+	// O(n log n): drink every potion and keep the drunk potions in a min-heap. When the health is below 0, drop the most harmful drunk potion.
+	'cf-1526-c2': { mode: 'stdio', solve: (stdin: string) => {
+		const input = reader(stdin), n = input.int(1, 2e5), drunk = maxHeap();
+		let health = 0;
+		for (let i = 0; i < n; i++) {
+			const a = int(Number(input.word(/^-?\d+$/)), -1e9, 1e9);
+			// The max-heap of negated potions pops the negated smallest potion.
+			drunk.push(-a);
+			health += a;
+			if (health < 0) health += drunk.pop();
+		}
+		input.end();
+		return `${drunk.size()}\n`;
+	} },
+	// O(n log n): sort the task numbers by the enqueue time. A pointer puts the arrived tasks in a heap of (processing time, number). An empty heap moves the time to the next arrival.
+	'single-threaded-cpu': { mode: 'call', solve: (tasks: unknown) => {
+		need(Array.isArray(tasks) && tasks.length >= 1 && tasks.length <= 1e5);
+		const t = tasks.map(task => ints(task, 2, 2, 1, 1e9)), ready = maxHeap(), order: number[] = [];
+		// The key enqueue time * 10^5 + number sorts without a compare function, so the reference stays far under 100 ms for n = 10^5.
+		const byArrival = Array.from(Float64Array.from(t, ([at], i) => at * 1e5 + i).sort(), key => key % 1e5);
+		let time = 0, next = 0;
+		while (order.length < t.length) {
+			if (!ready.size()) time = Math.max(time, t[byArrival[next]][0]);
+			// The key is processing time * 10^5 + number, negated for the max-heap: a shorter task wins, then a smaller number.
+			for (; next < t.length && t[byArrival[next]][0] <= time; next++) ready.push(-(t[byArrival[next]][1] * 1e5 + byArrival[next]));
+			const i = -ready.pop() % 1e5;
+			order.push(i);
+			time += t[i][1];
+		}
+		return order;
+	} },
+	// O(n log n): one heap of (cost, number) holds the first and the last candidates workers. Each number of the first group is smaller than each number of the last group, so the smallest key follows the tie rule. The pointers l and r refill the group of the hired worker until they meet.
+	'total-cost-to-hire-k-workers': { mode: 'call', solve: (costs: unknown, k: unknown, candidates: unknown) => {
+		const c = ints(costs, 1, 1e5, 1, 1e5), hires = int(k, 1, c.length), m = int(candidates, 1, c.length), workers = maxHeap();
+		// The key is cost * 10^5 + number, negated for the max-heap.
+		const add = (i: number): void => workers.push(-(c[i] * 1e5 + i));
+		let l = 0, r = c.length - 1, total = 0;
+		for (; l < m && l <= r; l++) add(l);
+		for (; c.length - 1 - r < m && l <= r; r--) add(r);
+		for (let hired = 0; hired < hires; hired++) {
+			const i = -workers.pop() % 1e5;
+			total += c[i];
+			if (l <= r) add(i < l ? l++ : r--);
+		}
+		return total;
+	} },
 } satisfies Record<string, Reference>;
