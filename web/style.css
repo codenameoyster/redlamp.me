@@ -37,6 +37,7 @@ fieldset { min-width:0; border:0; padding:0; margin:0; }
 .logo-mark { width:26px; height:26px; background:var(--title); color:#000; display:grid; place-items:center; font:700 13px var(--mono); flex-shrink:0; box-shadow:var(--raised); }
 .logo strong { display:block; font-size:14px; line-height:1.2; }
 .logo small { display:block; color:var(--muted); font-size:11px; }
+.logo .version { font-weight:400; font-size:11px; color:var(--muted); }
 nav { display:grid; gap:2px; }
 nav a { display:flex; align-items:center; gap:8px; padding:4px 8px; color:var(--ink); text-decoration:none; }
 nav a svg { flex-shrink:0; }
@@ -165,7 +166,7 @@ progress::-moz-progress-bar { background:repeating-linear-gradient(90deg,var(--o
 .badges { display:flex; flex-wrap:wrap; gap:6px; list-style:none; margin:0; padding:0; }
 .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; font-size:11px; font-weight:700; background:var(--orange); color:#000; box-shadow:var(--raised); }
 .badge[data-earned="false"] { background:var(--face); color:var(--muted); font-weight:400; box-shadow:var(--sunken); }
-.lesson { max-width:52rem; min-width:0; padding:8px 12px; background:var(--field); box-shadow:var(--sunken); line-height:1.5; overflow-wrap:break-word; }
+.lesson { min-width:0; padding:8px 12px; background:var(--field); box-shadow:var(--sunken); line-height:1.5; overflow-wrap:break-word; }
 .lesson p,.lesson li { color:var(--ink); }
 .lesson p,.lesson ul,.lesson ol,.lesson table,.lesson pre,.lesson blockquote,.lesson details,.lesson .rule { margin:0 0 8px; }
 .lesson > :last-child,.lesson .rule > :last-child,.lesson details > :last-child { margin-bottom:0; }

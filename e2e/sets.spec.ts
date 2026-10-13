@@ -123,6 +123,13 @@ test('does not create homework for an archived problem', async ({ page, baseURL 
 	expect(await (await page.request.get('/leetcode/api/homework')).json()).toMatchObject({ items: [] });
 });
 
+test('fits the lesson to the width of the page', async ({ page }) => {
+	await signIn(page);
+	await page.goto(chapterPath);
+	const lesson = (await page.locator('article.lesson').boundingBox())!, heading = (await page.locator('main .heading').boundingBox())!;
+	expect(lesson.x + lesson.width).toBeCloseTo(heading.x + heading.width, 0);
+});
+
 test('steps through a lesson figure', async ({ page }) => {
 	await signIn(page);
 	await lessonWith(page, [steps, single]);
