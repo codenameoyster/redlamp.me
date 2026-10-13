@@ -86,8 +86,7 @@ export interface LearningSetSummary extends Omit<LearningSet, 'chapters'> { chap
 export type SetTaskRow = SetTask & { slug: string; label: string; problemId: string | null; accepted: boolean; activeTask: Pick<HomeworkTask, 'id' | 'homeworkId' | 'homeworkTitle' | 'state'> | null };
 export interface LearningSetDetails extends Omit<LearningSet, 'chapters'> { chapters: { number: number; title: string; summary: string; links: Chapter['links']; tasks: SetTaskRow[] }[] }
 export type Card = { id: string; prompt: string; explain: string } & (
-	{ type: 'flip'; back: string }
-	| { type: 'choice'; options: string[]; answer: number }
+	{ type: 'choice'; options: string[]; answer: number }
 	| { type: 'short'; answer: string }
 	| { type: 'code'; language: string; code: string; options: string[]; answer: number });
 type Strip<T> = T extends unknown ? Omit<T, 'answer' | 'explain'> : never;

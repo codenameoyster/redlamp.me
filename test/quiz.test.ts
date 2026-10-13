@@ -25,34 +25,31 @@ it.each([
 ])('ladder: $name', ({ previous, correct, days }) => { expect(nextInterval(previous, correct)).toBe(days); });
 
 it.each([
-	{ name: 'flip got it', cardId: 'pc1-symmetry', value: 'got_it', status: 201, correct: true, days: 3 },
-	{ name: 'flip not yet', cardId: 'pc1-symmetry', value: 'not_yet', status: 201, correct: false, days: 1 },
-	{ name: 'flip with a number', cardId: 'pc1-symmetry', value: 1, status: 400 },
-	{ name: 'choice right option', cardId: 'pc1-product-rule', value: 1, status: 201, correct: true, days: 3 },
-	{ name: 'choice wrong option', cardId: 'pc1-product-rule', value: 0, status: 201, correct: false, days: 1 },
-	{ name: 'option index out of range', cardId: 'pc1-product-rule', value: 3, status: 400 },
-	{ name: 'option index as text', cardId: 'pc1-product-rule', value: '1', status: 400 },
+	{ name: 'choice right option', cardId: 'pc1-product-rule', value: 0, status: 201, correct: true, days: 3 },
+	{ name: 'choice wrong option', cardId: 'pc1-product-rule', value: 1, status: 201, correct: false, days: 1 },
+	{ name: 'option index out of range', cardId: 'pc1-product-rule', value: 4, status: 400 },
+	{ name: 'option index as text', cardId: 'pc1-product-rule', value: '0', status: 400 },
 	{ name: 'code right line', cardId: 'pc2-undo', chapter: 2, value: 0, status: 201, correct: true, days: 3 },
-	{ name: 'short exact', cardId: 'pc1-factorial', value: '120', status: 201, correct: true, days: 3 },
-	{ name: 'short answer with extra spaces', cardId: 'pc1-team', value: '  10 ', status: 201, correct: true, days: 3 },
+	{ name: 'short exact', cardId: 'pc1-factorial', value: '48', status: 201, correct: true, days: 3 },
+	{ name: 'short answer with extra spaces', cardId: 'pc1-medals', value: '  126 ', status: 201, correct: true, days: 3 },
 	{ name: 'short wrong', cardId: 'pc1-factorial', value: '24', status: 201, correct: false, days: 1 },
 	{ name: 'short empty', cardId: 'pc1-factorial', value: '', status: 400 },
 	{ name: 'unknown card', cardId: 'pc-missing', value: 1, status: 400 },
-	{ name: 'card from another chapter', cardId: 'pc2-template', value: 'got_it', status: 400 },
-	{ name: 'bad date', cardId: 'pc1-factorial', value: '120', answeredOn: '2026-13-01', status: 400 },
+	{ name: 'card from another chapter', cardId: 'pc2-no-pop', value: 1, status: 400 },
+	{ name: 'bad date', cardId: 'pc1-factorial', value: '48', answeredOn: '2026-13-01', status: 400 },
 ])('grades: $name', async ({ cardId, chapter = 1, value, answeredOn, status, correct, days }) => {
 	const response = await answer(cardId, value, answeredOn, chapter);
 	expect(response.status).toBe(status);
 	if (status !== 201) return;
 	const card = chapters[chapter - 1].cards.find(item => item.id === cardId)!;
-	const shown = card.type === 'flip' ? card.back : card.type === 'short' ? card.answer : card.options[card.answer];
+	const shown = card.type === 'short' ? card.answer : card.options[card.answer];
 	expect(await response.json()).toEqual({ correct, answer: shown, explain: card.explain, days });
 	expect(await env.DB.prepare('SELECT card_id,correct,interval_days,answered_on,next_date FROM card_answers').all().then(r => r.results)).toEqual([{ card_id: cardId, correct: Number(correct), interval_days: days, answered_on: today, next_date: days === 3 ? '2026-10-14' : '2026-10-12' }]);
 });
 
 it('second answer on the same day keeps the first result', async () => {
 	expect((await answer('pc1-factorial', '24')).status).toBe(201);
-	const retry = await answer('pc1-factorial', '120');
+	const retry = await answer('pc1-factorial', '48');
 	expect(retry.status).toBe(201);
 	expect(await retry.json()).toMatchObject({ correct: false, days: 1 });
 	expect(await env.DB.prepare('SELECT count(*) AS n FROM card_answers').first('n')).toBe(1);
@@ -60,11 +57,11 @@ it('second answer on the same day keeps the first result', async () => {
 
 it('the next day continues the ladder from the stored interval', async () => {
 	await insert.bind('a', 'pc1-factorial', 1, 3, '2026-10-01', '2026-10-04').run();
-	expect(await (await answer('pc1-factorial', '120')).json()).toMatchObject({ correct: true, days: 7 });
+	expect(await (await answer('pc1-factorial', '48')).json()).toMatchObject({ correct: true, days: 7 });
 });
 
 it.each<{ name: string; role: Role; path: string; method: string; body?: unknown; status: number }>([
-	{ name: 'parent cannot answer', role: 'parent', path: `/quiz/${slug}/answers`, method: 'POST', body: { cardId: 'pc1-factorial', answer: '120', answeredOn: today }, status: 403 },
+	{ name: 'parent cannot answer', role: 'parent', path: `/quiz/${slug}/answers`, method: 'POST', body: { cardId: 'pc1-factorial', answer: '48', answeredOn: today }, status: 403 },
 	{ name: 'parent reads the cards', role: 'parent', path: `/quiz/${slug}/cards`, method: 'GET', status: 200 },
 	{ name: 'student cannot read the cards', role: 'student', path: `/quiz/${slug}/cards`, method: 'GET', status: 403 },
 	{ name: 'unknown deck', role: 'student', path: `/quiz/two-sum?today=${today}`, method: 'GET', status: 404 },
@@ -83,7 +80,7 @@ it('lists one deck per chapter and builds the round from due cards, then new car
 		insert.bind('c', 'pc1-factorial', 1, 7, '2026-10-10', '2026-10-17'),
 		insert.bind('d', 'pc1-sum-rule', 1, 3, '2026-10-11', '2026-10-14'),
 		insert.bind('e', 'pc-removed', 0, 1, '2026-10-01', '2026-10-02'),
-		insert.bind('f', 'pc3-catalan', 1, 3, '2026-10-05', '2026-10-08'),
+		insert.bind('f', 'pc3-paren-branch', 1, 3, '2026-10-05', '2026-10-08'),
 	]);
 	const decks = await (await request(`/quiz?today=${today}`, 'GET', undefined, student)).json() as QuizDeck[];
 	expect(decks).toEqual([
@@ -101,7 +98,7 @@ it('lists one deck per chapter and builds the round from due cards, then new car
 	expect(round.cards.map(card => card.id)).toEqual(['pc1-team', 'pc1-product-rule', 'pc1-medals', 'pc1-symmetry', 'pc1-subsets', 'pc1-order-matters']);
 	expect(round.remaining).toBe(0);
 	expect(round.cards.some(card => 'answer' in card || 'explain' in card)).toBe(false);
-	expect(round.cards.find(card => card.id === 'pc1-symmetry')).toMatchObject({ type: 'flip', back: expect.any(String) });
+	expect(round.cards.find(card => card.id === 'pc1-team')).toMatchObject({ type: 'code', code: expect.any(String), options: expect.any(Array) });
 	const dashboard = await (await request(`/dashboard?today=${today}`, 'GET', undefined, student)).json() as Dashboard;
 	expect(dashboard.counts.dueCards).toBe(3);
 });
