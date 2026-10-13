@@ -1,19 +1,14 @@
 import type { Env } from '../index';
-import type { Card, QuizCard, QuizDeck, QuizResult, QuizRound, SessionUser } from '../../shared/leetcode';
-import { addCalendarDays } from '../../shared/dates';
+import type { Card, QuizAttempt, QuizCard, QuizDeck, QuizRound, SessionUser } from '../../shared/leetcode';
 import { requireRole } from './auth';
-import { calendarDate, choice, HttpError, integer, methods, object, readJson, text } from './http';
+import { HttpError, integer, methods, object, readJson, text } from './http';
 import { sets } from './sets';
 
-const LADDER = [3, 7, 14, 30], ROUND_SIZE = 10;
-export function nextInterval(previous: number, correct: boolean): number { return correct ? LADDER.find(days => days > previous) ?? 30 : 1; }
+const HOUR = 3_600_000;
 const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
 const decks = sets.flatMap(set => set.chapters.map((chapter, index) => ({ slug: `${set.slug}-${index + 1}`, title: `${set.title}, глава ${index + 1}`, cards: chapter.cards })));
-export const cardIds = JSON.stringify(decks.flatMap(deck => deck.cards.map(card => card.id)));
-// The newest row per card. The bare next_date comes from the row with max(answered_on): https://www.sqlite.org/lang_select.html#bareagg
-const STATE = 'SELECT card_id AS cardId,next_date AS nextDate,max(answered_on) FROM card_answers WHERE card_id IN (SELECT value FROM json_each(?)) GROUP BY card_id';
-export const dueCardsSQL = `SELECT count(*) AS dueCards FROM (${STATE}) WHERE nextDate<=?`;
 const strip = (card: Card) => Object.fromEntries(Object.entries(card).filter(([key]) => key !== 'answer' && key !== 'explain')) as QuizCard;
+const hourAfter = (time: string) => new Date(Date.parse(time) + HOUR).toISOString();
 
 function grade(card: Card, answer: unknown): { correct: boolean; shown: string } {
 	if (card.type === 'short') return { correct: normalize(text(answer, 200, true)) === normalize(card.answer), shown: card.answer };
@@ -22,32 +17,30 @@ function grade(card: Card, answer: unknown): { correct: boolean; shown: string }
 
 export async function handleQuiz(request: Request, env: Env, user: SessionUser): Promise<Response | null> {
 	const url = new URL(request.url);
-	const match = /^\/leetcode\/api\/quiz(?:\/([^/]+)(?:\/(cards|answers))?)?$/.exec(url.pathname);
+	const match = /^\/leetcode\/api\/quiz(?:\/([^/]+)(?:\/(cards|attempts))?)?$/.exec(url.pathname);
 	if (!match) return null;
 	const deck = decks.find(item => item.slug === match[1]);
 	if (match[1] && !deck) throw new HttpError(404, 'not_found', 'Такой колоды нет.');
 	if (match[2] === 'cards') { methods(request, ['GET']); requireRole(user, 'parent'); return Response.json(deck!.cards); }
-	if (match[2] === 'answers') {
+	if (match[2] === 'attempts') {
 		methods(request, ['POST']); requireRole(user, 'student');
-		const data = object(await readJson(request), ['cardId', 'answer', 'answeredOn']);
-		const cardId = choice(data.cardId, deck!.cards.map(item => item.id)), answeredOn = calendarDate(text(data.answeredOn, 10, true))!;
-		const card = deck!.cards.find(item => item.id === cardId)!;
-		const { correct, shown } = grade(card, data.answer);
-		const previous = await env.DB.prepare('SELECT interval_days AS days FROM card_answers WHERE card_id=? ORDER BY answered_on DESC LIMIT 1').bind(card.id).first<{ days: number }>();
-		const days = nextInterval(previous?.days ?? 0, correct);
-		const [, row] = await env.DB.batch<{ correct: number; days: number }>([
-			env.DB.prepare('INSERT INTO card_answers VALUES (?,?,?,?,?,?,?) ON CONFLICT DO NOTHING').bind(crypto.randomUUID(), card.id, Number(correct), days, answeredOn, addCalendarDays(answeredOn, days), new Date().toISOString()),
-			env.DB.prepare('SELECT correct,interval_days AS days FROM card_answers WHERE card_id=? AND answered_on=?').bind(card.id, answeredOn),
+		const ids = deck!.cards.map(card => card.id), answers = object(object(await readJson(request), ['answers']).answers, ids);
+		const graded = deck!.cards.map(card => ({ card, ...grade(card, answers[card.id]) }));
+		const correct = graded.filter(item => item.correct).length, total = ids.length, passed = correct * 5 >= total * 4, now = Date.now();
+		// One statement checks the pause and inserts, so of two quick submits only one is stored.
+		const [insert, last] = await env.DB.batch<{ last: string }>([
+			env.DB.prepare('INSERT INTO quiz_attempts SELECT ?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM quiz_attempts WHERE deck=? AND created_at>?)').bind(crypto.randomUUID(), deck!.slug, correct, total, Number(passed), new Date(now).toISOString(), deck!.slug, new Date(now - HOUR).toISOString()),
+			env.DB.prepare('SELECT max(created_at) AS last FROM quiz_attempts WHERE deck=?').bind(deck!.slug),
 		]);
-		const stored = row.results[0];
-		return Response.json({ correct: Boolean(stored.correct), answer: shown, explain: card.explain, days: stored.days } satisfies QuizResult, { status: 201 });
+		const nextAt = hourAfter(last.results[0].last);
+		if (!insert.meta.changes) throw new HttpError(429, 'quiz_paused', 'После попытки квиз закрыт на час.', { nextAt });
+		const results = graded.map(({ card, correct, shown }) => passed ? { cardId: card.id, correct, answer: shown, explain: card.explain } : { cardId: card.id, correct });
+		return Response.json({ correct, total, passed, nextAt, results } satisfies QuizAttempt, { status: 201 });
 	}
 	methods(request, ['GET']);
-	const today = calendarDate(text(url.searchParams.get('today'), 10, true))!;
-	const rows = await env.DB.prepare(STATE).bind(cardIds).all<{ cardId: string; nextDate: string }>();
-	const state = new Map(rows.results.map(row => [row.cardId, row.nextDate]));
-	const due = (card: Card) => state.has(card.id) && state.get(card.id)! <= today, fresh = (card: Card) => !state.has(card.id);
-	if (!deck) return Response.json(decks.map(({ slug, title, cards }): QuizDeck => ({ slug, title, cardCount: cards.length, dueCount: cards.filter(due).length, newCount: cards.filter(fresh).length })));
-	const queue = [...deck.cards.filter(due).sort((a, b) => state.get(a.id)!.localeCompare(state.get(b.id)!)), ...deck.cards.filter(fresh)];
-	return Response.json({ title: deck.title, cards: queue.slice(0, ROUND_SIZE).map(strip), remaining: Math.max(0, queue.length - ROUND_SIZE) } satisfies QuizRound);
+	const rows = await env.DB.prepare('SELECT deck,max(created_at) AS last,max(CASE WHEN passed=1 THEN correct END) AS best,max(CASE WHEN passed=1 THEN total END) AS bestTotal FROM quiz_attempts GROUP BY deck').all<{ deck: string; last: string; best: number | null; bestTotal: number | null }>();
+	const now = Date.now(), state = new Map(rows.results.map(row => [row.deck, { best: row.best, bestTotal: row.bestTotal, nextAt: Date.parse(row.last) + HOUR > now ? hourAfter(row.last) : null }]));
+	const status = (slug: string) => state.get(slug) ?? { best: null, bestTotal: null, nextAt: null };
+	if (!deck) return Response.json(decks.map(({ slug, title, cards }): QuizDeck => ({ slug, title, cardCount: cards.length, ...status(slug) })));
+	return Response.json({ title: deck.title, cards: deck.cards.map(strip), nextAt: status(deck.slug).nextAt } satisfies QuizRound);
 }

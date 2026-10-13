@@ -30,7 +30,7 @@ test('assigns set tasks to new and existing homework', async ({ page, context })
 	await expect(page.getByRole('heading', { name: 'Перестановки и сочетания', level: 1 })).toBeVisible();
 	await expect(page.getByRole('link', { name: 'Открыть главу', exact: true })).toHaveCount(4);
 	await expect(row(page, 'Перебор: подмножества, перестановки, сочетания')).toContainText('Задач принято 0 из 5');
-	await expect(row(page, 'Перебор: подмножества, перестановки, сочетания')).toContainText('Карточек: 0 к повторению, 8 новых');
+	await expect(row(page, 'Перебор: подмножества, перестановки, сочетания')).toContainText('Квиз. Не пройден');
 	await page.getByRole('link', { name: 'Перебор: подмножества, перестановки, сочетания', exact: true }).click();
 	await expect(page).toHaveURL(chapterPath);
 	await expect(page.getByRole('heading', { name: 'Глава 2. Перебор: подмножества, перестановки, сочетания', level: 1 })).toBeVisible();

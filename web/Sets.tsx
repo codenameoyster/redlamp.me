@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState, type RefObject, type SubmitEvent } from 'react';
 import { createPortal } from 'react-dom';
 import type { Figure, Homework, HomeworkSummary, LearningSetDetails, LearningSetSummary, Page, Problem, QuizDeck, SessionUser, SetTask, SetTaskRow } from '../shared/leetcode';
-import { localDate } from '../shared/dates';
 import { api, message } from './api';
 import { useResource } from './useResource';
 import { highlight } from './highlight';
 import { plural } from './text';
 import { difficultyLabels, homeworkLabels } from './Homework';
 import { Tutor } from './Tutor';
+import { deckStatus } from './Quiz';
 import { LessonFigure } from './LessonFigure';
 
 const taskCount = (count: number) => plural(count, ['задание', 'задания', 'заданий']);
-const cardCounts = (deck: QuizDeck | undefined) => deck ? `${deck.dueCount} к повторению, ${deck.newCount} новых` : '';
 export const addProblem = (task: SetTask) => api<Problem>('/problems', { method: 'POST', body: JSON.stringify({ url: task.url, number: task.number ?? null, title: task.title, difficulty: task.difficulty, topics: task.topics, summary: task.note }) });
 
 export function Sets({ user, slug, chapter }: { user: SessionUser; slug?: string; chapter?: number }) {
@@ -27,18 +26,18 @@ function SetList() {
 }
 
 function SetOverview({ slug, user }: { slug: string; user: SessionUser }) {
-	const details = useResource<LearningSetDetails>(`/sets/${slug}`), decks = useResource<QuizDeck[]>(`/quiz?today=${localDate()}`);
+	const details = useResource<LearningSetDetails>(`/sets/${slug}`), decks = useResource<QuizDeck[]>('/quiz');
 	const set = details.data;
 	if (!set) return <p role="status">{details.error || 'Открываем набор...'}</p>;
 	return <div className="stack"><div className="heading"><div><h1>{set.title}</h1><p>{set.summary}</p></div><div className="row"><Tutor context={{ kind: 'set', id: slug }} title={set.title} user={user} /></div></div>
 		{(details.error || decks.error) && <p className="error" role="alert">{details.error || decks.error}</p>}
 		<p>Идите по порядку: каждая глава опирается на предыдущую.</p>
-		<section className="card">{set.chapters.map(c => <article className="list-row" key={c.number}><span className="small">Глава {c.number}</span><div className="grow"><h2><a href={`/leetcode/sets/${slug}/${c.number}`}>{c.title}</a></h2><p className="small">{c.summary}</p><p className="small">Задач принято {c.tasks.filter(t => t.accepted).length} из {c.tasks.length}</p><p className="small">Карточек: {cardCounts(decks.data?.find(deck => deck.slug === `${slug}-${c.number}`))}</p></div><a className="button" href={`/leetcode/sets/${slug}/${c.number}`} data-tip="Открыть урок и задачи этой главы.">Открыть главу</a></article>)}</section>
+		<section className="card">{set.chapters.map(c => <article className="list-row" key={c.number}><span className="small">Глава {c.number}</span><div className="grow"><h2><a href={`/leetcode/sets/${slug}/${c.number}`}>{c.title}</a></h2><p className="small">{c.summary}</p><p className="small">Задач принято {c.tasks.filter(t => t.accepted).length} из {c.tasks.length}</p><p className="small">Квиз. {deckStatus(decks.data?.find(deck => deck.slug === `${slug}-${c.number}`))}</p></div><a className="button" href={`/leetcode/sets/${slug}/${c.number}`} data-tip="Открыть урок и задачи этой главы.">Открыть главу</a></article>)}</section>
 	</div>;
 }
 
 function ChapterPage({ slug, number, user }: { slug: string; number: number; user: SessionUser }) {
-	const details = useResource<LearningSetDetails>(`/sets/${slug}`), decks = useResource<QuizDeck[]>(`/quiz?today=${localDate()}`), lesson = useResource<{ html: string; figures: Figure[] }>(`/sets/${slug}/lesson/${number}`);
+	const details = useResource<LearningSetDetails>(`/sets/${slug}`), decks = useResource<QuizDeck[]>('/quiz'), lesson = useResource<{ html: string; figures: Figure[] }>(`/sets/${slug}/lesson/${number}`);
 	const [adding, setAdding] = useState<SetTaskRow | null>(null), article = useRef<HTMLElement>(null);
 	const set = details.data, chapter = set?.chapters[number - 1], html = set && lesson.data?.html;
 	if (!set) return <p role="status">{details.error || 'Открываем набор...'}</p>;
@@ -47,7 +46,7 @@ function ChapterPage({ slug, number, user }: { slug: string; number: number; use
 		{(details.error || decks.error || lesson.error) && <p className="error" role="alert">{details.error || decks.error || lesson.error}</p>}
 		<Lesson html={html ?? ''} figures={lesson.data?.figures} ref={article} />
 		<section className="card"><header className="card-head"><h2>Задачи</h2></header>{chapter.tasks.map(t => <article className="list-row" key={t.slug}><span className="small">{t.label}</span><div className="grow"><h3>{t.problemId ? <a href={`/leetcode/problems/${t.problemId}`}>{t.title}</a> : <a href={t.url} target="_blank" rel="noopener noreferrer">{t.title}</a>}</h3><p className="small">{t.note}</p></div><span className={`tag ${t.difficulty}`}>{difficultyLabels[t.difficulty]}</span>{t.accepted && <span className="tag good">Принято</span>}{t.activeTask && <a className="tag" href={`/leetcode/tasks/${t.activeTask.id}`}>{homeworkLabels[t.activeTask.state]}</a>}{user.role === 'parent' && !t.activeTask && <button onClick={() => setAdding(t)} data-tip="Выбрать домашнюю работу для этой задачи.">Добавить в домашнюю работу</button>}</article>)}</section>
-		<section className="card card-pad stack"><h2>Квиз главы</h2><p>{cardCounts(decks.data?.find(deck => deck.slug === `${slug}-${number}`))}</p><div className="row"><a className="button" href={`/leetcode/quiz/${slug}-${number}`} data-tip="Открыть карточки квиза по этой главе.">Пройти квиз</a></div></section>
+		<section className="card card-pad stack"><h2>Квиз главы</h2><p>{deckStatus(decks.data?.find(deck => deck.slug === `${slug}-${number}`))}</p><div className="row"><a className="button" href={`/leetcode/quiz/${slug}-${number}`} data-tip="Открыть карточки квиза по этой главе.">Пройти квиз</a></div></section>
 		<section className="card card-pad stack"><h2>Где узнать больше</h2><ul>{chapter.links.map(link => <li key={link.url}><a href={link.url} target="_blank" rel="noopener noreferrer">{link.title}</a> <small>{link.source}</small></li>)}</ul></section>
 		<nav className="row" aria-label="Главы">{number > 1 && <a className="button" href={`/leetcode/sets/${slug}/${number - 1}`} data-tip="Перейти к предыдущей главе.">Предыдущая глава</a>}<a className="button" href={`/leetcode/sets/${slug}`} data-tip="Вернуться к списку глав набора.">К набору</a>{number < set.chapters.length && <a className="button" href={`/leetcode/sets/${slug}/${number + 1}`} data-tip="Перейти к следующей главе.">Следующая глава</a>}</nav>
 		{adding && <AddToHomework task={adding} title={set.title} close={() => setAdding(null)} added={() => { setAdding(null); details.reload(); }} />}
