@@ -79,8 +79,8 @@ export type JudgeOutput = { value: string } | { error: string } | { timeout: tru
 export type Judgement = { verdict: 'accepted'; failed: null } | { verdict: 'wrong' | 'timeout' | 'error'; failed: { index: number; input: string; expected: string; output: string } };
 export interface TestRun { approachId: string; passed: number; total: number; codeHash: string; createdAt: string }
 export interface SetTask { url: string; number?: number; title: string; difficulty: Difficulty; topics: string[]; note: string; statement?: string; tests?: TaskTests }
-// A lesson figure. The site draws each frame as SVG: rows of cells, with indexes from 0. A placeholder <figure data-figure="id"></figure> in the lesson HTML shows it.
-export interface FigureRow { label?: string; cells: (number | string)[]; marked?: number[]; dimmed?: number[]; pointers?: Record<string, number>; window?: [number, number] }
+// A lesson figure. The site draws each frame as SVG: rows of cells, with indexes from 0. A tree row draws its cells as a binary tree in heapq order. A placeholder <figure data-figure="id"></figure> in the lesson HTML shows it.
+export interface FigureRow { label?: string; cells: (number | string)[]; marked?: number[]; dimmed?: number[]; pointers?: Partial<Record<string, number>>; window?: [number, number]; tree?: true }
 export interface FigureFrame { caption: string; rows: FigureRow[] }
 export interface Figure { id: string; title: string; frames: FigureFrame[] }
 export interface Chapter { title: string; summary: string; tasks: SetTask[]; cards: Card[]; links: { title: string; url: string; source: string }[]; figures?: Figure[] }

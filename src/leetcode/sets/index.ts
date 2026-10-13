@@ -4,6 +4,13 @@ import { requireRole } from '../auth';
 import { getHomework } from '../homework';
 import { changed, HttpError, integer, methods, object, readJson, uuid } from '../http';
 import { getProblem, slug as problemSlug, solvedSQL } from '../problems';
+import heapsAndQueues from './heaps-and-queues/set';
+import heapsAndQueues1 from './heaps-and-queues/chapter1.html';
+import heapsAndQueues2 from './heaps-and-queues/chapter2.html';
+import heapsAndQueues3 from './heaps-and-queues/chapter3.html';
+import heapsAndQueues4 from './heaps-and-queues/chapter4.html';
+import heapsAndQueuesGenerators from './heaps-and-queues/generators';
+import heapsAndQueuesSolutions from './heaps-and-queues/solutions';
 import permutationsAndCombinations from './permutations-and-combinations/set';
 import permutationsAndCombinations1 from './permutations-and-combinations/chapter1.html';
 import permutationsAndCombinations2 from './permutations-and-combinations/chapter2.html';
@@ -22,16 +29,17 @@ import twoPointersSolutions from './two-pointers/solutions';
 export const sets: (LearningSet & { lessons: string[] })[] = [
 	{ ...permutationsAndCombinations, lessons: [permutationsAndCombinations1, permutationsAndCombinations2, permutationsAndCombinations3, permutationsAndCombinations4] },
 	{ ...twoPointers, lessons: [twoPointers1, twoPointers2, twoPointers3, twoPointers4] },
+	{ ...heapsAndQueues, lessons: [heapsAndQueues1, heapsAndQueues2, heapsAndQueues3, heapsAndQueues4] },
 ];
 
 // A reference solution of a set task. A call input gives solve.length arguments. solve returns the value that the harness compares and throws RangeError('constraints') for an input outside the statement constraints.
 // The references stay on the server, so the student cannot read them.
 export type Reference = { mode: 'call'; solve: (...args: unknown[]) => unknown } | { mode: 'stdio'; solve: (stdin: string) => string };
-const references = new Map<string, Reference>(Object.entries({ ...permutationsAndCombinationsSolutions, ...twoPointersSolutions }));
+const references = new Map<string, Reference>(Object.entries({ ...permutationsAndCombinationsSolutions, ...twoPointersSolutions, ...heapsAndQueuesSolutions }));
 export const referenceOf = (slug: string): Reference | undefined => references.get(slug);
 // A generator of the hidden tests of a set task: 10 to 16 inputs in the test format of the task. random is a seeded PRNG.
 export type Generator = (random: () => number) => string[];
-const generators = new Map<string, Generator>(Object.entries({ ...permutationsAndCombinationsGenerators, ...twoPointersGenerators }));
+const generators = new Map<string, Generator>(Object.entries({ ...permutationsAndCombinationsGenerators, ...twoPointersGenerators, ...heapsAndQueuesGenerators }));
 export const generatorOf = (slug: string): Generator | undefined => generators.get(slug);
 
 export const tasksOf = (set: LearningSet): SetTask[] => set.chapters.flatMap(chapter => chapter.tasks);

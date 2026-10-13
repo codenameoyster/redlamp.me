@@ -96,8 +96,8 @@ it.each([
 
 // The set files write Python literals in the JSON form with True and False. A failed parse gives undefined.
 const pythonLiteral = (text: string): unknown => { try { return JSON.parse(text.replace(/"(?:[^"\\]|\\.)*"|\b(?:True|False|true|false|null)\b/g, token => token.startsWith('"') ? token : token === 'True' ? 'true' : token === 'False' ? 'false' : '?')); } catch { return undefined; } };
-// A row index must point to a cell of the row. A window starts at or before its end.
-const badRow = (row: FigureRow) => !row.cells.length || (row.window !== undefined && row.window[0] > row.window[1]) || [...row.marked ?? [], ...row.dimmed ?? [], ...Object.values(row.pointers ?? {}), ...row.window ?? []].some(index => !Number.isInteger(index) || index < 0 || index >= row.cells.length);
+// A row index must point to a cell of the row. A window starts at or before its end. A tree row has no pointers and no window.
+const badRow = (row: FigureRow) => !row.cells.length || (row.tree === true && (row.pointers !== undefined || row.window !== undefined)) || (row.window !== undefined && row.window[0] > row.window[1]) || [...row.marked ?? [], ...row.dimmed ?? [], ...Object.values(row.pointers ?? {}), ...row.window ?? []].some(index => index === undefined || !Number.isInteger(index) || index < 0 || index >= row.cells.length);
 const slugFormat = /^[a-z0-9]+(?:-[a-z0-9]+)*$/, fragmentTag = /^(?:h2|h3|p|ul|ol|li|table|caption|thead|tbody|tr|th|td|pre|code|strong|em|sup|blockquote|details|summary|a|br|div|figure)$/, statementTag = /^(?:h3|p|ul|ol|li|table|thead|tbody|tr|th|td|pre|code|strong|em|sup|sub)$/;
 it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item }) => {
 	expect(sets.filter(other => other.slug === item.slug)).toHaveLength(1);
@@ -211,4 +211,6 @@ it.each(sets.flatMap(item => item.chapters.map((chapter, index) => ({ name: `${i
 	expect(cards.filter(card => (card.type === 'choice' || card.type === 'code') && !(card.answer >= 0 && card.answer < card.options.length))).toEqual([]);
 	// A code card shows code to read, or code with one blank to fill.
 	expect(cards.filter(card => card.type === 'code' && card.code.split('___').length > 2)).toEqual([]);
+	// The grader compares the whole answer string, so a short answer is one integer: "3, 1, 4" typed as "3,1,4" would be wrong.
+	expect(cards.filter(card => card.type === 'short' && !/^-?\d+$/.test(card.answer))).toEqual([]);
 });
