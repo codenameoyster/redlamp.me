@@ -5,6 +5,7 @@
 <figure data-figure="hq4-merge"></figure>
 <pre><code class="language-python">import heapq
 
+lists = [[1, 5, 9], [2, 3, 10], [4, 6, 7]]
 h = [(lst[0], i, 0) for i, lst in enumerate(lists) if lst]
 heapq.heapify(h)
 out = []
@@ -12,7 +13,8 @@ while h:
     v, i, j = heapq.heappop(h)
     out.append(v)
     if j + 1 &lt; len(lists[i]):
-        heapq.heappush(h, (lists[i][j + 1], i, j + 1))</code></pre>
+        heapq.heappush(h, (lists[i][j + 1], i, j + 1))
+print(out)   # [1, 2, 3, 4, 5, 6, 7, 9, 10]</code></pre>
 <div class="rule"><p><strong>Правило.</strong> В куче не больше k кортежей: по одному текущему числу от каждого списка. Каждое из N чисел один раз входит в кучу и один раз выходит, поэтому время O(N log k).</p></div>
 <p>Матрица в LeetCode 378 это n отсортированных строк. Слейте их и остановитесь на k-м числе.</p>
 <h2 id="s2">2. Лучшее из того, что уже пришло</h2>

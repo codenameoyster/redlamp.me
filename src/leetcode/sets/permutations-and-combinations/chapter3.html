@@ -5,7 +5,7 @@
 <p>Списки [1, 2] и [2] встречаются по два раза. Для программы две двойки это разные предметы. Для ответа они одинаковые. Разных подмножеств только 6. Задача просит именно 6, без повторов.</p>
 <h2 id="s2">2. Сортировка и пропуск на одном уровне</h2>
 <p>Сначала отсортируйте список. Тогда одинаковые числа стоят рядом. Потом на одном уровне дерева берите каждое число только один раз. Уровень это один проход цикла <code>for</code>.</p>
-<pre><code class="language-python">nums.sort()    # один раз, до первого вызова
+<pre class="no-run"><code class="language-python">nums.sort()    # один раз, до первого вызова
 for i in range(start, len(nums)):
     if i &gt; start and nums[i] == nums[i - 1]:
         continue    # на этом уровне такое число уже брали
@@ -17,7 +17,7 @@ for i in range(start, len(nums)):
 <h2 id="s3">3. Перестановки с повторами</h2>
 <p>Список [1, 1, 2]. Без пропуска получится 6 перестановок, но разных только 3: [1, 1, 2], [1, 2, 1], [2, 1, 1].</p>
 <p>В перестановках нет <code>start</code>. Цикл всегда идёт с нуля, а занятые числа отмечает список <code>used</code>. Поэтому правило другое: одинаковые числа берём по порядку. Вторую единицу можно взять, только если первая уже взята.</p>
-<pre><code class="language-python">nums.sort()    # один раз, до первого вызова
+<pre class="no-run"><code class="language-python">nums.sort()    # один раз, до первого вызова
 for i in range(len(nums)):
     if used[i]:
         continue
@@ -33,7 +33,9 @@ for i in range(len(nums)):
 <p>Задача Combination Sum: даны числа [2, 3, 6, 7] и цель 7. Нужны все наборы с суммой 7. Одно число можно брать много раз. Ответ: [2, 2, 3] и [7].</p>
 <p>Два отличия от сочетаний из главы 2. Первое: число можно взять снова, поэтому глубже передаём <code>start = i</code>, а не <code>i + 1</code>. Меньшие числа при этом не берём, и набор [3, 2, 2] не появится второй раз. Второе: если число больше остатка, ветка бесполезна. Остановить такую ветку до вызова это и есть отсечение.</p>
 <p>Отсортируйте числа. Тогда, если число больше остатка, все следующие числа тоже больше. Можно сделать <code>break</code>, а не <code>continue</code>.</p>
-<pre><code class="language-python">candidates.sort()    # один раз, до первого вызова
+<pre><code class="language-python">candidates = [2, 3, 6, 7]
+result = []
+candidates.sort()    # один раз, до первого вызова
 def dfs(start, remain, path):
     if remain == 0:
         result.append(path[:])
@@ -43,29 +45,41 @@ def dfs(start, remain, path):
             break    # все следующие числа тоже больше
         path.append(candidates[i])
         dfs(i, remain - candidates[i], path)
-        path.pop()</code></pre>
+        path.pop()
+
+dfs(0, 7, [])
+print(result)</code></pre>
 <p>Для [2, 3, 6, 7] и цели 7 функция вызывается 10 раз. Без проверки <code>candidates[i] &gt; remain</code> было бы 28 вызовов.</p>
 <h2 id="s5">5. Скобки</h2>
 <p>Задача Generate Parentheses: дано n пар скобок, нужны все правильные строки. При n = 2 это <code>(())</code> и <code>()()</code>. При n = 3 строк 5:</p>
 <p><code>((())), (()()), (())(), ()(()), ()()()</code></p>
 <p>Строку строим по одному символу. Два правила отсекают все плохие ветки. Открыть скобку можно, пока <code>opened &lt; n</code>. Закрыть можно, пока <code>closed &lt; opened</code>: каждой закрывающей нужна открытая перед ней.</p>
-<pre><code class="language-python">def dfs(s, opened, closed):
+<pre><code class="language-python">n = 3
+result = []
+def dfs(s, opened, closed):
     if len(s) == 2 * n:
         result.append(s)
         return
     if opened &lt; n:
         dfs(s + '(', opened + 1, closed)
     if closed &lt; opened:
-        dfs(s + ')', opened, closed + 1)</code></pre>
+        dfs(s + ')', opened, closed + 1)
+
+dfs('', 0, 0)
+print(result)</code></pre>
 <p>Без правил при n = 3 было бы 2 · 2 · 2 · 2 · 2 · 2 = 64 строки из 6 скобок. Правила оставляют 5.</p>
 <h2 id="s6">6. Перебор знаков</h2>
 <p>Codeforces 1097B. Стрелка кодового замка стоит на нуле. Даны n поворотов в градусах, например 10, 20, 30. Каждый поворот делаем по часовой стрелке или против. Нужно узнать, может ли стрелка вернуться на ноль.</p>
 <p>Каждому повороту ставим знак плюс или минус. Это как подмножества: взять с плюсом или с минусом. Вариантов 2 · 2 · 2 = 8 при n = 3. В задаче n не больше 15, это 32768 вариантов. Компьютер переберёт их мгновенно.</p>
 <p>Полный оборот это 360 градусов. Стрелка на нуле, когда сумма делится на 360. Для 10, 20, 30: 10 + 20 − 30 = 0, ответ YES. Для 10, 10, 10 ни одна из 8 сумм не делится на 360, ответ NO.</p>
-<pre><code class="language-python">def dfs(i, total):
+<pre><code class="language-python">a = [10, 20, 30]
+n = len(a)
+def dfs(i, total):
     if i == n:
         return total % 360 == 0
-    return dfs(i + 1, total + a[i]) or dfs(i + 1, total - a[i])</code></pre>
+    return dfs(i + 1, total + a[i]) or dfs(i + 1, total - a[i])
+
+print('YES' if dfs(0, 0) else 'NO')</code></pre>
 <h2 id="s7">7. Что нужно запомнить</h2>
 <ul>
 <li>Одинаковые ответы появляются, когда во входе есть одинаковые числа. Сначала <code>sort()</code>.</li>

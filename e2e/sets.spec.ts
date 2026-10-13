@@ -21,6 +21,8 @@ const heap: Figure = { id: 'test-heap', title: 'Куча в массиве', fra
 const wideHeap: Figure = { id: 'test-wide-heap', title: 'Куча кортежей', frames: [{ caption: 'Пятнадцать кортежей.', rows: [{ tree: true, cells: Array.from({ length: 15 }, (_, i) => `(${10 + i}, 1, 2)`) }] }] };
 // Gives chapter 2 a lesson with these figures.
 const lessonWith = (page: Page, figures: Figure[]) => page.route('**/leetcode/api/sets/permutations-and-combinations/lesson/2', route => route.fulfill({ json: { html: `<p class="lead">Урок с рисунками.</p>\n${figures.map(figure => `<figure data-figure="${figure.id}"></figure>`).join('\n')}\n<p>Текст после рисунков.</p>`, figures } }));
+// Gives chapter 2 a lesson with these <pre> blocks.
+const lessonCode = (page: Page, blocks: string[]) => page.route('**/leetcode/api/sets/permutations-and-combinations/lesson/2', route => route.fulfill({ json: { html: `<p class="lead">Урок с кодом.</p>\n${blocks.join('\n')}`, figures: [] } }));
 
 test('assigns set tasks to new and existing homework', async ({ page, context }) => {
 	await signIn(page, 'parent');
@@ -275,4 +277,64 @@ test('shows the chapter of a task as its material', async ({ page, baseURL }) =>
 	await expect(materials.getByRole('button', { name: /^Отвязать/ })).toHaveCount(0);
 	await materials.getByRole('link', { name: 'Глава 2. Перебор: подмножества, перестановки, сочетания', exact: true }).click();
 	await expect(page).toHaveURL(chapterPath);
+});
+
+// A selection of the sample takes only the code: the button and the output are not copied.
+// The output is an empty live region before the first run, so a screen reader reads the first result.
+const samples = [
+	{ name: 'prints the output of a lesson sample', code: 'print(2 + 3)', output: '5' },
+	{ name: 'shows the line and the message of a sample error', code: 'x', output: "Строка 1: NameError: name 'x' is not defined" },
+	{ name: 'shows the output of a sample before its error', code: 'print(1)\nprint(nums2)', output: "1\nСтрока 2: NameError: name 'nums2' is not defined" },
+	{ name: 'gives a sample no input', code: 'n = int(input())', output: 'Строка 1: EOFError: EOF when reading a line' },
+	{ name: 'tells that a sample printed nothing', code: 'y = 1', output: 'Программа ничего не напечатала.' },
+	{ name: 'stops a sample without end after 2 seconds', code: 'while True:\n    pass', output: 'Превышено время (2 с)' },
+];
+for (const row of samples) {
+	test(row.name, async ({ page }) => {
+		test.slow();
+		await signIn(page);
+		await lessonCode(page, [`<pre><code class="language-python">${row.code}</code></pre>`]);
+		await page.goto(chapterPath);
+		const sample = page.locator('article.lesson pre'), output = sample.getByRole('status');
+		await expect(output).toHaveText('');
+		await sample.getByRole('button', { name: 'Запустить', exact: true }).click();
+		await expect(sample.getByRole('button', { name: 'Запускаем…', exact: true })).toBeDisabled();
+		await expect(output).toHaveText(row.output, { timeout: 30_000 });
+		await expect(sample.getByRole('button', { name: 'Запустить', exact: true })).toBeEnabled();
+		expect(await sample.evaluate(pre => { getSelection()!.selectAllChildren(pre); return getSelection()!.toString(); })).toBe(row.code);
+	});
+}
+
+test('shows a failed Python load under a sample', async ({ page }) => {
+	await signIn(page);
+	await lessonCode(page, ['<pre><code class="language-python">print(1)</code></pre>']);
+	await page.route('**/leetcode/assets/python.worker.js', route => route.fulfill({ status: 404 }));
+	await page.goto(chapterPath);
+	const sample = page.locator('article.lesson pre');
+	await sample.getByRole('button', { name: 'Запустить', exact: true }).click();
+	await expect(sample.getByRole('status')).toHaveText('Не удалось запустить Python. Обновите страницу и попробуйте снова.');
+	await expect(sample.getByRole('button', { name: 'Запустить', exact: true })).toBeEnabled();
+});
+
+test('shows the run button only on a Python sample that runs', async ({ page }) => {
+	await signIn(page);
+	await lessonCode(page, ['<pre><code class="language-python">print(1)</code></pre>', '<pre class="no-run"><code class="language-python">print(2)</code></pre>', '<pre><code class="language-plaintext">3</code></pre>']);
+	await page.goto(chapterPath);
+	const blocks = page.locator('article.lesson pre');
+	await expect(blocks).toHaveCount(3);
+	await expect(blocks.nth(0).getByRole('button', { name: 'Запустить', exact: true })).toBeVisible();
+	await expect(blocks.nth(1).getByRole('button')).toHaveCount(0);
+	await expect(blocks.nth(2).getByRole('button')).toHaveCount(0);
+});
+
+test('runs a lesson sample in the work window', async ({ page, baseURL }) => {
+	test.slow();
+	const headers = { Origin: new URL(baseURL!).origin };
+	await signIn(page);
+	await lessonCode(page, ['<pre><code class="language-python">print(2 + 3)</code></pre>']);
+	const problem = await (await page.request.post('/leetcode/api/problems', { headers, data: { url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
+	await page.goto(`/leetcode/problems/${problem.id}`);
+	const sample = page.locator('article.lesson pre');
+	await sample.getByRole('button', { name: 'Запустить', exact: true }).click();
+	await expect(sample.locator('output')).toHaveText('5', { timeout: 30_000 });
 });

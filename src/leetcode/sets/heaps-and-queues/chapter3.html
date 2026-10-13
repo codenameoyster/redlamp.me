@@ -16,6 +16,8 @@
 <h2 id="s5">5. Код</h2>
 <pre><code class="language-python">from collections import deque
 
+a = [2, 7, 3, 1, 5, 2, 6, 4]
+k = 3
 dq = deque()
 res = []
 for i, x in enumerate(a):
@@ -25,13 +27,14 @@ for i, x in enumerate(a):
     if dq[0] &lt;= i - k:
         dq.popleft()
     if i &gt;= k - 1:
-        res.append(a[dq[0]])</code></pre>
+        res.append(a[dq[0]])
+print(res)   # [7, 7, 5, 5, 6, 6]</code></pre>
 <div class="rule"><p><strong>Правило.</strong> Сзади выбрасываем слабых, спереди выбрасываем старых. Для минимума сзади выбрасываем числа ≥ x, и значения в деке растут.</p></div>
 <h2 id="s6">6. Два дека: max − min ≤ limit</h2>
 <p>LeetCode 1438: найдите самое длинное окно, где max − min ≤ limit. Длина окна теперь меняется. Правая граница r идёт вперёд, левая l догоняет, как в наборе «Два указателя». Один дек даёт максимум окна, второй минимум. Пример: nums = [4, 8, 5, 6, 7, 1, 2], limit = 3.</p>
 <figure data-figure="hq3-two-deques"></figure>
 <p>При r = 5 пришло число 1, и 8 − 1 &gt; 3. Левая граница идёт до номера 5, и из начала дека максимумов уходят номера 1 и 4, то есть числа 8 и 7. Ответ 4: окно [8, 5, 6, 7].</p>
-<pre><code class="language-python">while nums[mx[0]] - nums[mn[0]] &gt; limit:
+<pre class="no-run"><code class="language-python">while nums[mx[0]] - nums[mn[0]] &gt; limit:
     l += 1
     if mx[0] &lt; l:
         mx.popleft()

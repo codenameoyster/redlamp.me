@@ -28,7 +28,7 @@
 <p>read читает каждую ячейку ровно один раз. write показывает место, куда пойдёт следующее нужное число.</p>
 <div class="rule"><p><strong>Инвариант.</strong> <code>nums[0:write]</code> это готовый ответ для уже прочитанной части. В момент записи всегда write ≤ read, поэтому запись не портит непрочитанное.</p></div>
 <p>Обычно от задачи к задаче меняется только условие «нужно оставить».</p>
-<pre><code class="language-python">write = 0
+<pre class="no-run"><code class="language-python">write = 0
 for read in range(len(nums)):
     if нужно_оставить(nums[read]):
         nums[write] = nums[read]

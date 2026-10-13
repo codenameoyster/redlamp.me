@@ -198,6 +198,10 @@ progress::-moz-progress-bar { background:repeating-linear-gradient(90deg,var(--o
 .lesson figure .figure-label { fill:var(--muted); text-anchor:start; font-family:var(--sans); }
 .lesson figure .figure-pointer { fill:var(--orange-text); text-anchor:start; dominant-baseline:auto; }
 .lesson button[aria-disabled="true"] { color:var(--disabled); cursor:default; }
+/* The run button and the output of a sample are inside its <pre>, so a copy of the code must not take them. Safari supports only -webkit-user-select. https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/user-select#browser_compatibility */
+.lesson .sample { display:grid; justify-items:start; gap:6px; margin-top:8px; -webkit-user-select:none; user-select:none; }
+.lesson .sample button { font:13px/1.4 var(--sans); }
+.lesson .sample output { display:grid; gap:4px; justify-self:stretch; white-space:pre-wrap; overflow-wrap:anywhere; }
 .lesson-ai { position:absolute; z-index:5; }
 .lesson-ai[hidden] { display:none; }
 .filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:8px; }

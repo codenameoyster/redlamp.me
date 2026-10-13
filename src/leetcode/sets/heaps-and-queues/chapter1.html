@@ -5,10 +5,10 @@
 q = deque()
 q.append(5)
 q.append(8)
-q.append(2)   # q = [5, 8, 2]
-q.popleft()   # вернёт 5, q = [8, 2]
-q.append(7)   # q = [8, 2, 7]
-q.popleft()   # вернёт 8, q = [2, 7]</code></pre>
+q.append(2)          # q = [5, 8, 2]
+print(q.popleft())   # вернёт 5, q = [8, 2]
+q.append(7)          # q = [8, 2, 7]
+print(q.popleft())   # вернёт 8, q = [2, 7]</code></pre>
 <p>Число 5 пришло первым и ушло первым. Число 8 пришло вторым и ушло вторым. Так работает очередь в столовой: новый ученик встаёт в конец, а обед получает тот, кто стоит в начале.</p>
 <div class="rule"><p><strong>Правило.</strong> Очередь: кладём в конец, берём из начала. Первым пришёл, первым ушёл.</p></div>
 <p>Начало очереди называют головой, конец хвостом. Последние два кадра рисунка показывают дек, о нём раздел 3.</p>
@@ -20,11 +20,13 @@ q.popleft()   # вернёт 8, q = [2, 7]</code></pre>
 <p>Можно не удалять число, а двигать номер головы: <code>head += 1</code>. Но тогда список не уменьшается. Дек решает обе проблемы: <code>popleft()</code> ничего не сдвигает и освобождает память.</p>
 <div class="rule"><p><strong>Правило.</strong> Для очереди берите <code>deque</code>: <code>popleft()</code> работает за O(1), а <code>list.pop(0)</code> за O(n).</p></div>
 <h2 id="s3">3. Дек: два конца</h2>
-<pre><code class="language-python">d = deque([2, 4, 5])
-d.appendleft(1)   # d = [1, 2, 4, 5]
-d.pop()           # вернёт 5, d = [1, 2, 4]
-d.append(7)       # d = [1, 2, 4, 7]
-d.popleft()       # вернёт 1, d = [2, 4, 7]</code></pre>
+<pre><code class="language-python">from collections import deque
+
+d = deque([2, 4, 5])
+d.appendleft(1)      # d = [1, 2, 4, 5]
+print(d.pop())       # вернёт 5, d = [1, 2, 4]
+d.append(7)          # d = [1, 2, 4, 7]
+print(d.popleft())   # вернёт 1, d = [2, 4, 7]</code></pre>
 <table>
 <thead><tr><th>Вызов</th><th>Что делает</th><th>Время</th></tr></thead>
 <tbody>
@@ -41,24 +43,31 @@ d.popleft()       # вернёт 1, d = [2, 4, 7]</code></pre>
 <h2 id="s4">4. Модель процесса: очередь за билетами</h2>
 <p>LeetCode 2073. <code>tickets = [3, 1, 2]</code>: человек 0 хочет 3 билета, человек 1 один, человек 2 два. Один билет покупают за 1 секунду. После покупки человек встаёт в конец, если ему нужны ещё билеты. Когда человек k = 0 купит последний билет?</p>
 <figure data-figure="hq1-tickets"></figure>
-<pre><code class="language-python">q = deque(range(len(tickets)))   # номера людей
-time = 0
-while True:
-    p = q.popleft()
-    tickets[p] -= 1
-    time += 1
-    if p == k and tickets[p] == 0:
-        return time
-    if tickets[p] &gt; 0:
-        q.append(p)</code></pre>
+<pre><code class="language-python">from collections import deque
+
+def time_required(tickets, k):
+    q = deque(range(len(tickets)))   # номера людей
+    time = 0
+    while True:
+        p = q.popleft()
+        tickets[p] -= 1
+        time += 1
+        if p == k and tickets[p] == 0:
+            return time
+        if tickets[p] &gt; 0:
+            q.append(p)
+
+print(time_required([3, 1, 2], 0))   # 6</code></pre>
 <p>В очереди лежат номера людей, а не числа билетов: так видно, где человек k. Каждую секунду продаётся ровно один билет. Значит, ответ равен числу билетов, которые продали к моменту, когда человек k купил последний билет. Здесь это 3 + 1 + 2 = 6. В задаче найдите тот же ответ одной суммой: сколько билетов успеет купить человек, который стоит до k, и человек после k?</p>
 <p>Иногда процесс может крутиться без конца. В задаче 1700 ученик не берёт бутерброд и встаёт в конец. Если очередь прошла полный круг и никто не взял бутерброд, процесс встал.</p>
 <div class="rule"><p><strong>Правило.</strong> Модель процесса: взяли из начала, сделали шаг, вернули в конец, если элемент ещё нужен. Заранее решите, когда процесс кончается.</p></div>
 <h2 id="s5">5. Круг и rotate</h2>
 <p>LeetCode 1823. Шесть друзей сидят по кругу, выбывает каждый третий. Храните круг в деке: тот, с кого начинается счёт, стоит в начале. На «раз» и «два» друзья 1 и 2 остаются в игре и уходят в конец. На «три» друг 3 выбывает.</p>
-<pre><code class="language-python">d = deque([1, 2, 3, 4, 5, 6])
-d.rotate(-2)   # d = [3, 4, 5, 6, 1, 2]
-d.popleft()    # вернёт 3, d = [4, 5, 6, 1, 2]</code></pre>
+<pre><code class="language-python">from collections import deque
+
+d = deque([1, 2, 3, 4, 5, 6])
+d.rotate(-2)         # d = [3, 4, 5, 6, 1, 2]
+print(d.popleft())   # вернёт 3, d = [4, 5, 6, 1, 2]</code></pre>
 <figure data-figure="hq1-rotate"></figure>
 <div class="rule"><p><strong>Правило.</strong> <code>d.rotate(-m)</code> переносит m элементов из начала в конец. <code>d.rotate(m)</code> переносит m элементов из конца в начало. <code>d.rotate(-m)</code> делает m переносов, поэтому стоит O(m).</p></div>
 <p>Следующие круги сделайте сами в задаче 1823. Кто победит при n = 6 и k = 3?</p>
