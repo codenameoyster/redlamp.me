@@ -43,3 +43,15 @@ it.each(cases)('$name', async ({ path, signedIn, status, type, location, session
 	if (!asset && path.startsWith('/leetcode')) expect(response.headers.get('cache-control')).toBe('private, no-store');
 	if (asset) expect(response.headers.get('x-robots-tag')).toBeNull();
 });
+
+it('gives each shell response a new style nonce', async () => {
+	const read = async () => {
+		const response = await exports.default.fetch('https://redlamp.me/leetcode/login');
+		return { header: /style-src 'self' 'nonce-([^']+)';/.exec(response.headers.get('content-security-policy')!)?.[1], page: /<meta name="csp-nonce" nonce="([^"]+)">/.exec(await response.text())?.[1] };
+	};
+	const first = await read(), second = await read();
+	expect(first.header).toMatch(/^[A-Za-z0-9+/]{22}==$/);
+	expect(first.page).toBe(first.header);
+	expect(second.page).toBe(second.header);
+	expect(second.header).not.toBe(first.header);
+});

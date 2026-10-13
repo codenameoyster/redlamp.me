@@ -58,7 +58,7 @@ test('completes learning with two accounts and a linked set', async ({ page: par
 		await student.getByRole('button', { name: 'Решено', exact: true }).click();
 		await expect(student.getByText('Отправлено', { exact: true })).toBeVisible();
 		await parent.reload();
-		await expect(parent.getByLabel('Код решения', { exact: true })).toHaveValue('return revised_sliding_window(source, target)');
+		await expect(parent.getByLabel('Код решения', { exact: true })).toHaveText('return revised_sliding_window(source, target)');
 		await parent.getByRole('button', { name: 'Завершить' }).click();
 		await expect(parent.getByText('Завершено', { exact: true }).first()).toBeVisible();
 		const original = await (await parent.request.get(`/leetcode/api/problems/${problemId}/attempts/${firstAttemptId}`)).json();
@@ -114,7 +114,7 @@ test('shows the tutor panel full screen on a phone', async ({ page, notebook, se
 	expect(await panel.boundingBox()).toEqual({ x: 0, y: 0, width: 390, height: 844 });
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 	expect(await panel.getByRole('list', { name: 'Сообщения' }).evaluate(list => list.scrollWidth <= list.clientWidth)).toBe(true);
-	// iOS zooms the page when a field with a font under 16px gets focus. The code field keeps the size of its highlighted copy.
+	// iOS zooms the page when a field with a font under 16px gets focus. The code field keeps the 12.5px size of the code.
 	await expect(panel.getByLabel('Сообщение', { exact: true })).toBeFocused();
 	expect(await panel.getByLabel('Сообщение', { exact: true }).evaluate(field => getComputedStyle(field).fontSize)).toBe('16px');
 	expect(await page.getByLabel('Код решения', { exact: true }).evaluate(field => getComputedStyle(field).fontSize)).toBe('12.5px');

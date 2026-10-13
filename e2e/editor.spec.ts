@@ -1,4 +1,8 @@
+import type { Locator } from '@playwright/test';
 import { test, expect, signIn, type TestEnv } from './fixtures';
+
+// The editor draws each line of the code in its own element, and toHaveText ignores the spaces at the start of a line.
+const lines = (code: Locator) => code.locator('.cm-line').allTextContents();
 
 test('keeps edits made during a pending save', async ({ page, notebook }) => {
 	let release!: () => void, entered!: () => void;
@@ -121,6 +125,7 @@ test('protects older recovery when another tab starts a replacement draft', asyn
 	await page.reload();
 	await expect(page.getByRole('region', { name: 'Копия для восстановления' })).toContainText('Keep the older unsaved explanation');
 	await expect(page.getByLabel('Основная идея', { exact: true })).toBeDisabled();
+	await expect(page.getByLabel('Код решения', { exact: true })).not.toBeEditable();
 	expect(await page.evaluate(id => JSON.parse(sessionStorage.getItem(`leetcode:draft:student-test:${id}`)!).value.document.approaches[0].idea, notebook.problem.id)).toBe('Keep the older unsaved explanation');
 	page.once('dialog', dialog => dialog.accept());
 	await page.getByRole('button', { name: 'Использовать копию с сервера', exact: true }).click();
@@ -218,10 +223,10 @@ test('keeps the recovery base version through a restored conflict', async ({ pag
 test('numbers each line of the code at the top of its wrapped line', async ({ page, notebook }) => {
 	await expect(page.getByRole('heading', { name: notebook.problem.title })).toBeVisible();
 	await page.getByLabel('Код решения', { exact: true }).fill(`x = 1\n# ${'long_comment_'.repeat(300)}\n\ny = 2`);
-	const lines = page.locator('.code-field .lines > div');
-	await expect(lines).toHaveCount(4);
+	const numbers = page.locator('.cm-lineNumbers .cm-gutterElement').filter({ visible: true });
+	await expect(numbers).toHaveText(['1', '2', '3', '4']);
 	// The comment wraps, so the number of the last line moves down to the highlighted "2".
-	const [first, comment, last, two] = await Promise.all([lines.nth(0).boundingBox(), lines.nth(1).boundingBox(), lines.nth(3).boundingBox(), page.locator('.code-field pre .hljs-number').last().boundingBox()]);
+	const [first, comment, last, two] = await Promise.all([numbers.nth(0).boundingBox(), numbers.nth(1).boundingBox(), numbers.nth(3).boundingBox(), page.locator('.cm-content .tok-number').last().boundingBox()]);
 	expect(comment!.height).toBeGreaterThan(first!.height * 2);
 	expect(Math.abs(last!.y + last!.height / 2 - (two!.y + two!.height / 2))).toBeLessThan(4);
 });
@@ -246,10 +251,10 @@ for (const row of skeletons) {
 		if (row.code) { await code.fill(row.code); await expect(status).toHaveText('Сохранено'); }
 		await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: null, source: 'none', standard: [], own: [], skeleton } }));
 		await page.goto(`/leetcode/problems/${notebook.problem.id}`);
-		await expect(code).toHaveValue(row.expected);
+		await expect.poll(() => lines(code)).toEqual(row.expected.split('\n'));
 		await expect(status).toHaveText('Сохранено');
 		await page.reload();
-		await expect(code).toHaveValue(row.expected);
+		await expect.poll(() => lines(code)).toEqual(row.expected.split('\n'));
 	});
 }
 
@@ -265,5 +270,66 @@ test('keeps the recovery copy while the starter code waits', async ({ page, note
 	}
 	await page.getByRole('button', { name: 'Восстановить несохранённую работу' }).click();
 	await expect(page.getByLabel('Основная идея', { exact: true })).toHaveValue('Recover this explanation');
-	await expect(page.getByLabel('Код решения', { exact: true })).toHaveValue(skeleton);
+	await expect.poll(() => lines(page.getByLabel('Код решения', { exact: true }))).toEqual(skeleton.split('\n'));
+});
+
+// Python 3.14 raises TabError for a tab under a block with 4 spaces, so the editor indents with 4 spaces.
+const keys = [
+	{ name: 'inserts four spaces with Tab on an empty line', code: 'def f():\n', keys: ['Tab'], text: 'return 1', expected: 'def f():\n    return 1', leaves: false },
+	{ name: 'indents every selected line with Tab', code: 'a\nb', keys: ['ControlOrMeta+A', 'Tab'], text: '', expected: '    a\n    b', leaves: false },
+	{ name: 'shifts the whole line with Tab after its text', code: 'x', keys: ['Tab'], text: '', expected: '    x', leaves: false },
+	{ name: 'removes one level of indentation with Shift+Tab', code: '        x', keys: ['Shift+Tab'], text: '', expected: '    x', leaves: false },
+	{ name: 'removes a short indentation with Shift+Tab', code: '  x', keys: ['Shift+Tab'], text: '', expected: 'x', leaves: false },
+	{ name: 'keeps the focus on Shift+Tab on a line without indentation', code: 'x', keys: ['Shift+Tab'], text: '', expected: 'x', leaves: false },
+	{ name: 'undoes the Tab with Ctrl+Z', code: 'x', keys: ['Tab', 'ControlOrMeta+Z'], text: '', expected: 'x', leaves: false },
+	{ name: 'leaves the code field with Escape and then Tab', code: 'x', keys: ['Escape', 'Tab'], text: '', expected: 'x', leaves: true },
+	{ name: 'leaves the code field with Escape and then Tab with a selection', code: 'x', keys: ['ControlOrMeta+A', 'Escape', 'Tab'], text: '', expected: 'x', leaves: true },
+];
+for (const row of keys) {
+	test(row.name, async ({ page, notebook }) => {
+		await expect(page.getByRole('heading', { name: notebook.problem.title })).toBeVisible();
+		const code = page.getByLabel('Код решения', { exact: true });
+		await code.fill(row.code);
+		for (const key of row.keys) await page.keyboard.press(key);
+		await page.keyboard.type(row.text);
+		await expect.poll(() => lines(code)).toEqual(row.expected.split('\n'));
+		await expect(row.leaves ? page.getByRole('button', { name: 'Скопировать код', exact: true }) : code).toBeFocused();
+		await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
+		await page.reload();
+		await expect.poll(() => lines(code)).toEqual(row.expected.split('\n'));
+	});
+}
+
+test('moves the focus out of a read-only code field with Tab', async ({ page, notebook }) => {
+	const code = page.getByLabel('Код решения', { exact: true });
+	await code.fill('x');
+	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
+	await signIn(page, 'parent');
+	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+	await code.focus();
+	await expect(code).toBeFocused();
+	await page.keyboard.press('Tab');
+	await expect(page.getByRole('button', { name: 'Скопировать код', exact: true })).toBeFocused();
+	await expect.poll(() => lines(code)).toEqual(['x']);
+	await expect(code).not.toBeEditable();
+});
+
+test('keeps the starter code when Ctrl+Z undoes more than the typed text', async ({ page, notebook }) => {
+	await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: null, source: 'none', standard: [], own: [], skeleton } }));
+	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+	const code = page.getByLabel('Код решения', { exact: true });
+	await expect.poll(() => lines(code)).toEqual(skeleton.split('\n'));
+	await code.focus();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('return []');
+	for (let undo = 0; undo < 3; undo++) await page.keyboard.press('ControlOrMeta+Z');
+	await expect.poll(() => lines(code)).toEqual(skeleton.split('\n'));
+	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
+	await page.reload();
+	await expect.poll(() => lines(code)).toEqual(skeleton.split('\n'));
+});
+
+test('describes the keys of the code field', async ({ page, notebook }) => {
+	await expect(page.getByRole('heading', { name: notebook.problem.title })).toBeVisible();
+	await expect(page.getByLabel('Код решения', { exact: true })).toHaveAccessibleDescription(/Esc и сразу Tab/);
 });

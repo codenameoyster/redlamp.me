@@ -34,11 +34,11 @@ test('opens, submits, returns, and completes a task in one window', async ({ pag
 	await expect(page.getByText(/^Пройдено/)).toHaveText('Пройдено 1 из 1', { timeout: 30_000 });
 	await page.getByRole('button', { name: 'Решено', exact: true }).click();
 	await expect(page.getByText('Отправлено', { exact: true })).toBeVisible();
-	await expect(code).toHaveAttribute('readonly', '');
+	await expect(code).not.toBeEditable();
 	await expect(page.getByRole('button', { name: 'Решено', exact: true })).toHaveCount(0);
 	await signIn(page, 'parent');
 	await page.goto(taskURL);
-	await expect(page.getByLabel('Код решения', { exact: true })).toHaveValue(/return \[0, 1\]/);
+	await expect(page.getByLabel('Код решения', { exact: true })).toHaveText(/return \[0, 1\]/);
 	await expect(page.getByText('Тесты пройдены', { exact: true })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Запустить тесты', exact: true })).toHaveCount(0);
 	await page.getByLabel('Отзыв', { exact: true }).fill('Add a correctness argument.');
@@ -47,7 +47,7 @@ test('opens, submits, returns, and completes a task in one window', async ({ pag
 	await signIn(page);
 	await page.goto(taskURL);
 	await expect(page.getByText('Нужны правки: Add a correctness argument.', { exact: true })).toBeVisible();
-	await expect(code).toHaveValue(/return \[0, 1\]/);
+	await expect(code).toHaveText(/return \[0, 1\]/);
 	await expect(code).toBeEditable();
 	await page.getByLabel('Почему это работает', { exact: true }).fill('Every earlier value is in the frequency map.');
 	await page.getByRole('button', { name: 'Решено', exact: true }).click();

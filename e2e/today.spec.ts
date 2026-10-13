@@ -109,7 +109,7 @@ for (const row of picks) {
 		await expect(page.getByRole('button', { name: 'Показать сохранённую работу' })).toHaveCount(0);
 		await page.getByRole('button', { name: 'Начать новую попытку', exact: true }).click();
 		await expect(page).toHaveURL(/\/leetcode\/problems\/[a-f0-9-]{36}$/);
-		await expect(page.getByLabel('Код решения', { exact: true })).toHaveValue('');
+		await expect(page.getByLabel('Код решения', { exact: true })).toHaveText('');
 		const attempts = await (await page.request.get(`/leetcode/api/problems/${page.url().split('/').at(-1)}/attempts`)).json() as { items: { state: string }[] };
 		expect(attempts.items.map(attempt => attempt.state)).toEqual(row.states);
 	});
