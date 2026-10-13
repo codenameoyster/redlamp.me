@@ -83,7 +83,7 @@ export async function handleSets(request: Request, env: Env, user: SessionUser):
 	if (match[2]) {
 		const html = set.lessons[Number(match[2]) - 1];
 		if (!html) throw new HttpError(404, 'not_found', 'Такой главы нет.');
-		return Response.json({ html });
+		return Response.json({ html, figures: set.chapters[Number(match[2]) - 1].figures ?? [] });
 	}
 	const rows = await env.DB.prepare(`SELECT p.slug,p.id AS problemId,${solvedSQL} AS accepted,t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,t.state
 		FROM problems p LEFT JOIN homework_tasks t ON t.problem_id=p.id AND t.state NOT IN ('completed','cancelled') LEFT JOIN homework h ON h.id=t.homework_id WHERE p.slug IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(tasksOf(set).map(taskSlug))).all<TaskRow>();

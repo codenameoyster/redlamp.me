@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
-import type { LearningSetDetails, LearningSetSummary, SetTask } from '../shared/leetcode';
+import type { FigureRow, LearningSetDetails, LearningSetSummary, SetTask } from '../shared/leetcode';
 import { parsePy, reprPy } from '../src/leetcode/pyliteral';
 import { mulberry32 } from '../src/leetcode/judge';
 import { generatorOf, referenceOf, sets, taskLabel, taskSlug, tasksOf } from '../src/leetcode/sets';
@@ -67,17 +67,17 @@ it.each([
 });
 
 it.each([
-	{ name: 'student chapter 1 lesson', role: 'student', chapter: '1', html: set.lessons[0] },
-	{ name: 'parent chapter 4 lesson', role: 'parent', chapter: '4', html: set.lessons[3] },
-	{ name: 'chapter 5 is missing', role: 'parent', chapter: '5', html: null },
-	{ name: 'chapter 0 is missing', role: 'parent', chapter: '0', html: null },
-	{ name: 'chapter x is missing', role: 'parent', chapter: 'x', html: null },
-	{ name: 'lesson without a chapter number is missing', role: 'parent', chapter: '', html: null },
-])('$name', async ({ role, chapter, html }) => {
+	{ name: 'student chapter 1 lesson', role: 'student', chapter: '1', body: { html: set.lessons[0], figures: [] } },
+	{ name: 'parent chapter 4 lesson', role: 'parent', chapter: '4', body: { html: set.lessons[3], figures: [] } },
+	{ name: 'chapter 5 is missing', role: 'parent', chapter: '5', body: null },
+	{ name: 'chapter 0 is missing', role: 'parent', chapter: '0', body: null },
+	{ name: 'chapter x is missing', role: 'parent', chapter: 'x', body: null },
+	{ name: 'lesson without a chapter number is missing', role: 'parent', chapter: '', body: null },
+])('$name', async ({ role, chapter, body }) => {
 	const response = await request(`/sets/${set.slug}/lesson${chapter && `/${chapter}`}`, 'GET', undefined, role === 'parent' ? await login('parent') : student);
-	if (html === null) { expect(response.status).toBe(404); expect(await response.json()).toMatchObject({ error: { code: 'not_found' } }); return; }
+	if (body === null) { expect(response.status).toBe(404); expect(await response.json()).toMatchObject({ error: { code: 'not_found' } }); return; }
 	expect(response.status).toBe(200);
-	expect(await response.json()).toEqual({ html });
+	expect(await response.json()).toEqual(body);
 });
 
 it.each([
@@ -94,7 +94,9 @@ it.each([
 
 // The set files write Python literals in the JSON form with True and False. A failed parse gives undefined.
 const pythonLiteral = (text: string): unknown => { try { return JSON.parse(text.replace(/"(?:[^"\\]|\\.)*"|\b(?:True|False|true|false|null)\b/g, token => token.startsWith('"') ? token : token === 'True' ? 'true' : token === 'False' ? 'false' : '?')); } catch { return undefined; } };
-const slugFormat = /^[a-z0-9]+(?:-[a-z0-9]+)*$/, fragmentTag = /^(?:h2|h3|p|ul|ol|li|table|caption|thead|tbody|tr|th|td|pre|code|strong|em|sup|blockquote|details|summary|a|br|div)$/, statementTag = /^(?:h3|p|ul|ol|li|table|thead|tbody|tr|th|td|pre|code|strong|em|sup|sub)$/;
+// A row index must point to a cell of the row. A window starts at or before its end.
+const badRow = (row: FigureRow) => !row.cells.length || (row.window !== undefined && row.window[0] > row.window[1]) || [...row.marked ?? [], ...row.dimmed ?? [], ...Object.values(row.pointers ?? {}), ...row.window ?? []].some(index => !Number.isInteger(index) || index < 0 || index >= row.cells.length);
+const slugFormat = /^[a-z0-9]+(?:-[a-z0-9]+)*$/, fragmentTag = /^(?:h2|h3|p|ul|ol|li|table|caption|thead|tbody|tr|th|td|pre|code|strong|em|sup|blockquote|details|summary|a|br|div|figure)$/, statementTag = /^(?:h3|p|ul|ol|li|table|thead|tbody|tr|th|td|pre|code|strong|em|sup|sub)$/;
 it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item }) => {
 	expect(sets.filter(other => other.slug === item.slug)).toHaveLength(1);
 	expect(item.slug).toMatch(slugFormat);
@@ -115,6 +117,11 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item 
 	expect(item.lessons.map(lesson => htmlText(lesson).length).filter(length => length >= 6000)).toEqual([]);
 	expect(item.lessons.flatMap(lesson => [...lesson.matchAll(/<([a-z][a-z0-9]*)/gi)].map(match => match[1]).filter(tag => !fragmentTag.test(tag)))).toEqual([]);
 	expect(item.lessons.flatMap((lesson, index) => lesson.startsWith('<p class="lead">') && !/\s(?:style|on[a-z]+)=|<div(?! class="rule">)/i.test(lesson) ? [] : [index + 1])).toEqual([]);
+	// A figure is an empty placeholder on its own line. The placeholders follow the order of chapter.figures.
+	expect(item.lessons.map(lesson => (lesson.match(/<figure\b/g) ?? []).length - (lesson.match(/^<figure data-figure="[a-z0-9-]+"><\/figure>$/gm) ?? []).length)).toEqual(item.lessons.map(() => 0));
+	expect(item.lessons.map(lesson => [...lesson.matchAll(/data-figure="([^"]+)"/g)].map(match => match[1]))).toEqual(item.chapters.map(chapter => (chapter.figures ?? []).map(figure => figure.id)));
+	const figures = item.chapters.flatMap(chapter => chapter.figures ?? []);
+	expect(figures.filter(figure => !slugFormat.test(figure.id) || !figure.title.trim() || !figure.frames.length || figure.frames.some(frame => !frame.caption.trim() || !frame.rows.length || frame.rows.some(badRow))).map(figure => figure.id)).toEqual([]);
 });
 
 // The harness sorts the answer for the orders 'any' and 'any-nested'. A sort by the Python text gives the same equality.
@@ -188,6 +195,11 @@ it.each([
 
 it('card ids are unique across all sets', () => {
 	const ids = sets.flatMap(item => item.chapters.flatMap(chapter => chapter.cards.map(card => card.id)));
+	expect(ids.filter((id, index) => ids.indexOf(id) !== index)).toEqual([]);
+});
+
+it('figure ids are unique across all sets', () => {
+	const ids = sets.flatMap(item => item.chapters.flatMap(chapter => (chapter.figures ?? []).map(figure => figure.id)));
 	expect(ids.filter((id, index) => ids.indexOf(id) !== index)).toEqual([]);
 });
 

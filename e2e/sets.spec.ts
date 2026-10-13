@@ -1,9 +1,18 @@
 import { test, expect, signIn } from './fixtures';
 import type { Page } from '@playwright/test';
-import type { Homework, HomeworkTask, Problem } from '../shared/leetcode';
+import type { Figure, Homework, HomeworkTask, Problem } from '../shared/leetcode';
 
 const setPath = '/leetcode/sets/permutations-and-combinations', chapterPath = `${setPath}/2`;
 function row(page: Page, title: string) { return page.getByRole('article').filter({ has: page.getByRole('heading', { name: title, exact: true }) }); }
+const steps: Figure = { id: 'test-steps', title: 'Указатели идут навстречу', frames: [
+	{ caption: 'l = 0, r = 3: 1 + 7 = 8, меньше 9.', rows: [{ cells: [1, 4, 5, 7], marked: [0, 3], pointers: { l: 0, r: 3 }, window: [0, 3] }] },
+	{ caption: 'l = 1, r = 3: 4 + 7 = 11, больше 9.', rows: [{ cells: [1, 4, 5, 7], marked: [1, 3], dimmed: [0], pointers: { l: 1, r: 3 }, window: [1, 3] }] },
+	{ caption: 'l = 1, r = 2: 4 + 5 = 9. Пара найдена.', rows: [{ cells: [1, 4, 5, 7], marked: [1, 2], dimmed: [0, 3], pointers: { l: 1, r: 2 }, window: [1, 2] }] },
+] };
+const single: Figure = { id: 'test-single', title: 'Один кадр', frames: [{ caption: 'Массив из трёх чисел.', rows: [{ label: 'a', cells: [2, 3, 5] }] }] };
+const wide: Figure = { id: 'test-wide', title: 'Шестнадцать чисел', frames: [{ caption: 'Числа от 100 до 115.', rows: [{ label: 'nums', cells: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115], pointers: { write: 0, read: 15 }, window: [0, 15] }] }] };
+// Gives chapter 2 a lesson with these figures.
+const lessonWith = (page: Page, figures: Figure[]) => page.route('**/leetcode/api/sets/permutations-and-combinations/lesson/2', route => route.fulfill({ json: { html: `<p class="lead">Урок с рисунками.</p>\n${figures.map(figure => `<figure data-figure="${figure.id}"></figure>`).join('\n')}\n<p>Текст после рисунков.</p>`, figures } }));
 
 test('assigns set tasks to new and existing homework', async ({ page, context }) => {
 	await signIn(page, 'parent');
@@ -112,6 +121,43 @@ test('does not create homework for an archived problem', async ({ page, baseURL 
 	expect(await (await page.request.get('/leetcode/api/homework')).json()).toMatchObject({ items: [] });
 });
 
+test('steps through a lesson figure', async ({ page }) => {
+	await signIn(page);
+	await lessonWith(page, [steps, single]);
+	await page.goto(chapterPath);
+	const figure = page.locator('figure').filter({ hasText: steps.title }), image = figure.getByRole('img');
+	const back = figure.getByRole('button', { name: 'Назад', exact: true }), forward = figure.getByRole('button', { name: 'Вперёд', exact: true });
+	await expect(image).toHaveAccessibleName(steps.frames[0].caption);
+	await expect(figure.getByText('Шаг 1 из 3', { exact: true })).toBeVisible();
+	await expect(back).toHaveAttribute('aria-disabled', 'true');
+	// Playwright waits for an enabled button, so a click on an aria-disabled button needs force.
+	await back.click({ force: true });
+	await expect(figure.getByText('Шаг 1 из 3', { exact: true })).toBeVisible();
+	await expect(back).toBeFocused();
+	await forward.click();
+	await expect(image).toHaveAccessibleName(steps.frames[1].caption);
+	await expect(figure.locator('p')).toHaveText(steps.frames[1].caption);
+	await expect(figure.locator('.figure-mark')).toHaveCount(2);
+	await expect(figure.locator('.figure-dim')).toHaveCount(1);
+	await expect(back).toHaveAttribute('aria-disabled', 'false');
+	await forward.click();
+	await forward.click({ force: true });
+	await expect(figure.getByText('Шаг 3 из 3', { exact: true })).toBeVisible();
+	await expect(image).toHaveAccessibleName(steps.frames[2].caption);
+	await expect(forward).toHaveAttribute('aria-disabled', 'true');
+	await expect(forward).toBeFocused();
+	await back.click();
+	await expect(figure.getByText('Шаг 2 из 3', { exact: true })).toBeVisible();
+	const one = page.locator('figure').filter({ hasText: single.title });
+	await expect(one.getByRole('img')).toHaveAccessibleName(single.frames[0].caption);
+	await expect(one.getByRole('button')).toHaveCount(0);
+	// A cell has the face color of the theme: #3c3c3c in the dark theme, #c0c0c0 in the light theme.
+	const cell = one.locator('rect').first(), fill = () => cell.evaluate(rect => getComputedStyle(rect).fill);
+	await expect.poll(fill).toBe('rgb(60, 60, 60)');
+	await page.getByRole('button', { name: 'Светлая тема', exact: true }).click();
+	await expect.poll(fill).toBe('rgb(192, 192, 192)');
+});
+
 test('fits the set pages at the mobile width', async ({ page }, testInfo) => {
 	await page.setViewportSize(testInfo.config.projects.find(project => project.name === 'mobile')!.use.viewport!);
 	await signIn(page, 'parent');
@@ -121,7 +167,10 @@ test('fits the set pages at the mobile width', async ({ page }, testInfo) => {
 	await page.goto(setPath);
 	await expect(page.getByRole('link', { name: 'Открыть главу', exact: true })).toHaveCount(4);
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+	await lessonWith(page, [wide]);
 	await page.goto(chapterPath);
+	await expect(page.getByRole('img', { name: wide.frames[0].caption, exact: true })).toBeVisible();
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 	await row(page, 'Subsets').getByRole('button', { name: 'Добавить в домашнюю работу', exact: true }).click();
 	await expect(page.getByRole('dialog')).toBeVisible();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

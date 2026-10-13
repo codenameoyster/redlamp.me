@@ -187,11 +187,13 @@ for (const row of panes) {
 		await signIn(page);
 		const problem = await (await page.request.post('/leetcode/api/problems', { headers: { Origin: new URL(baseURL!).origin }, data: { url: row.url, number: null, title: row.title, difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
 		await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: null, source: 'none', standard: [], own: [] } }));
+		await page.route('**/leetcode/api/sets/permutations-and-combinations/lesson/2', route => route.fulfill({ json: { html: '<p class="lead">Урок.</p>\n<figure data-figure="test-pane"></figure>', figures: [{ id: 'test-pane', title: 'Рисунок главы', frames: [{ caption: 'Рисунок в окне работы.', rows: [{ cells: [1, 2] }] }] }] } }));
 		const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, problem.id);
 		await page.goto(`/leetcode/tasks/${taskId}`);
 		const code = page.getByLabel('Код решения', { exact: true }), idea = page.getByLabel('Основная идея', { exact: true });
 		await expect(code).toBeEditable();
 		await expect(page.getByRole('link', { name: 'Глава 2. Перебор: подмножества, перестановки, сочетания', exact: true })).toHaveCount(row.chapter ? 2 : 0);
+		await expect(page.getByRole('img', { name: 'Рисунок в окне работы.', exact: true })).toHaveCount(row.chapter ? 1 : 0);
 		const [codeBox, ideaBox] = [(await code.boundingBox())!, (await idea.boundingBox())!];
 		expect(row.chapter ? ideaBox.y > codeBox.y + codeBox.height : ideaBox.x + ideaBox.width < codeBox.x).toBe(true);
 	});
