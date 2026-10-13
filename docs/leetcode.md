@@ -204,6 +204,12 @@ The production origin is `redlamp.me`. Notebook reads on `www.redlamp.me` redire
 
 Check login, logout, and a normal draft save on the deployed Worker. Use the Cloudflare dashboard's Worker CPU and D1 usage measurements. Confirm that these requests fit the Free limit of 10 ms CPU per invocation. Local timing does not establish edge CPU usage.
 
+## Releases
+
+The sidebar shows the version from `package.json`. The versions follow [Semantic Versioning](https://semver.org/). The release-please workflow reads the Conventional Commits on `main` and keeps a release PR open. A `feat` commit increases the minor version. A `fix` commit increases the patch version. Merge the release PR to publish the version. The merge updates `package.json` and `CHANGELOG.md`, tags `vX.Y.Z` and publishes a GitHub release. Workers Builds then deploys the new version.
+
+The workflow can open the release PR only when **Allow GitHub Actions to create and approve pull requests** is on in **Settings**, **Actions**, **General**.
+
 ## Credential rotation
 
 Run the account-generation command again with the intended usernames. Save the new passwords. Then upload the new `LEETCODE_ACCOUNTS` secret. The command generates new credentials for both accounts. Changing an account's username or password digest invalidates its existing sessions. For local development, replace the account-secret value in `.dev.vars`. Then restart Wrangler.
