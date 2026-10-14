@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.4](https://github.com/codenameoyster/redlamp.me/compare/v1.7.3...v1.7.4) (2026-10-14)
+
+
+### Bug Fixes
+
+* **web:** show no AI tutor in a quiz round ([3fa7935](https://github.com/codenameoyster/redlamp.me/commit/3fa7935ee66c9825b2d50c1e0c0c54ce68ade4b9))
+
 ## [1.7.3](https://github.com/codenameoyster/redlamp.me/compare/v1.7.2...v1.7.3) (2026-10-14)
 
 
