@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.7](https://github.com/codenameoyster/redlamp.me/compare/v1.7.6...v1.7.7) (2026-10-14)
+
+
+### Bug Fixes
+
+* **leetcode:** keep the understanding when a recall pick saves the draft ([cf4eb9a](https://github.com/codenameoyster/redlamp.me/commit/cf4eb9ab53577ae487a986167a42a7b62ee6935e))
+
 ## [1.7.6](https://github.com/codenameoyster/redlamp.me/compare/v1.7.5...v1.7.6) (2026-10-14)
 
 
