@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/codenameoyster/redlamp.me/compare/v1.2.0...v1.2.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **web:** insert the spaces of Tab at the cursor ([2b9bdf7](https://github.com/codenameoyster/redlamp.me/commit/2b9bdf74d6c6f052524273df7c261bb334defebe))
+
 ## [1.2.0](https://github.com/codenameoyster/redlamp.me/compare/v1.1.0...v1.2.0) (2026-10-14)
 
 
