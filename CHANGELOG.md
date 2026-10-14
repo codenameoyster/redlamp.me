@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.8](https://github.com/codenameoyster/redlamp.me/compare/v1.7.7...v1.7.8) (2026-10-14)
+
+
+### Bug Fixes
+
+* **web:** do not count the untouched starter code as work ([b6c563a](https://github.com/codenameoyster/redlamp.me/commit/b6c563a50f16508b82b5f9ef748a7667af67b149))
+
 ## [1.7.7](https://github.com/codenameoyster/redlamp.me/compare/v1.7.6...v1.7.7) (2026-10-14)
 
 
