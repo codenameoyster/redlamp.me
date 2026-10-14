@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/codenameoyster/redlamp.me/compare/v1.5.5...v1.6.0) (2026-10-14)
+
+
+### Features
+
+* **leetcode:** keep the tutor chats private to the student ([ca06ab8](https://github.com/codenameoyster/redlamp.me/commit/ca06ab8e0e3759f8cb677f2391455ff8f4a3a2e0))
+
 ## [1.5.5](https://github.com/codenameoyster/redlamp.me/compare/v1.5.4...v1.5.5) (2026-10-14)
 
 
