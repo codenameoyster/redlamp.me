@@ -152,6 +152,9 @@ export default {
 	]),
 	'total-cost-to-hire-k-workers': (random: Random) => call([
 		[[1], 1, 1], [[100000], 1, 1], [[1, 2], 2, 1], [[2, 1], 1, 1], [[3, 2, 7, 7, 1, 2], 2, 2], [[1, 1, 1, 1], 4, 4], [[5, 4, 3, 2, 1], 5, 1], [[1, 2], 2, 2],
+		// In the first input both windows hold a 3: the tie rule hires worker 0, and then the 1 enters the left window. The answer is 4, the sum of the k cheapest costs is 3, and a tie to the right group gives 5.
+		// In the second input the windows hold [2, 2] and [2, 3]: a tie to the right group gives 4, and the answer is 3.
+		[[3, 1, 2, 3], 2, 1], [[2, 2, 1, 3, 3, 2], 2, 2],
 		...Array.from({ length: 4 }, () => { const n = between(random, 2, 60); return [list(random, n, 1, 20), between(random, 1, n), between(random, 1, n)]; }),
 		// A scan of both groups on each hire costs about 3.75 * 10^9 reads on each of the two inputs. The second input has 2 * candidates = n, so the groups meet at once.
 		[list(random, 100000, 1, 100000), 100000, 25000], [list(random, 100000, 1, 10), 50000, 50000],
