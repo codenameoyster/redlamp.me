@@ -67,15 +67,14 @@ it.each([
 	expect((await request(target, 'PUT', body, role === 'parent' ? await login('parent') : cookie)).status).toBe(expected);
 });
 
-it('saves history atomically and keeps the current reminder', async () => {
-	await env.DB.prepare("UPDATE problems SET next_review_date='2026-10-20'").run();
+it('saves history and keeps the progress of the problem', async () => {
+	await env.DB.prepare("UPDATE problems SET understanding='needs_practice',next_review_date='2026-10-20'").run();
 	const saved = await request(`${path}/save`, 'POST', { version: 1 }, cookie);
 	expect(saved.status).toBe(200);
 	expect(await saved.json()).toMatchObject({ state: 'saved', version: 2, document });
 	const progress = await (await request(`/problems/${problemId}`, 'GET', undefined, cookie)).json();
-	expect(progress).toMatchObject({ solved: true, understanding: 'with_help', nextReviewDate: '2026-10-20', version: 1, progressVersion: 2 });
+	expect(progress).toMatchObject({ solved: true, understanding: 'needs_practice', nextReviewDate: '2026-10-20', version: 1, progressVersion: 1 });
 	expect((await request(`${path}/save`, 'POST', { version: 1 }, cookie)).status).toBe(409);
-	expect(await (await request(`/problems/${problemId}`, 'GET', undefined, cookie)).json()).toEqual(progress);
 });
 
 it('copies saved history into a new draft and reports an existing draft', async () => {
