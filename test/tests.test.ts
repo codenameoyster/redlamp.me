@@ -16,7 +16,7 @@ const leetcode = (metaData: object, exampleTestcaseList: string[], content: stri
 const pre = (output: string) => `<pre>\n<strong>Input:</strong> value\n<strong>Output:</strong> ${output}\n<strong>Explanation:</strong> Output: text.\n</pre>`;
 const span = (output: string) => `<p><strong>Input:</strong> <span class="example-io">value</span></p>\n<p><strong>Output: </strong><span class="example-io" style="font-family: Menlo,sans-serif;">${output}</span></p>`;
 const twoSum = { name: 'twoSum', params: [{ name: 'nums', type: 'integer[]' }, { name: 'target', type: 'integer' }], return: { type: 'integer[]', size: 2 }, manual: false };
-const snippet = snippets[2].code, stdin = 'import sys\ninput = sys.stdin.readline\n\ndef main():\n    # Прочитайте входные данные и выведите ответ.\n    pass\n\nmain()\n', fallback = 'class Solution:\n    pass';
+const snippet = snippets[2].code, stdin = 'def ans():\n    N = int(input())\n    a = list(map(int, input().split()))\n    # Посчитайте ответ и верните его.\n    return 0\n\nt = int(input())\na = [ans() for _ in range(t)]\nfor res in a:\n    print(res)\n', fallback = 'class Solution:\n    pass';
 const noRunner = { spec: null, source: 'none', standard: [], own: [], skeleton: '' };
 it.each([
 	{ name: 'LeetCode task of a set', slug: 'two-sum-ii-input-array-is-sorted', reply: leetcode(twoSum, ['[2,7,11,15]\n9'], pre('[0,1]')), body: { spec: { mode: 'call', method: 'twoSum' }, source: 'set', standard: expect.arrayContaining([{ input: '[[2,7,11,15],9]', expected: '[1,2]' }]), own: [], skeleton: snippet } },
