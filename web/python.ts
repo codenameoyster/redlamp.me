@@ -25,15 +25,17 @@ function post<T>(message: object): Promise<T> {
 }
 
 export const checkCode = (code: string) => post<{ diagnostics: Diagnostic[] }>({ type: 'check', code }).then(value => value.diagnostics);
+export const pythonWords = () => post<{ words: string[] }>({ type: 'words' }).then(value => value.words);
+// The line is 1-based and the column is 0-based, as in jedi.
+export const completeCode = (code: string, line: number, column: number) => post<{ names: string[] }>({ type: 'complete', code, line, column }).then(value => value.names);
 
 // The run stops when onResult returns true.
 export async function runTests(code: string, spec: TestSpec, tests: TestCase[], onResult: (result: RunResult) => boolean | void, seconds = 2): Promise<void> {
 	const limit = `Превышено время (${seconds} с)`;
 	for (const test of tests) {
-		// A new worker answers the check only after Python loads, so the time limit counts only the run.
-		await checkCode('');
+		// A new worker answers the check only after Python loads, so the time limit counts only the run. The run goes right after the check, so a completion cannot come between them.
 		let timer = 0;
-		const result = await Promise.race([post<RunResult>({ type: 'run', code, spec, test }), new Promise<null>(resolve => { timer = setTimeout(resolve, seconds * 1000, null); })]);
+		const ready = checkCode(''), result = await Promise.race([post<RunResult>({ type: 'run', code, spec, test }), ready.then(() => new Promise<null>(resolve => { timer = setTimeout(resolve, seconds * 1000, null); }))]);
 		clearTimeout(timer);
 		if (!result) stop(new Error(limit));
 		if (onResult(result ?? { ok: test.expected === null ? null : false, output: '', stdout: '', error: { message: limit, line: null }, ms: seconds * 1000, timeout: true })) return;

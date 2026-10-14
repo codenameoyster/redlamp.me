@@ -1,6 +1,8 @@
 import ast
+import builtins
 import io
 import json
+import keyword
 import sys
 import traceback
 from contextlib import redirect_stdout
@@ -17,6 +19,20 @@ def namespace():
 
 def names():
     return json.dumps(sorted(name for name in namespace() if not name.startswith('_')))
+
+
+# The editor completes these names without jedi.
+def words():
+    return json.dumps(sorted(name for name in {*keyword.kwlist, *keyword.softkwlist, *dir(builtins), *namespace()} if not name.startswith('_')))
+
+
+# The worker loads the jedi package before the first call. The keywords are left out, because jedi gives only keywords after a number with a dot, such as `0.`. https://jedi.readthedocs.io/en/latest/docs/api.html#jedi.Script.complete
+def complete(code, line, column):
+    limit = sys.getrecursionlimit()
+    import jedi
+    # jedi.api sets the recursion limit to 3000 at import. The tests run with the limit that was before.
+    sys.setrecursionlimit(limit)
+    return json.dumps([item.name for item in jedi.Script(PRELUDE + code).complete(line + PRELUDE.count('\n'), column) if not item.name.startswith('_') and item.type != 'keyword'])
 
 
 def check(code):

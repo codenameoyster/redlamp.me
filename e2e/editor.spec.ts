@@ -1,4 +1,4 @@
-import type { Locator } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { test, expect, signIn, type TestEnv } from './fixtures';
 
 // The editor draws each line of the code in its own element, and toHaveText ignores the spaces at the start of a line.
@@ -331,5 +331,126 @@ test('keeps the starter code when Ctrl+Z undoes more than the typed text', async
 
 test('describes the keys of the code field', async ({ page, notebook }) => {
 	await expect(page.getByRole('heading', { name: notebook.problem.title })).toBeVisible();
-	await expect(page.getByLabel('Код решения', { exact: true })).toHaveAccessibleDescription(/Esc и сразу Tab/);
+	await expect(page.getByLabel('Код решения', { exact: true })).toHaveAccessibleDescription(/^Tab или Enter при открытом списке: вставить выбранное имя\. .*Esc и сразу Tab: выйти из поля\.$/);
+});
+
+const names = (page: Page, name?: string) => page.getByRole('listbox', { name: 'Подсказки' }).getByRole('option', { name, exact: true });
+// The expected names come from the Python 3.14 docs: https://docs.python.org/3.14/reference/lexical_analysis.html#keywords, https://docs.python.org/3.14/builtins/functions.html#print, https://docs.python.org/3.14/library/heapq.html, https://docs.python.org/3.14/library/collections.html#collections.deque, https://docs.python.org/3.14/library/stdtypes.html#mutable-sequence-types
+const completions = [
+	{ name: 'offers a built-in function', code: '', typed: 'pr', option: 'print' },
+	{ name: 'offers a name of the code', code: 'total = 0\n', typed: 'to', option: 'total' },
+	{ name: 'offers a module of the prelude', code: '', typed: 'hea', option: 'heapq' },
+	{ name: 'offers a keyword', code: 'def f():\n    ', typed: 'ret', option: 'return' },
+	{ name: 'offers a function of a module after a dot', code: '', typed: 'heapq.heap', option: 'heappush' },
+	{ name: 'offers a method of a deque after a dot', code: 'q = collections.deque()\n', typed: 'q.pop', option: 'popleft' },
+	{ name: 'offers a method of a parameter of the starter code after a dot', code: skeleton, typed: 'nums.app', option: 'append' },
+];
+for (const row of completions) {
+	test(row.name, async ({ page, notebook }) => {
+		test.slow();
+		await expect(page.getByRole('heading', { name: notebook.problem.title })).toBeVisible();
+		await page.getByLabel('Код решения', { exact: true }).fill(row.code);
+		await page.keyboard.type(row.typed);
+		await expect(names(page, row.option)).toBeVisible({ timeout: 30_000 });
+	});
+}
+
+// The letters of `next` come after the list opens, and the key follows them at once.
+const accepts = [
+	{ name: 'inserts the selected name with Tab', typed: 'pri', option: 'print', next: '', key: 'Tab', expected: ['print'] },
+	{ name: 'inserts the selected name with Enter', typed: 'pri', option: 'print', next: '', key: 'Enter', expected: ['print'] },
+	{ name: 'inserts the selected member with Enter', typed: 'heapq.heappu', option: 'heappush', next: '', key: 'Enter', expected: ['heapq.heappush'] },
+	{ name: 'starts a new line with Enter after a name typed in full', typed: 'pass', option: 'pass', next: '', key: 'Enter', expected: ['pass', ''] },
+	{ name: 'inserts the selected name with Tab right after a typed letter', typed: 'pr', option: 'print', next: 'i', key: 'Tab', expected: ['print'] },
+	{ name: 'inserts the selected member with Enter right after a typed letter', typed: 'heapq.heapp', option: 'heappop', next: 'u', key: 'Enter', expected: ['heapq.heappush'] },
+];
+for (const row of accepts) {
+	test(row.name, async ({ page, notebook }) => {
+		test.slow();
+		await expect(page.getByRole('heading', { name: notebook.problem.title })).toBeVisible();
+		const code = page.getByLabel('Код решения', { exact: true });
+		await code.fill('');
+		await page.keyboard.type(row.typed);
+		await expect(names(page).first()).toHaveText(row.option, { timeout: 30_000 });
+		// A key in the first 75 ms after the list opens does not take a name: https://codemirror.net/docs/ref/#autocomplete.autocompletion^config.interactionDelay
+		await page.waitForTimeout(100);
+		await page.keyboard.type(row.next);
+		await page.keyboard.press(row.key);
+		await expect.poll(() => lines(code)).toEqual(row.expected);
+		await expect(names(page)).toHaveCount(0);
+	});
+}
+
+// jedi sets the recursion limit to 3000 when it loads, and the tests run with the default limit 1000: https://docs.python.org/3.14/library/sys.html#sys.setrecursionlimit
+test('keeps the recursion limit of the tests after a member completion', async ({ page, notebook }) => {
+	test.slow();
+	await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: { mode: 'stdio' }, source: 'set', standard: [{ input: '1500', expected: '1500' }], own: [] } }));
+	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+	const code = page.getByLabel('Код решения', { exact: true });
+	await code.fill('');
+	await page.keyboard.type('heapq.');
+	await expect(names(page, 'heappush')).toBeVisible({ timeout: 30_000 });
+	await page.keyboard.press('Escape');
+	await code.fill('def depth(n):\n    return 0 if n == 0 else 1 + depth(n - 1)\nprint(depth(int(input())))\n');
+	await page.getByRole('button', { name: 'Запустить тесты', exact: true }).click();
+	await expect(page.getByRole('list', { name: 'Результаты тестов' }).getByRole('listitem')).toHaveText(['Тест 1: ✗ Ввод: 1500 Верный ответ: 1500 Строка 2: RecursionError: maximum recursion depth exceeded'], { useInnerText: true, timeout: 30_000 });
+});
+
+test('closes the list and leaves the code field with Escape and then Tab', async ({ page, notebook }) => {
+	test.slow();
+	await expect(page.getByRole('heading', { name: notebook.problem.title })).toBeVisible();
+	const code = page.getByLabel('Код решения', { exact: true });
+	await code.fill('');
+	await page.keyboard.type('pri');
+	await expect(names(page).first()).toHaveText('print', { timeout: 30_000 });
+	await page.keyboard.press('Escape');
+	await page.keyboard.press('Tab');
+	await expect(page.getByRole('button', { name: 'Скопировать код', exact: true })).toBeFocused();
+	await expect(names(page)).toHaveCount(0);
+	await expect.poll(() => lines(code)).toEqual(['pri']);
+});
+
+test('shows the list of names under the page CSP', async ({ page, notebook }) => {
+	test.slow();
+	await page.addInitScript(() => { Object.assign(window, { violations: 0 }); document.addEventListener('securitypolicyviolation', () => { Object.assign(window, { violations: (window as unknown as { violations: number }).violations + 1 }); }); });
+	await page.reload();
+	await expect(page.getByRole('heading', { name: notebook.problem.title })).toBeVisible();
+	await page.getByLabel('Код решения', { exact: true }).fill('');
+	await page.keyboard.type('heapq.heappo');
+	await expect(names(page).first()).toHaveText('heappop', { timeout: 30_000 });
+	expect(await page.evaluate(() => (window as unknown as { violations: number }).violations)).toBe(0);
+});
+
+test('offers no names in a read-only code field', async ({ page, notebook }) => {
+	const code = page.getByLabel('Код решения', { exact: true });
+	await code.fill('total = 0\nto');
+	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
+	await signIn(page, 'parent');
+	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+	await code.focus();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.press('Control+Space');
+	// A field with completion gets aria-autocomplete at its first transaction: https://www.w3.org/TR/wai-aria-1.2/#aria-autocomplete
+	await expect(code).not.toHaveAttribute('aria-autocomplete');
+	await expect(names(page)).toHaveCount(0);
+});
+
+test('keeps the typing during a test run and shows no error when the run stops the completion', async ({ page, notebook }) => {
+	test.slow();
+	await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: { mode: 'stdio' }, source: 'set', standard: [{ input: '1', expected: '1' }], own: [] } }));
+	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+	const code = page.getByLabel('Код решения', { exact: true }), run = page.getByRole('button', { name: 'Запустить тесты', exact: true });
+	await code.fill('while True:\n    pass\n');
+	await run.click();
+	await code.focus();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('heapq.heap');
+	await expect.poll(() => lines(code)).toEqual(['while True:', '    pass', 'heapq.heap']);
+	await expect(run).toBeDisabled();
+	await expect(page.getByRole('list', { name: 'Результаты тестов' }).getByRole('listitem')).toHaveText(['Тест 1: ✗ Ввод: 1 Верный ответ: 1 Превышено время (2 с)'], { useInnerText: true, timeout: 30_000 });
+	await expect(page.getByRole('alert')).toHaveCount(0);
+	// The completion waits behind the endless run, and the stop of the worker drops it. A completion between the check and the run of a test shows the list and uses the time of the test.
+	await expect(names(page)).toHaveCount(0);
+	await page.keyboard.type('p');
+	await expect(names(page).first()).toHaveText('heappop', { timeout: 30_000 });
 });
