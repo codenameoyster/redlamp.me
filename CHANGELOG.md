@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.1](https://github.com/codenameoyster/redlamp.me/compare/v1.5.0...v1.5.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **web:** show the input example of the task in Мои тесты ([a78726f](https://github.com/codenameoyster/redlamp.me/commit/a78726f3ed3c00198e4e139529323de04aa73dd4))
+* **web:** show the input example of the task in Мои тесты ([053b210](https://github.com/codenameoyster/redlamp.me/commit/053b210c8cd3d6b25dc14cde6a111613d246fed5))
+
 ## [1.5.0](https://github.com/codenameoyster/redlamp.me/compare/v1.4.0...v1.5.0) (2026-10-14)
 
 
