@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/codenameoyster/redlamp.me/compare/v1.1.0...v1.2.0) (2026-10-14)
+
+
+### Features
+
+* **leetcode:** use a function for each test in the Codeforces starter code ([bc5eab8](https://github.com/codenameoyster/redlamp.me/commit/bc5eab872a68c4a4542bc1f289bf3889e1936334))
+* **leetcode:** use a function for each test in the Codeforces starter code ([2bb578d](https://github.com/codenameoyster/redlamp.me/commit/2bb578d47fb179d9dbdbf127fdecd6d92df4f822))
+
 ## [1.1.0](https://github.com/codenameoyster/redlamp.me/compare/v1.0.0...v1.1.0) (2026-10-14)
 
 
