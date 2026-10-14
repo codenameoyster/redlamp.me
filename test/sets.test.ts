@@ -5,7 +5,7 @@ import type { FigureRow, LearningSetDetails, LearningSetSummary, SetTask } from 
 import { glossary } from '../shared/glossary';
 import { parsePy, reprPy } from '../src/leetcode/pyliteral';
 import { mulberry32 } from '../src/leetcode/judge';
-import { generatorOf, referenceOf, sets, taskLabel, taskSlug, tasksOf } from '../src/leetcode/sets';
+import { generatorOf, referenceOf, sets, taskLabel, taskSlug, tasksOf, type Reference } from '../src/leetcode/sets';
 import { expectedOf } from '../src/leetcode/tests';
 import { htmlText } from '../src/leetcode/tutor';
 
@@ -222,6 +222,31 @@ it.each([
 	const response = await request(`/${owner}/${owner === 'homework' ? homeworkId : problemIds[0]}/sets`, 'GET', undefined, student);
 	expect(response.status).toBe(200);
 	expect(await response.json()).toEqual({ chapters, sets: [] });
+});
+
+// Wrong solutions of LeetCode 2462 that pass the examples of the statement. The hidden tests of every seed must reject them.
+function rightTie(costs: number[], k: number, candidates: number) {
+	const left: number[] = [], right: number[] = [], least = (group: number[]) => group.reduce((best, i) => costs[i] < costs[best] || (costs[i] === costs[best] && i < best) ? i : best);
+	let l = 0, r = costs.length - 1, total = 0;
+	for (; l < candidates && l <= r; l++) left.push(l);
+	for (; costs.length - 1 - r < candidates && l <= r; r--) right.push(r);
+	for (let hired = 0; hired < k; hired++) {
+		const fromLeft = !right.length || (left.length > 0 && costs[least(left)] < costs[least(right)]), group = fromLeft ? left : right, i = least(group);
+		group.splice(group.indexOf(i), 1);
+		total += costs[i];
+		if (l <= r) group.push(fromLeft ? l++ : r--);
+	}
+	return total;
+}
+it.each([
+	{ name: 'sum of the k cheapest costs', wrong: (costs: number[], k: number) => [...costs].sort((a, b) => a - b).slice(0, k).reduce((sum, cost) => sum + cost, 0) },
+	{ name: 'tie that goes to the right group', wrong: rightTie },
+])('LeetCode 2462 rejects the $name', ({ wrong }) => {
+	const slug = 'total-cost-to-hire-k-workers', reference = referenceOf(slug) as Extract<Reference, { mode: 'call' }>, generate = generatorOf(slug)!;
+	for (let seed = 1; seed <= 50; seed++) {
+		const small = generate(mulberry32(seed)).filter(input => input.length <= 1000).map(input => parsePy(input) as [number[], number, number]);
+		expect(small.some(([costs, k, candidates]) => wrong(costs, k, candidates) !== reference.solve(costs, k, candidates)), `seed ${seed}`).toBe(true);
+	}
 });
 
 it('card ids are unique across all sets', () => {
