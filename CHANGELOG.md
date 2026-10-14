@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.2](https://github.com/codenameoyster/redlamp.me/compare/v1.5.1...v1.5.2) (2026-10-14)
+
+
+### Bug Fixes
+
+* turn off the public preview URLs of the Worker ([0adc440](https://github.com/codenameoyster/redlamp.me/commit/0adc440e7c3ec93701b7676ccc9640564569528b))
+* turn off the public preview URLs of the Worker ([588fc51](https://github.com/codenameoyster/redlamp.me/commit/588fc51e5f54cee4702d9171f0085eac353eb87b))
+
 ## [1.5.1](https://github.com/codenameoyster/redlamp.me/compare/v1.5.0...v1.5.1) (2026-10-14)
 
 
