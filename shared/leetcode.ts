@@ -39,11 +39,13 @@ export interface Approach {
 	code: string;
 }
 export interface AttemptDocument { notes: string; approaches: Approach[] }
-export interface DraftValue { document: AttemptDocument; acceptance: Acceptance; understanding: Understanding }
+export interface DraftValue { document: AttemptDocument }
 export interface Attempt extends DraftValue {
 	id: string;
 	problemId: string;
 	state: 'draft' | 'saved';
+	acceptance: Acceptance;
+	understanding: Understanding;
 	version: number;
 	createdAt: string;
 	updatedAt: string;

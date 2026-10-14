@@ -1,7 +1,7 @@
 import type { Env } from '../index';
 import { MAX_DOCUMENT_BYTES, newApproach, type Attempt, type AttemptDocument, type AttemptSummary, type SessionUser } from '../../shared/leetcode';
 import { requireRole } from './auth';
-import { changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
+import { changed, HttpError, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
 import { getProblem, searchText } from './problems';
 
 export const attemptColumns = 'id,problem_id AS problemId,state,acceptance,understanding,version,created_at AS createdAt,updated_at AS updatedAt,saved_at AS savedAt';
@@ -78,13 +78,12 @@ export async function handleAttempts(request: Request, env: Env, user: SessionUs
 		changed(results[0]);
 		return Response.json(await getAttempt(env, problemId, id));
 	}
-	const data = object(await readJson(request, 272_384), ['version', 'document', 'acceptance', 'understanding']);
+	// Only the judge and the solved route accept an attempt, so a draft update changes only the document.
+	const data = object(await readJson(request, 272_384), ['version', 'document']);
 	const document = documentValue(data.document);
 	const serialized = JSON.stringify(document);
 	if (new TextEncoder().encode(serialized).byteLength > MAX_DOCUMENT_BYTES) throw new HttpError(413, 'too_large', 'Размер попытки не должен превышать 256 000 байт.');
-	const acceptance = choice(data.acceptance, ['not_submitted', 'not_accepted', 'accepted']);
-	const understanding = choice(data.understanding, ['needs_practice', 'with_help', 'independent']);
-	const row = await env.DB.prepare(`UPDATE attempts SET document=?,search_text=?,acceptance=?,understanding=?,version=version+1,updated_at=? WHERE id=? AND problem_id=? AND state='draft' AND version=? RETURNING ${attemptColumns},document`).bind(serialized, attemptSearch(document), acceptance, understanding, now, id, problemId, integer(data.version)).first<AttemptRow>();
+	const row = await env.DB.prepare(`UPDATE attempts SET document=?,search_text=?,version=version+1,updated_at=? WHERE id=? AND problem_id=? AND state='draft' AND version=? RETURNING ${attemptColumns},document`).bind(serialized, attemptSearch(document), now, id, problemId, integer(data.version)).first<AttemptRow>();
 	if (!row) { await getAttempt(env, problemId, id); throw new HttpError(409, 'conflict', 'Этот черновик изменился. Сравните свою работу с сохранённой копией.'); }
 	return Response.json(attemptValue(row));
 }

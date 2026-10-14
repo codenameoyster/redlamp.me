@@ -5,7 +5,7 @@ import { login, request } from './client';
 let cookie: string, problemId: string, attemptId: string, path: string;
 const approach = { id: '11111111-1111-4111-8111-111111111111', label: 'Counting', idea: 'Count the needed values.', correctness: '', timeComplexity: '', spaceComplexity: '', edgeCases: '', mistakes: '', language: 'Python', code: '  return count\n' };
 const document = { notes: '', approaches: [approach] };
-const value = { document, acceptance: 'accepted', understanding: 'with_help', version: 1 };
+const value = { document, version: 1 };
 beforeEach(async () => {
 	cookie = await login();
 	const problem = await request('/problems', 'POST', { url: 'https://leetcode.com/problems/two-sum/', number: 1, title: 'Two Sum', difficulty: 'easy', topics: [], summary: '' }, cookie);
@@ -26,6 +26,15 @@ it.each([
 	const row = await env.DB.prepare('SELECT version,document FROM attempts WHERE id=?').bind(attemptId).first<{ version: number; document: string }>();
 	expect(row!.version).toBe(finalVersion);
 	expect(JSON.parse(row!.document).notes).toBe(expected === 200 ? 'New note' : '');
+});
+
+it.each([
+	{ name: 'draft update keeps the stored acceptance and understanding', extra: {}, expected: 200 },
+	{ name: 'draft update with an acceptance and an understanding', extra: { acceptance: 'accepted', understanding: 'independent' }, expected: 400 },
+])('$name', async ({ extra, expected }) => {
+	await env.DB.prepare("UPDATE attempts SET acceptance='not_submitted',understanding='needs_practice'").run();
+	expect((await request(path, 'PUT', { ...value, ...extra }, cookie)).status).toBe(expected);
+	expect(await env.DB.prepare('SELECT acceptance,understanding FROM attempts WHERE id=?').bind(attemptId).first()).toEqual({ acceptance: 'not_submitted', understanding: 'needs_practice' });
 });
 
 it.each([
