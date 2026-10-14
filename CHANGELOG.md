@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.4](https://github.com/codenameoyster/redlamp.me/compare/v1.5.3...v1.5.4) (2026-10-14)
+
+
+### Bug Fixes
+
+* **leetcode:** stop the draft save from setting the acceptance ([9870af1](https://github.com/codenameoyster/redlamp.me/commit/9870af1e80dea9d13921115a3eafe8ee6b370838))
+
 ## [1.5.3](https://github.com/codenameoyster/redlamp.me/compare/v1.5.2...v1.5.3) (2026-10-14)
 
 
