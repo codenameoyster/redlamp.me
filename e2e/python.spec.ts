@@ -25,6 +25,20 @@ test('shows no run button to the parent on the student code', async ({ page, not
 	await expect(page.getByRole('button', { name: 'Запустить тесты', exact: true })).toHaveCount(0);
 });
 
+const examples: { name: string; spec: TestSpec; standard: TestCase[]; placeholder: string; rows: number }[] = [
+	{ name: 'shows the first standard input as the example of an own call test', spec: { mode: 'call', method: 'twoSum' }, standard: [{ input: '[[3, 2, 4], 6]', expected: '[1, 2]' }, { input: '[[3, 3], 6]', expected: '[0, 1]' }], placeholder: 'Аргументы списком, например:\n[[3, 2, 4], 6]', rows: 2 },
+	{ name: 'shows all lines of the first standard input as the example of an own stdin test', spec: { mode: 'stdio' }, standard: [{ input: '3\n1 2 3\n', expected: '6' }, { input: '1\n5\n', expected: '5' }], placeholder: 'Входные данные, как в условии, например:\n3\n1 2 3', rows: 3 },
+];
+for (const row of examples) {
+	test(row.name, async ({ page, notebook }) => {
+		await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: row.spec, source: 'set', standard: row.standard, own: [], skeleton: '' } }));
+		await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+		const field = page.getByLabel('Ввод', { exact: true });
+		await expect(field).toHaveAttribute('placeholder', row.placeholder);
+		await expect(field).toHaveAttribute('rows', String(row.rows));
+	});
+}
+
 const storedRuns = [
 	{ name: 'shows the passed mark of the stored run to the parent', passed: 1, text: 'Тесты пройдены' },
 	{ name: 'shows the count of the stored run to the parent', passed: 0, text: 'Последний запуск: пройдено 0 из 1' },
