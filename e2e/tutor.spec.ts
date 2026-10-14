@@ -1,7 +1,7 @@
 import { test, expect, signIn, addMessages, addTask, type TestEnv } from './fixtures';
 import type { Page, Route } from '@playwright/test';
 import type { D1Database } from '@cloudflare/workers-types';
-import type { Problem, TutorEvent } from '../shared/leetcode';
+import type { TutorEvent } from '../shared/leetcode';
 
 const setPath = '/leetcode/sets/permutations-and-combinations', chapterPath = `${setPath}/2`;
 const sse = (...events: TutorEvent[]) => events.map(event => `data: ${JSON.stringify(event)}\n\n`).join('');
@@ -16,12 +16,6 @@ const answer = [
 // The POST goes to this handler. The GET goes to the Worker.
 const onSend = (page: Page, handler: (route: Route) => Promise<void>) => page.route(url => url.pathname === '/leetcode/api/tutor/messages', route => route.request().method() === 'POST' ? handler(route) : route.fallback());
 const messages = (page: Page) => page.getByRole('dialog', { name: 'ИИ-репетитор' }).getByRole('list', { name: 'Сообщения' }).locator(':scope > li');
-
-async function addProblem(page: Page, baseURL: string) {
-	const response = await page.request.post('/leetcode/api/problems', { headers: { Origin: new URL(baseURL).origin }, data: { url: 'https://leetcode.com/problems/two-sum/', number: 1, title: 'Two Sum', difficulty: 'easy', topics: ['Arrays'], summary: 'Find two values with the target sum.' } });
-	expect(response.status()).toBe(201);
-	return (await response.json() as Problem).id;
-}
 
 test('streams an answer, then shows the stored turn', async ({ page, notebook, server }) => {
 	const { DB } = await server.getWorker<TestEnv>().getEnv();
@@ -40,7 +34,7 @@ test('streams an answer, then shows the stored turn', async ({ page, notebook, s
 	await expect(trigger).toHaveAttribute('aria-expanded', 'true');
 	await expect(input).toBeFocused();
 	await expect(panel.getByText('Спросите об этой странице. Репетитор даёт подсказки, а не полные решения.', { exact: true })).toBeVisible();
-	await expect(panel.getByText('Работает через подписку ChatGPT. Родитель может читать этот чат.', { exact: true })).toBeVisible();
+	await expect(panel.getByText('Работает через подписку ChatGPT. Родитель не может читать этот чат.', { exact: true })).toBeVisible();
 	await input.fill('Where do I start?');
 	await panel.getByRole('button', { name: 'Отправить', exact: true }).click();
 	await expect(panel.locator('[aria-busy="true"]')).toContainText('Look at the smallest input.');
@@ -242,49 +236,15 @@ test('opens the chat of the problem on the task page', async ({ page, notebook, 
 	await expect(messages(page).nth(1)).toContainText('Look at the smallest input.');
 });
 
-test('shows the chat read-only to the parent', async ({ page, server, baseURL }) => {
-	const { DB } = await server.getWorker<TestEnv>().getEnv();
-	await signIn(page, 'parent');
-	const id = await addProblem(page, baseURL!);
-	await addMessages(DB, 'problem', id, [{ author: 'student', body: 'Why does this fail?', quote: 'Return the indices.' }, { author: 'assistant', body: 'Check the **second** index.' }]);
-	await page.goto(`/leetcode/problems/${id}`);
-	await page.getByRole('button', { name: 'Читать чат с ИИ', exact: true }).click();
-	const panel = page.getByRole('dialog', { name: 'ИИ-репетитор' });
-	await expect(panel.getByRole('heading', { name: 'ИИ-репетитор' })).toBeFocused();
-	await expect(panel.getByText('Чат ученика. Только чтение.', { exact: true })).toBeVisible();
-	await expect(messages(page)).toHaveCount(2);
-	await expect(messages(page).nth(0)).toContainText('Ученик');
-	await expect(messages(page).nth(0).locator('blockquote')).toHaveText('Return the indices.');
-	await expect(messages(page).nth(1).locator('strong')).toHaveText('second');
-	await expect(panel.getByRole('textbox', { name: 'Сообщение' })).toHaveCount(0);
-	await expect(panel.getByRole('button', { name: 'Отправить' })).toHaveCount(0);
-});
-
-test('lists the chats for the parent and opens one in the panel', async ({ page, server, baseURL }) => {
-	const { DB } = await server.getWorker<TestEnv>().getEnv();
-	await signIn(page, 'parent');
-	const id = await addProblem(page, baseURL!);
-	await addMessages(DB, 'set', 'permutations-and-combinations', [{ author: 'student', body: 'What is a pruned branch?' }], '2026-10-08T10:00:00.000Z');
-	await addMessages(DB, 'problem', id, [{ author: 'student', body: 'Where do I start?' }, { author: 'assistant', body: 'Look at the smallest input.' }]);
-	await page.getByRole('link', { name: 'ИИ-репетитор', exact: true }).click();
-	const rows = page.getByRole('region', { name: 'Чаты' }).getByRole('article');
-	await expect(rows).toHaveCount(2);
-	await expect(rows.nth(0)).toContainText(/Two Sum.*Задача.*2 сообщения/);
-	await expect(rows.nth(1)).toContainText(/Перестановки и сочетания.*Набор.*1 сообщение/);
-	await expect(rows.nth(1).getByRole('link')).toHaveAttribute('href', `${setPath}#tutor`);
-	await rows.nth(0).getByRole('link', { name: 'Two Sum', exact: true }).click();
-	await expect(page).toHaveURL(new RegExp(`/leetcode/problems/${id}#tutor$`));
-	await expect(messages(page).nth(1)).toContainText('Look at the smallest input.');
-	await expect(page.getByRole('button', { name: 'Читать чат с ИИ', exact: true })).toHaveAttribute('aria-expanded', 'true');
-});
-
+const ai = /^(Спросить ИИ|Оценить решение с ИИ)$/;
 const placements = [
-	{ name: 'shows Read AI chat to the parent on the task page', role: 'parent', path: async (DB: D1Database, problemId: string) => `/leetcode/tasks/${(await addTask(DB, problemId)).taskId}`, heading: 'Two Sum', button: 'Читать чат с ИИ', count: 1 },
-	{ name: 'shows Read AI chat to the parent on the set page', role: 'parent', path: async () => setPath, heading: 'Перестановки и сочетания', button: 'Читать чат с ИИ', count: 1 },
-	{ name: 'shows Read AI chat to the parent on the chapter page', role: 'parent', path: async () => chapterPath, heading: 'Глава 2. Перебор: подмножества, перестановки, сочетания', button: 'Читать чат с ИИ', count: 1 },
-	{ name: 'shows no AI button on Today', role: 'student', path: async () => '/leetcode', heading: 'Стройте понимание, задача за задачей.', button: /^(Спросить ИИ|Читать чат с ИИ)$/, count: 0 },
-	{ name: 'shows no AI button on the problem list', role: 'student', path: async () => '/leetcode/problems', heading: 'Задачи', button: /^(Спросить ИИ|Читать чат с ИИ)$/, count: 0 },
-	{ name: 'shows no AI button on the recall page', role: 'student', path: async (_DB: D1Database, problemId: string) => `/leetcode/problems/${problemId}/review`, heading: 'Two Sum', button: /^(Спросить ИИ|Читать чат с ИИ)$/, count: 0 },
+	{ name: 'shows no AI button to the parent on the problem page', role: 'parent', path: async (_DB: D1Database, problemId: string) => `/leetcode/problems/${problemId}`, heading: 'Two Sum' },
+	{ name: 'shows no AI button to the parent on the task page', role: 'parent', path: async (DB: D1Database, problemId: string) => `/leetcode/tasks/${(await addTask(DB, problemId)).taskId}`, heading: 'Two Sum' },
+	{ name: 'shows no AI button to the parent on the set page', role: 'parent', path: async () => setPath, heading: 'Перестановки и сочетания' },
+	{ name: 'shows no AI button to the parent on the chapter page', role: 'parent', path: async () => chapterPath, heading: 'Глава 2. Перебор: подмножества, перестановки, сочетания' },
+	{ name: 'shows no AI button on Today', role: 'student', path: async () => '/leetcode', heading: 'Стройте понимание, задача за задачей.' },
+	{ name: 'shows no AI button on the problem list', role: 'student', path: async () => '/leetcode/problems', heading: 'Задачи' },
+	{ name: 'shows no AI button on the recall page', role: 'student', path: async (_DB: D1Database, problemId: string) => `/leetcode/problems/${problemId}/review`, heading: 'Two Sum' },
 ] as const;
 for (const row of placements) {
 	test(row.name, async ({ page, notebook, server }) => {
@@ -292,7 +252,7 @@ for (const row of placements) {
 		if (row.role === 'parent') await signIn(page, 'parent');
 		await page.goto(path);
 		await expect(page.getByRole('heading', { level: 1, name: row.heading, exact: true })).toBeVisible();
-		await expect(page.getByRole('button', { name: row.button, exact: true })).toHaveCount(row.count);
+		await expect(page.getByRole('button', { name: ai })).toHaveCount(0);
 	});
 }
 
@@ -300,6 +260,13 @@ test('tells the student that the tutor page is for the parent', async ({ page })
 	await signIn(page);
 	await page.goto('/leetcode/tutor');
 	await expect(page.getByText('Эта страница для родителя.', { exact: true })).toBeVisible();
+});
+
+test('shows only the ChatGPT connection on the tutor page of the parent', async ({ page }) => {
+	await signIn(page, 'parent');
+	await page.goto('/leetcode/tutor');
+	await expect(page.getByText('Подключите ChatGPT для репетитора, который даёт подсказки ученику.', { exact: true })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Продолжить с ChatGPT', exact: true })).toBeVisible();
 	await expect(page.getByRole('region', { name: 'Чаты' })).toHaveCount(0);
 });
 
@@ -374,14 +341,9 @@ test('ignores a selection outside the lesson', async ({ page }) => {
 	await expect(explain(page)).toBeHidden();
 });
 
-test('shows no lesson bridge to the parent', async ({ page, server }) => {
-	const { DB } = await server.getWorker<TestEnv>().getEnv();
-	await addMessages(DB, 'set', 'permutations-and-combinations', [{ author: 'student', body: 'What is a circle?' }, { author: 'assistant', body: '```lesson\nТретий шаг нужен, чтобы вернуть path в то состояние, какое было до выбора.\n```' }]);
+test('shows no lesson bridge to the parent', async ({ page }) => {
 	await signIn(page, 'parent');
 	await page.goto(chapterPath);
-	await page.getByRole('button', { name: 'Читать чат с ИИ', exact: true }).click();
-	await expect(messages(page).nth(1).locator('blockquote')).toHaveText('Третий шаг нужен, чтобы вернуть path в то состояние, какое было до выбора.');
-	await expect(page.getByRole('button', { name: 'Показать в уроке' })).toHaveCount(0);
 	await lesson(page).locator('p', { hasText: 'Третий шаг нужен' }).selectText();
 	await expect(page.locator('.lesson-ai')).toHaveCount(0);
 });

@@ -1,23 +1,10 @@
 import { useState } from 'react';
-import type { Page, SessionUser, TutorAccount, TutorThread } from '../shared/leetcode';
+import type { SessionUser, TutorAccount } from '../shared/leetcode';
 import { api, message } from './api';
 import { useResource } from './useResource';
-import { plural } from './text';
 
 export function TutorPage({ user }: { user: SessionUser }) {
-	return <div className="stack"><div className="heading"><div><h1>ИИ-репетитор</h1><p>{user.role === 'parent' ? 'Подключите ChatGPT для репетитора, который даёт подсказки. Читайте чаты ученика.' : 'Эта страница для родителя.'}</p></div></div>{user.role === 'parent' && <><Connection /><Threads /></>}</div>;
-}
-
-const kinds = { problem: 'Задача', set: 'Набор' };
-function Threads() {
-	const [offset, setOffset] = useState(0);
-	const threads = useResource<Page<TutorThread>>(`/tutor/threads?offset=${offset}`);
-	return <section className="card" aria-labelledby="chats-title"><header className="card-head"><h2 id="chats-title">Чаты</h2></header>
-		{threads.error && <p className="error" role="alert">{threads.error}</p>}
-		{threads.data?.items.map(t => <article className="list-row" key={`${t.kind}:${t.id}`}><div className="grow"><h3><a href={`/leetcode/${t.kind}s/${t.id}#tutor`}>{t.title}</a></h3></div><span className="tag">{kinds[t.kind]}</span><span className="small">{plural(t.count, ['сообщение', 'сообщения', 'сообщений'])}</span><span className="small">{new Date(t.lastAt).toLocaleString('ru-RU')}</span></article>)}
-		{threads.data?.items.length === 0 && <p className="empty">Чатов пока нет.</p>}
-		{(offset > 0 || threads.data?.nextOffset != null) && <div className="row card-pad">{offset > 0 && <button onClick={() => setOffset(Math.max(0, offset - 50))} data-tip="Показать более новые чаты.">Новее</button>}{threads.data?.nextOffset != null && <button onClick={() => setOffset(threads.data!.nextOffset!)} data-tip="Показать более старые чаты.">Старее</button>}</div>}
-	</section>;
+	return <div className="stack"><div className="heading"><div><h1>ИИ-репетитор</h1><p>{user.role === 'parent' ? 'Подключите ChatGPT для репетитора, который даёт подсказки ученику.' : 'Эта страница для родителя.'}</p></div></div>{user.role === 'parent' && <Connection />}</div>;
 }
 
 function Connection() {
