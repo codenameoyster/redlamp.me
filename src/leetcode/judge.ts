@@ -1,5 +1,5 @@
 import type { Env } from '../index';
-import type { JudgeOutput, Judgement, SessionUser, TestSpec } from '../../shared/leetcode';
+import { hasWork, type JudgeOutput, type Judgement, type SessionUser, type TestSpec } from '../../shared/leetcode';
 import { requireRole } from './auth';
 import { getAttempt, saveProgress } from './attempts';
 import { changed, HttpError, integer, methods, object, readJson, uuid } from './http';
@@ -56,7 +56,7 @@ export async function handleJudge(request: Request, env: Env, user: SessionUser)
 		if (generate) throw new HttpError(409, 'judged', 'Эту задачу проверяют скрытые тесты. Нажмите «Отправить».');
 		attemptId = uuid(object(await readJson(request), ['attemptId']).attemptId);
 		const { document } = await getAttempt(env, problem.id, attemptId);
-		if (![document.notes, ...document.approaches.flatMap(a => [a.idea, a.correctness, a.mistakes, a.code])].some(value => value.trim())) throw new HttpError(400, 'empty_attempt', 'Добавьте объяснение, заметки или код перед отправкой.');
+		if (!hasWork(document)) throw new HttpError(400, 'empty_attempt', 'Добавьте объяснение, заметки или код перед отправкой.');
 	} else {
 		if (!generate) throw new HttpError(404, 'no_judge', 'У этой задачи нет скрытых тестов.');
 		if (match[2] === 'judge/start') {

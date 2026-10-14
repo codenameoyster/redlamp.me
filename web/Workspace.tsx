@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import type { Approach, Attempt, AttemptSummary, ChapterRef, DraftValue, Feedback, Figure, HomeworkTask, JudgeOutput, Judgement, Page, Problem, ProblemTests, SessionUser, TaskDetails, TestRun } from '../shared/leetcode';
+import { hasWork, type Approach, type Attempt, type AttemptSummary, type ChapterRef, type DraftValue, type Feedback, type Figure, type HomeworkTask, type JudgeOutput, type Judgement, type Page, type Problem, type ProblemTests, type SessionUser, type TaskDetails, type TestRun } from '../shared/leetcode';
 import { api, ApiError, message } from './api';
 import { useResource } from './useResource';
 import { useDraft, type LeaveGuard, type RegisterGuard } from './useDraft';
@@ -80,7 +80,9 @@ export function DraftEditor({ initial, user, registerGuard, saved, task, chapter
 		setBusy(true); setError('');
 		try {
 			const persisted = await draft.flush();
-			if (persisted) await saved(await api<Attempt>(`/problems/${initial.problemId}/solved`, { method: 'POST', body: JSON.stringify({ attemptId: persisted.id }) }), submittable ? 'submit' : 'save');
+			// The server does not know the starter code, so the editor refuses it with the message of the server.
+			if (persisted && !hasWork(persisted.document, tests.data?.skeleton)) setError('Добавьте объяснение, заметки или код перед отправкой.');
+			else if (persisted) await saved(await api<Attempt>(`/problems/${initial.problemId}/solved`, { method: 'POST', body: JSON.stringify({ attemptId: persisted.id }) }), submittable ? 'submit' : 'save');
 		} catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
 	async function repeat() {

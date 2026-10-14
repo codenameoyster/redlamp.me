@@ -401,6 +401,26 @@ test('keeps the starter code when Ctrl+Z undoes more than the typed text', async
 	await expect.poll(() => lines(code)).toEqual(skeleton.split('\n'));
 });
 
+const solved = [
+	{ name: 'refuses Решено for the untouched starter code', time: '', typed: '', result: 'Добавьте объяснение, заметки или код перед отправкой.' },
+	{ name: 'refuses Решено for the starter code with only a time estimate', time: 'O(n)', typed: '', result: 'Добавьте объяснение, заметки или код перед отправкой.' },
+	{ name: 'accepts Решено after an edit of the starter code', time: '', typed: 'return [0, 1]', result: 'Попытка сохранена.' },
+];
+for (const row of solved) {
+	test(row.name, async ({ page, notebook }) => {
+		await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: null, source: 'none', standard: [], own: [], skeleton } }));
+		await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+		const code = page.getByLabel('Код решения', { exact: true });
+		await expect.poll(() => lines(code)).toEqual(skeleton.split('\n'));
+		await page.getByLabel('Время', { exact: true }).fill(row.time);
+		await code.focus();
+		await page.keyboard.press('ControlOrMeta+End');
+		await page.keyboard.type(row.typed);
+		await page.getByRole('button', { name: 'Решено', exact: true }).click();
+		await expect(page.getByText(row.result)).toBeVisible();
+	});
+}
+
 test('describes the keys of the code field', async ({ page, notebook }) => {
 	await expect(page.getByRole('heading', { name: notebook.problem.title })).toBeVisible();
 	await expect(page.getByLabel('Код решения', { exact: true })).toHaveAccessibleDescription(/^Tab или Enter при открытом списке: вставить выбранное имя\. .*Esc и сразу Tab: выйти из поля\.$/);
