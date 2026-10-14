@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.5](https://github.com/codenameoyster/redlamp.me/compare/v1.5.4...v1.5.5) (2026-10-14)
+
+
+### Bug Fixes
+
+* **leetcode:** make open judge seeds stale when the reference answers own tests ([d829511](https://github.com/codenameoyster/redlamp.me/commit/d82951149aa899143edd9eb1d15329518f87b59e))
+
 ## [1.5.4](https://github.com/codenameoyster/redlamp.me/compare/v1.5.3...v1.5.4) (2026-10-14)
 
 
