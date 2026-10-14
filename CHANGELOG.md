@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.3](https://github.com/codenameoyster/redlamp.me/compare/v1.7.2...v1.7.3) (2026-10-14)
+
+
+### Bug Fixes
+
+* **sets:** remove the any-case rule from cf-1097-b ([9a53fcc](https://github.com/codenameoyster/redlamp.me/commit/9a53fcc6e4cd64ee1a550add85a14606091dfb40))
+
 ## [1.7.2](https://github.com/codenameoyster/redlamp.me/compare/v1.7.1...v1.7.2) (2026-10-14)
 
 
