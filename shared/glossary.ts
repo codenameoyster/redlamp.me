@@ -1,15 +1,18 @@
 // The hard words of the sets, each with a plain tip for a student of the 10th class. A pattern finds the word in its inflected forms, but not a longer word with the same start.
 // A word with two meanings in the sets, such as "корень" or "на месте", has no entry.
-// log comes before O(...): a match that overlaps the match of an earlier entry stays plain, so O(log n) gives the tip of log.
+// log comes before O(...): a match that overlaps the match of an earlier entry stays plain, so O(log n) gives the tip of log. For the same reason, priority queue and monotonic deque come before queue and deque.
+// An English name of a data structure is a word of its own: heapq, dequeue, collections.deque, deque(...) and deque.popleft are code and stay plain.
 export const glossary: { pattern: RegExp; tip: string }[] = [
 	{ pattern: /(?<!\p{L})log(?!\p{L})/giu, tip: 'Сколько раз число можно делить пополам, пока не останется 1. Для 100 000 это около 17.' },
 	{ pattern: /(?<!\p{L})O\((?:[^()]|\([^()]*\))*\)/gu, tip: 'Так записывают, как растут время или память, когда растёт n. O(1): не растут, O(n): растут так же, как n.' },
 	{ pattern: /(?<!\p{L})инвариант\p{L}*/giu, tip: 'Утверждение, которое верно перед каждым шагом цикла.' },
 	{ pattern: /(?<!\p{L})метод(?:а|е|у|ом|ы|ов|ам|ами|ах)?(?:\s+класса)?(?!\p{L})/giu, tip: 'Функция, которую вызывают через точку, например q.append(x). В задаче это функция внутри class Solution.' },
-	{ pattern: /(?<!\p{L})куч(?:а|и|е|у|ей|ею|ам|ами|ах)?(?!\p{L})/giu, tip: 'Список, в котором самый маленький элемент всегда стоит первым. Взять его и положить новый можно быстро.' },
-	{ pattern: /(?<!\p{L})дек(?:а|е|у|ом|и|ов|ам|ами|ах)?(?!\p{L})/giu, tip: 'Очередь с двумя концами: класть и брать можно и в начале, и в конце.' },
-	{ pattern: /(?<!\p{L})стек(?:а|е|у|ом|и|ов|ам|ами|ах)?(?!\p{L})/giu, tip: 'Стопка элементов: взять можно только тот, что положили последним.' },
-	{ pattern: /(?<!\p{L})монотонн\p{L}*/giu, tip: 'Числа в нём только убывают или только растут, как ступени лесенки.' },
+	{ pattern: /(?<![\p{L}\p{N}_.])priority\s+queue(?![\p{L}\p{N}_(]|\.\p{L})/giu, tip: 'Ряд элементов, из которого первым берут самый маленький, а не тот, что пришёл раньше. В Python его делают на модуле heapq.' },
+	{ pattern: /(?<![\p{L}\p{N}_.])monotonic\s+deque(?![\p{L}\p{N}_(]|\.\p{L})/giu, tip: 'Ряд с двумя концами, в котором числа идут только по убыванию или только по возрастанию.' },
+	{ pattern: /(?<![\p{L}\p{N}_.])heap(?![\p{L}\p{N}_(]|\.\p{L})/giu, tip: 'Список, в котором самый маленький элемент всегда стоит первым. Взять его и положить новый можно быстро.' },
+	{ pattern: /(?<![\p{L}\p{N}_.])deque(?![\p{L}\p{N}_(]|\.\p{L})/giu, tip: 'Ряд элементов с двумя концами: класть и брать можно и в начале, и в конце.' },
+	{ pattern: /(?<![\p{L}\p{N}_.])queue(?![\p{L}\p{N}_(]|\.\p{L})/giu, tip: 'Ряд элементов, как очередь в магазине: новый встаёт в конец, а берут из начала.' },
+	{ pattern: /(?<![\p{L}\p{N}_.])stack(?![\p{L}\p{N}_(]|\.\p{L})/giu, tip: 'Стопка элементов: взять можно только тот, что положили последним.' },
 	{ pattern: /(?<!\p{L})жадн\p{L}*/giu, tip: 'На каждом шаге берут то, что лучше всего сейчас, и не возвращаются назад.' },
 	{ pattern: /(?<!\p{L})моделир\p{L}*/giu, tip: 'Повторить в программе шаг за шагом процесс из условия.' },
 	{ pattern: /(?<!\p{L})кортеж\p{L}*/giu, tip: "Несколько значений в круглых скобках, например (3, 'a'). Его нельзя изменить." },
