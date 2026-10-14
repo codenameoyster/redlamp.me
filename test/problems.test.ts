@@ -61,6 +61,26 @@ it.each([
 	expect(await (await request(`/problems/${problem.id}`, 'GET', undefined, cookie)).json()).toMatchObject({ title, version: 2 });
 });
 
+const moveZeroes = 'https://leetcode.com/problems/move-zeroes/';
+const insertAttempt = env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,?,'{}','',?,'independent','now','now')");
+it.each([
+	{ name: 'URL change of a problem without work', attempt: null, task: null, url: moveZeroes, status: 200, slug: 'move-zeroes' },
+	{ name: 'URL change of a problem with a draft', attempt: 'draft', task: null, url: moveZeroes, status: 200, slug: 'move-zeroes' },
+	{ name: 'URL change of a problem with an accepted attempt', attempt: 'accepted', task: null, url: moveZeroes, status: 409, slug: 'two-sum' },
+	{ name: 'URL change of a problem with an assigned task', attempt: null, task: 'assigned', url: moveZeroes, status: 409, slug: 'two-sum' },
+	{ name: 'URL change of a problem with a completed task', attempt: null, task: 'completed', url: moveZeroes, status: 409, slug: 'two-sum' },
+	{ name: 'URL change of a problem with a cancelled task', attempt: null, task: 'cancelled', url: moveZeroes, status: 200, slug: 'move-zeroes' },
+	{ name: 'other form of the same URL of a problem with an accepted attempt', attempt: 'accepted', task: null, url: `${input.url}description/`, status: 200, slug: 'two-sum' },
+])('$name', async ({ attempt, task, url, status, slug }) => {
+	const problem = await (await request('/problems', 'POST', input, cookie)).json() as { id: string };
+	if (attempt) await insertAttempt.bind(crypto.randomUUID(), problem.id, attempt === 'draft' ? 'draft' : 'saved', attempt === 'draft' ? 'not_submitted' : 'accepted').run();
+	if (task) await addTask(problem.id, task);
+	const response = await request(`/problems/${problem.id}`, 'PATCH', { ...input, url, version: 1, title: 'Updated' }, cookie);
+	expect(response.status).toBe(status);
+	if (status === 409) expect(await response.json()).toMatchObject({ error: { code: 'slug_locked' } });
+	expect(await (await request(`/problems/${problem.id}`, 'GET', undefined, cookie)).json()).toMatchObject({ slug, title: status === 200 ? 'Updated' : input.title });
+});
+
 it('archives a problem after its active homework completes', async () => {
 	const problem = await (await request('/problems', 'POST', input, cookie)).json() as { id: string };
 	const path = `/problems/${problem.id}`;

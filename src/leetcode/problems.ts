@@ -94,6 +94,8 @@ export async function handleProblems(request: Request, env: Env): Promise<Respon
 	if (id) {
 		const duplicate = await env.DB.prepare('SELECT id FROM problems WHERE slug=? AND id<>?').bind(value.slug, id).first();
 		if (duplicate) throw new HttpError(409, 'duplicate_problem', 'Эта задача уже есть в тетради.');
+		// The judge and «Решено» follow the slug, so an accepted problem or a problem in homework keeps its slug.
+		if (await env.DB.prepare(`SELECT 1 FROM problems p WHERE id=? AND slug<>? AND (${solvedSQL} OR EXISTS(SELECT 1 FROM homework_tasks WHERE problem_id=p.id AND state<>'cancelled'))`).bind(id, value.slug).first()) throw new HttpError(409, 'slug_locked', 'Ссылку принятой задачи или задачи из домашней работы изменить нельзя.');
 		changed(await env.DB.prepare('UPDATE problems SET slug=?,number=?,title=?,difficulty=?,topics=?,summary=?,search_text=?,version=version+1,updated_at=? WHERE id=? AND version=?').bind(value.slug, value.number, value.title, value.difficulty, JSON.stringify(value.topics), value.summary, search, now, id, integer(data.version)).run());
 		return Response.json(await getProblem(env, id));
 	}
