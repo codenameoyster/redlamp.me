@@ -17,10 +17,8 @@ test('passes a deck with 7 of 8 and waits an hour for the next attempt', async (
 	await expect(deck.getByText('Не пройден', { exact: true })).toBeVisible();
 	await deck.getByRole('link', { name: 'Начать', exact: true }).click();
 	await expect(page.getByText('Карточка 1 из 8')).toBeVisible();
-	await page.getByRole('button', { name: 'Спросить ИИ', exact: true }).click();
-	const panel = page.getByRole('dialog', { name: 'ИИ-репетитор' });
-	await expect(panel.getByText('Спросите об этой странице. Репетитор даёт подсказки, а не полные решения.', { exact: true })).toBeVisible();
-	await panel.getByRole('button', { name: 'Закрыть', exact: true }).click();
+	// A graded round has no AI tutor.
+	await expect(page.getByRole('button', { name: 'Спросить ИИ', exact: true })).toHaveCount(0);
 	await answer(page, 1, '500'); // pc1-product-rule
 	await answer(page, 2, '24'); // pc1-sum-rule, wrong
 	await answer(page, 3, ' 48 ', true); // pc1-factorial
