@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/codenameoyster/redlamp.me/compare/v1.6.0...v1.7.0) (2026-10-14)
+
+
+### Features
+
+* **web:** add a tab icon to the notebook ([a818613](https://github.com/codenameoyster/redlamp.me/commit/a818613cf47ee4d30071e48cd5b979c78c1d5dab))
+
 ## [1.6.0](https://github.com/codenameoyster/redlamp.me/compare/v1.5.5...v1.6.0) (2026-10-14)
 
 
