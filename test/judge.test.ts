@@ -95,12 +95,19 @@ it.each([
 });
 
 it.each([
-	{ name: 'seed of a started check', start: true, replay: false, status: 200, code: null },
-	{ name: 'seed that the server did not give', start: false, replay: false, status: 409, code: 'stale_seed' },
-	{ name: 'seed used for a second verdict', start: true, replay: true, status: 409, code: 'stale_seed' },
-])('$name', async ({ start, replay, status, code }) => {
+	{ name: 'seed of a started check', start: true, replay: false, answered: null, status: 200, code: null },
+	{ name: 'seed that the server did not give', start: false, replay: false, answered: null, status: 409, code: 'stale_seed' },
+	{ name: 'seed used for a second verdict', start: true, replay: true, answered: null, status: 409, code: 'stale_seed' },
+	{ name: 'seed whose inputs the reference answered as own tests', start: true, replay: false, answered: 'same', status: 409, code: 'stale_seed' },
+	{ name: 'seed whose inputs another problem answered as own tests', start: true, replay: false, answered: 'other', status: 409, code: 'stale_seed' },
+])('$name', async ({ start, replay, answered, status, code }) => {
 	const seed = start ? (await (await request(`/problems/${problemId}/judge/start`, 'POST', undefined, student)).json() as { seed: number }).seed : 2, outputs = generate(mulberry32(seed)).map(() => ({ value: '[9, 9]' }));
 	if (replay) await request(`/problems/${problemId}/judge`, 'POST', { seed, attemptId, outputs }, student);
+	if (answered) {
+		const id = answered === 'same' ? problemId : crypto.randomUUID();
+		if (answered === 'other') await insertProblem.bind(id, 'two-sum').run();
+		expect((await request(`/problems/${id}/tests/expected`, 'POST', { inputs: generate(mulberry32(seed)) }, student)).status).toBe(200);
+	}
 	const response = await request(`/problems/${problemId}/judge`, 'POST', { seed, attemptId, outputs }, student);
 	expect(response.status).toBe(status);
 	expect(await response.json()).toMatchObject(code ? { error: { code } } : { verdict: 'wrong', failed: { index: 0 } });

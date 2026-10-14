@@ -53,6 +53,8 @@ export async function handleTests(request: Request, env: Env): Promise<Response 
 		const { inputs } = object(await readJson(request, 409_600), ['inputs']);
 		if (!Array.isArray(inputs) || inputs.length > 20) throw new HttpError(400, 'invalid_input', 'Проверьте поля запроса.');
 		const reference = referenceOf(problem.slug);
+		// The inputs can be the hidden inputs of an open judge seed. A slug can move to another problem, so the answers make the seeds of all problems stale.
+		await env.DB.prepare('DELETE FROM judge_runs').run();
 		return Response.json({ expected: inputs.map(input => { text(input, 10_000, true); return reference ? expectedOf(reference, input) : null; }) });
 	}
 	if (match[2]) {
