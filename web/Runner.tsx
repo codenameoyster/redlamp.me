@@ -54,7 +54,8 @@ export function OwnTests({ problemId, tests, changed }: { problemId: string; tes
 		setBusy(true); setError('');
 		try { await api(`/problems/${problemId}/tests${path}`, init); changed(); return true; } catch (error) { setError(message(error)); return false; } finally { setBusy(false); }
 	}
-	const call = tests.spec?.mode === 'call';
+	// The first standard test is an input example in the format of this task. The field is high enough for all lines of the example.
+	const example = tests.standard[0]?.input.trimEnd(), placeholder = `${tests.spec?.mode === 'call' ? 'Аргументы списком' : 'Входные данные, как в условии'}${example ? `, например:\n${example}` : ''}`;
 	return <section className="card card-pad stack"><h2>Мои тесты</h2>{error && <p className="error" role="alert">{error}</p>}
 		{tests.own.length > 0 ? <ol className="messages" aria-label="Мои тесты">{tests.own.map((test, index) => <li key={test.id}>
 			<strong>Тест {tests.standard.length + index + 1}</strong>
@@ -62,7 +63,7 @@ export function OwnTests({ problemId, tests, changed }: { problemId: string; tes
 			<button type="button" disabled={busy} aria-label={`Удалить тест ${tests.standard.length + index + 1}`} onClick={() => void send(`/${test.id}`, { method: 'DELETE' })} data-tip="Удалить этот тест.">Удалить</button>
 		</li>)}</ol> : <p>Своих тестов пока нет.</p>}
 		<form className="stack" onSubmit={async event => { event.preventDefault(); if (await send('', { method: 'POST', body: JSON.stringify({ input }) })) setInput(''); }}>
-			<label>Ввод<textarea value={input} required maxLength={10_000} placeholder={call ? 'Аргументы списком, например [[2, 7, 11, 15], 9]' : 'Входные данные, как в условии'} onChange={event => setInput(event.target.value)} /></label>
+			<label>Ввод<textarea value={input} required maxLength={10_000} rows={placeholder.split('\n').length} placeholder={placeholder} onChange={event => setInput(event.target.value)} /></label>
 			<button disabled={busy} data-tip="Добавить ваш тест к этой задаче.">Добавить тест</button>
 		</form>
 	</section>;
