@@ -15,7 +15,7 @@ function stored() { try { return localStorage.getItem('leetcode:tutor') === 'ope
 const said = (body: string, quote: string | null) => <>{quote && <blockquote>{quote}</blockquote>}<p className="prose">{body}</p></>;
 
 // The chat of the student. The pages render it only for the student.
-export function Tutor({ context, title, flush, quote, lesson, evaluate }: { context: { kind: TutorKind; id: string }; title: string; flush?: () => Promise<unknown> | undefined; quote?: string; lesson?: RefObject<HTMLElement | null>; evaluate?: boolean }) {
+export function Tutor({ context, title, flush, lesson, evaluate }: { context: { kind: TutorKind; id: string }; title: string; flush?: () => Promise<unknown> | undefined; lesson?: RefObject<HTMLElement | null>; evaluate?: boolean }) {
 	const bridge = lesson !== undefined, path = `/tutor/messages?kind=${context.kind}&id=${encodeURIComponent(context.id)}`;
 	const dialog = useRef<HTMLDialogElement>(null), trigger = useRef<HTMLButtonElement>(null), input = useRef<HTMLTextAreaElement>(null), log = useRef<HTMLDivElement>(null);
 	const [open, setOpen] = useState(false), [text, setText] = useState(''), [error, setError] = useState(''), [status, setStatus] = useState(''), [marked, setMarked] = useState('');
@@ -93,7 +93,7 @@ export function Tutor({ context, title, flush, quote, lesson, evaluate }: { cont
 				{messages.data && !items.length && !pending && <p className="empty">Спросите об этой странице. Репетитор даёт подсказки, а не полные решения.</p>}
 				{(error || messages.error) && <p className="error" role="alert">{error || messages.error}</p>}
 			</div>
-			<form className="tutor-compose" onSubmit={event => { event.preventDefault(); input.current!.focus(); void ask(text, quote ?? null); }}>
+			<form className="tutor-compose" onSubmit={event => { event.preventDefault(); input.current!.focus(); void ask(text, null); }}>
 				<label>Сообщение<textarea aria-label="Сообщение" ref={input} value={text} onChange={event => setText(event.target.value)} maxLength={4000} required onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form!.requestSubmit(); } }} /><Dictation /></label>
 				<div className="row spread"><small>Работает через подписку ChatGPT. Родитель не может читать этот чат.</small><button className="primary" disabled={Boolean(pending)} data-tip="Отправить сообщение ИИ-репетитору.">Отправить</button></div>
 			</form>

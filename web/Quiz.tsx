@@ -4,7 +4,6 @@ import { api, ApiError, message } from './api';
 import { useResource } from './useResource';
 import { plural } from './text';
 import { Code } from './Code';
-import { Tutor } from './Tutor';
 import { Terms } from './Terms';
 
 const shown = (card: Card) => card.type === 'short' ? card.answer : card.options[card.answer];
@@ -36,7 +35,6 @@ function CardList({ slug }: { slug: string }) {
 	</div>;
 }
 
-// The deck slug is the set slug plus the chapter number; the tutor gets the set context.
 // The page keeps the answers and sends all of them after the last card.
 function Round({ slug }: { slug: string }) {
 	const round = useResource<QuizRound>(`/quiz/${slug}`);
@@ -52,7 +50,7 @@ function Round({ slug }: { slug: string }) {
 	}
 	if (!round.data) return <p role="status">{round.error || 'Открываем колоду...'}</p>;
 	const given = (item: QuizCard) => item.type === 'short' ? answers[item.id] : item.options[answers[item.id] as number];
-	return <div className="stack"><div className="heading"><div><p className="small">{attempt ? 'Квиз завершён' : card ? `Карточка ${index + 1} из ${cards.length}` : 'Квиз закрыт'}</p><h1>{round.data.title}</h1></div><div className="row"><Tutor context={{ kind: 'set', id: slug.replace(/-[0-9]+$/, '') }} title={round.data.title} quote={card?.prompt} /><a className="button" href="/leetcode/quiz" data-tip="Вернуться к списку колод. Ответы до последней карточки не сохраняются.">Закончить</a></div></div>
+	return <div className="stack"><div className="heading"><div><p className="small">{attempt ? 'Квиз завершён' : card ? `Карточка ${index + 1} из ${cards.length}` : 'Квиз закрыт'}</p><h1>{round.data.title}</h1></div><a className="button" href="/leetcode/quiz" data-tip="Вернуться к списку колод. Ответы до последней карточки не сохраняются.">Закончить</a></div>
 		{card && <><progress aria-label="Прогресс квиза" value={index} max={cards.length} /><section className="card card-pad stack quiz-card"><p className="prose"><Terms text={card.prompt} /></p>
 			{card.type === 'code' && <Code language={card.language} text={card.code} blank />}
 			{/* The next card shows its options at the same place, so the second click of a double click is ignored. */}
