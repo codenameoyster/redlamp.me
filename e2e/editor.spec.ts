@@ -374,6 +374,18 @@ test('moves the focus out of a read-only code field with Tab', async ({ page, no
 	await expect(code).not.toBeEditable();
 });
 
+test('keeps the focus on the copy button when the tests load', async ({ page, notebook }) => {
+	let release!: () => void;
+	const held = new Promise<void>(resolve => { release = resolve; });
+	await page.route('**/leetcode/api/problems/*/tests', async route => { await held; await route.fulfill({ json: { spec: { mode: 'call', method: 'twoSum' }, source: 'set', standard: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], own: [], skeleton: '' } }); });
+	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+	const copy = page.getByRole('button', { name: 'Скопировать код', exact: true });
+	await copy.focus();
+	release();
+	await expect(page.getByRole('button', { name: 'Запустить тесты', exact: true })).toBeVisible();
+	await expect(copy).toBeFocused();
+});
+
 test('keeps the starter code when Ctrl+Z undoes more than the typed text', async ({ page, notebook }) => {
 	await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: null, source: 'none', standard: [], own: [], skeleton } }));
 	await page.goto(`/leetcode/problems/${notebook.problem.id}`);

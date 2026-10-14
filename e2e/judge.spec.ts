@@ -79,3 +79,16 @@ test('schedules more practice and shows the review date', async ({ page, noteboo
 	const [date, button] = [await shown.boundingBox(), await page.getByRole('button', { name: 'Нужно потренироваться', exact: true }).boundingBox()];
 	expect(date!.y).toBeLessThan(button!.y + button!.height);
 });
+
+test('shows the code buttons in one row and the practice button below the own tests', async ({ page, notebook }) => {
+	await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: { mode: 'call', method: 'twoSum' }, source: 'set', standard: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], own: [], skeleton: '' } }));
+	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+	const button = (name: string) => page.getByRole('button', { name, exact: true });
+	await expect(button('Отправить')).toBeVisible();
+	const [copy, run, send] = await Promise.all(['Скопировать код', 'Запустить тесты', 'Отправить'].map(name => button(name).boundingBox()));
+	expect([run!.y, send!.y]).toEqual([copy!.y, copy!.y]);
+	expect(copy!.x).toBeLessThan(run!.x);
+	expect(run!.x).toBeLessThan(send!.x);
+	const own = (await page.locator('section', { has: page.getByRole('heading', { name: 'Мои тесты', exact: true }) }).boundingBox())!;
+	expect((await button('Нужно потренироваться').boundingBox())!.y).toBeGreaterThanOrEqual(own.y + own.height);
+});
