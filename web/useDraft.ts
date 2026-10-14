@@ -5,7 +5,7 @@ import { api, ApiError, message } from './api';
 export interface LeaveGuard { flush(): Promise<Attempt | null>; discard(): void }
 export type RegisterGuard = (guard: LeaveGuard | null) => void;
 type Recovery = { attemptId: string; baseVersion: number; value: DraftValue; editedAt: string };
-function content(attempt: DraftValue): DraftValue { return { document: attempt.document, acceptance: attempt.acceptance, understanding: attempt.understanding }; }
+function content(attempt: DraftValue): DraftValue { return { document: attempt.document }; }
 
 export function useDraft(initial: Attempt, user: SessionUser) {
 	const [value, setValue] = useState(() => content(initial));
@@ -101,7 +101,7 @@ export function useDraft(initial: Attempt, user: SessionUser) {
 		recovering.current = false; setRecovery(null);
 		// The recovered edits stay based on the recovery version until the student resolves the conflict.
 		if (recovery.baseVersion !== confirmed.current.version || initial.state !== 'draft') { conflicted(confirmed.current); confirmed.current = { ...confirmed.current, version: recovery.baseVersion }; }
-		change(recovery.value);
+		change(content(recovery.value));
 	}
 	function signIn() {
 		if (!store()) return;

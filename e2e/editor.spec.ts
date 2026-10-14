@@ -92,8 +92,8 @@ test('marks the attempt solved and keeps the work in a new copy', async ({ page,
 });
 
 test('keeps parent attempts read-only without recovery', async ({ page, notebook }) => {
-	const { id, problemId, version, document, acceptance, understanding } = notebook.attempt;
-	const value = { document: { ...document, approaches: [{ ...document.approaches[0], idea: 'Recovered explanation' }] }, acceptance, understanding };
+	const { id, problemId, version, document } = notebook.attempt;
+	const value = { document: { ...document, approaches: [{ ...document.approaches[0], idea: 'Recovered explanation' }] } };
 	await page.evaluate(recovery => sessionStorage.setItem(`leetcode:draft:parent-test:${recovery.problemId}`, JSON.stringify(recovery.copy)), { problemId, copy: { attemptId: id, baseVersion: version, value, editedAt: new Date().toISOString() } });
 	await signIn(page, 'parent');
 	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
