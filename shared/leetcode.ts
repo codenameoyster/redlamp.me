@@ -122,6 +122,10 @@ export interface Game { xp: number; level: number; levelXp: number; nextLevelXp:
 export function newApproach(): Approach {
 	return { id: crypto.randomUUID(), label: '', idea: '', correctness: '', timeComplexity: '', spaceComplexity: '', edgeCases: '', mistakes: '', language: '', code: '' };
 }
+// The notes, an explanation or code are work. The starter code without a change is not work.
+export function hasWork(document: AttemptDocument, starter = ''): boolean {
+	return [document.notes, ...document.approaches.flatMap(a => [a.idea, a.correctness, a.mistakes, a.code.trim() === starter.trim() ? '' : a.code])].some(value => value.trim());
+}
 export async function sha256(value: string): Promise<string> {
 	return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))), byte => byte.toString(16).padStart(2, '0')).join('');
 }
