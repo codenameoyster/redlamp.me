@@ -17,6 +17,11 @@ const handle = async ({ data }: MessageEvent) => {
 		const { python, ruff, check, run, words, complete } = await ready, start = performance.now();
 		if (data.type === 'run') return postMessage({ id: data.id, ...JSON.parse(run(data.code, JSON.stringify(data.spec), JSON.stringify(data.test))), ms: Math.round(performance.now() - start) });
 		if (data.type === 'words') return postMessage({ id: data.id, words: JSON.parse(words()) });
+		if (data.type === 'format') {
+			try { return postMessage({ id: data.id, code: ruff.format(data.code) }); }
+			// The Ruff parser can stop after the line of the error, for example after an unclosed bracket. compile() gives the line that the live check shows.
+			catch { return postMessage({ id: data.id, line: JSON.parse(check(data.code))[0].line }); }
+		}
 		if (data.type === 'complete') {
 			await (jedi ??= python.loadPackage('jedi'));
 			return postMessage({ id: data.id, names: JSON.parse(complete(data.code, data.line, data.column)) });

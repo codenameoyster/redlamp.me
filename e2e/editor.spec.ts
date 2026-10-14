@@ -240,6 +240,64 @@ test('copies the code', async ({ page, context, notebook }) => {
 	expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('print(1)\n');
 });
 
+// The formatted code follows the default style of the Ruff formatter: https://docs.astral.sh/ruff/formatter/#style-guide
+// The line of a syntax error is the line of CPython 3.14 compile(), as in the list under the editor.
+const formats = [
+	{ name: 'formats the code with Ruff', code: 'x=1;y=[1,2 ,3]', message: '', formatted: 'x = 1\ny = [1, 2, 3]\n', keys: [], expected: 'x = 1\ny = [1, 2, 3]\n', shown: 0 },
+	{ name: 'gives the old code back with Ctrl+Z after the format', code: 'x=1;y=[1,2 ,3]', message: '', formatted: 'x = 1\ny = [1, 2, 3]\n', keys: ['ControlOrMeta+Z'], expected: 'x=1;y=[1,2 ,3]', shown: 0 },
+	{ name: 'keeps code with a syntax error and names its line', code: 'x = 1\ndef f(:\n    pass', message: 'Не удалось отформатировать: ошибка в строке 2.', formatted: 'x = 1\ndef f(:\n    pass', keys: [], expected: 'x = 1\ndef f(:\n    pass', shown: 1 },
+	{ name: 'names the line of an unclosed bracket', code: 'n = int(input())\nprint(sum(range(n))\n', message: 'Не удалось отформатировать: ошибка в строке 2.', formatted: 'n = int(input())\nprint(sum(range(n))\n', keys: [], expected: 'n = int(input())\nprint(sum(range(n))\n', shown: 1 },
+	{ name: 'removes the format message after a change of the code', code: 'x = 1\ndef f(:\n    pass', message: 'Не удалось отформатировать: ошибка в строке 2.', formatted: 'x = 1\ndef f(:\n    pass', keys: ['ControlOrMeta+End', 'Backspace'], expected: 'x = 1\ndef f(:\n    pas', shown: 0 },
+];
+for (const row of formats) {
+	test(row.name, async ({ page, notebook }) => {
+		await expect(page.getByRole('heading', { name: notebook.problem.title })).toBeVisible();
+		const code = page.getByLabel('Код решения', { exact: true });
+		await code.fill(row.code);
+		await page.getByRole('button', { name: 'Форматировать', exact: true }).click();
+		if (row.message) await expect(page.getByText(row.message, { exact: true })).toBeVisible({ timeout: 30_000 });
+		await expect.poll(() => lines(code), { timeout: 30_000 }).toEqual(row.formatted.split('\n'));
+		await code.focus();
+		for (const key of row.keys) await page.keyboard.press(key);
+		await expect.poll(() => lines(code)).toEqual(row.expected.split('\n'));
+		await expect(page.getByText(/^Не удалось отформатировать/)).toHaveCount(row.shown);
+		await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
+		await page.reload();
+		await expect.poll(() => lines(code)).toEqual(row.expected.split('\n'));
+	});
+}
+
+// The parent view and the review page show the code read-only. The recovery copy locks the field, and the fieldset disables the button.
+const fixedCode = [
+	{ name: 'shows no format button to the parent', buttons: 0, open: async (page: Page, problemId: string) => {
+		await signIn(page, 'parent');
+		await page.goto(`/leetcode/problems/${problemId}`);
+	} },
+	{ name: 'shows no format button on the review page', buttons: 0, open: async (page: Page) => {
+		await page.getByLabel('Код решения', { exact: true }).fill('x=1');
+		await page.getByRole('button', { name: 'Решено', exact: true }).click();
+		await expect(page.getByText('Попытка сохранена.', { exact: true })).toBeVisible();
+		await page.getByRole('link', { name: 'Повторить задачу' }).click();
+		await page.getByRole('button', { name: 'Показать сохранённую работу' }).click();
+	} },
+	{ name: 'disables the format button while the field is locked', buttons: 1, open: async (page: Page) => {
+		await page.route('**/attempts/*', route => route.request().method() === 'PUT' ? route.abort() : route.continue());
+		await page.getByLabel('Основная идея', { exact: true }).fill('Recover this explanation');
+		await expect(page.getByRole('button', { name: 'Повторить сохранение' })).toBeVisible();
+		page.once('dialog', dialog => dialog.accept());
+		await page.reload();
+		await expect(page.getByRole('button', { name: 'Восстановить несохранённую работу' })).toBeVisible();
+	} },
+];
+for (const row of fixedCode) {
+	test(row.name, async ({ page, notebook }) => {
+		await row.open(page, notebook.problem.id);
+		await expect(page.getByLabel('Код решения', { exact: true })).not.toBeEditable();
+		await expect(page.getByRole('button', { name: 'Форматировать', exact: true })).toHaveCount(row.buttons);
+		await expect(page.getByRole('button', { name: 'Форматировать', exact: true, disabled: false })).toHaveCount(0);
+	});
+}
+
 const skeleton = 'class Solution:\n    def twoSum(self, nums: list[int], target: int) -> list[int]:\n        ';
 const skeletons = [
 	{ name: 'fills an empty working copy with the starter code', code: '', expected: skeleton },

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { acceptCompletion, autocompletion, closeCompletion, completeFromList, ifNotIn, selectedCompletion, type CompletionContext, type CompletionSource } from '@codemirror/autocomplete';
 import { Compartment, countColumn, EditorSelection, EditorState, Prec, Transaction } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers } from '@codemirror/view';
@@ -58,8 +58,9 @@ const tab = ({ state, dispatch }: EditorView) => {
 const access = (readOnly: boolean, locked: boolean) => [EditorState.readOnly.of(readOnly || locked), EditorView.editable.of(!readOnly && !locked), EditorView.contentAttributes.of(readOnly ? { tabindex: '0' } : { 'aria-describedby': hint }), readOnly || locked ? [] : completion];
 
 // Python 3.14 raises TabError for a tab under a block with 4 spaces, so Tab inserts spaces up to the next stop of 4 columns and Shift+Tab removes 4 spaces. Escape and then Tab moves the focus out: https://codemirror.net/examples/tab/
-export function CodeField({ value, readOnly, locked = false, onChange }: { value: string; readOnly: boolean; locked?: boolean; onChange: (value: string) => void }) {
-	const parent = useRef<HTMLDivElement>(null), view = useRef<EditorView>(null), change = useRef(onChange);
+// A change through the view ref goes to onChange and to the undo history, as a change of the student.
+export function CodeField({ value, readOnly, locked = false, onChange, view }: { value: string; readOnly: boolean; locked?: boolean; onChange: (value: string) => void; view: RefObject<EditorView | null> }) {
+	const parent = useRef<HTMLDivElement>(null), change = useRef(onChange);
 	change.current = onChange;
 	useEffect(() => {
 		const editor = new EditorView({ parent: parent.current!, state: EditorState.create({ doc: value, extensions: [
