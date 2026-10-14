@@ -29,6 +29,7 @@ const cases = [
 	{ name: 'signed-in lessons API', path: '/leetcode/api/lessons', signedIn: true, status: 404, type: 'application/json' },
 	{ name: 'login shell', path: '/leetcode/login', status: 200, type: 'text/html', session: null },
 	{ name: 'login script asset', path: '/leetcode/assets/main.js', status: 200, asset: true },
+	{ name: 'tab icon asset', path: '/leetcode/assets/icon.svg', status: 200, type: 'image/svg+xml', asset: true },
 	{ name: 'asset path with encoded slash', path: '/leetcode/assets%2Fmain.js', status: 307, location: '/leetcode/assets/main.js', asset: true },
 	{ name: 'asset path with encoded letter', path: '/leetcode/%61ssets/main.js', status: 307, location: '/leetcode/assets/main.js', asset: true },
 	{ name: 'public fallback', path: '/', status: 200 },
