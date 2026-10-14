@@ -2,7 +2,7 @@
 
 The private notebook at `https://redlamp.me/leetcode` supports one parent and one student. Use LeetCode for code runs and submissions. Use this notebook for explanations, saved attempts, homework, feedback, learning sets, and review reminders.
 
-The application uses the existing Worker, one D1 database, React, and Bun. Workers Free and D1 Free require no billing subscription for this setup. Long answers of the AI tutor can need Workers Paid. See [AI tutor](#ai-tutor).
+The application uses the existing Worker, one D1 database, React, and Bun. The account uses Workers Paid, which includes D1. By default, each request can use up to 30 seconds of CPU time ([CPU time](https://developers.cloudflare.com/workers/platform/limits/#cpu-time)).
 
 ## Local setup
 
@@ -120,8 +120,6 @@ Only the student can read and use the chats. The parent cannot read them, and th
 
 Each question of the student goes to OpenAI under the ChatGPT account of the parent, with the earlier messages of the chat and the context of the open page. This context can contain the problem, the LeetCode statement, the homework instructions, the notes and code of the student, and the lesson text. For a problem in a set chapter, the context also has the lesson text of the first such chapter. The tutor uses the same plan limits as the parent's own ChatGPT and Codex use. On ChatGPT Plus, all apps share one five-hour limit. Use **Manage usage** to see the usage.
 
-The Worker reads each part of a streamed answer, so the CPU time of a turn increases with the length of the answer. On the deployed Worker, send a question on the page with the largest lesson and get a long answer with a diagram. Make sure that the answer arrives in parts. Then read the CPU time of the request in the Cloudflare dashboard. If long answers exceed the Workers Free limit of 10 ms CPU per request, use Workers Paid.
-
 The connection stays valid while the tutor is in use. After 30 days with no tutor use, the refresh token expires. Then connect again.
 
 **Disconnect** revokes the ChatGPT tokens and removes them from D1. If ChatGPT does not confirm the revocation, remove the app in the ChatGPT settings. OpenAI does not tell the notebook about a removal in the ChatGPT settings.
@@ -178,7 +176,7 @@ The hidden tests or **Решено** set the acceptance, and the understanding i
 
 ## Cloudflare setup
 
-Use an account with Workers Free and D1 Free. Check the account's existing usage before deployment. The application uses no R2 storage or paid service. Dictation uses Workers AI. Its free allocation is 10,000 neurons a day, about 214 minutes of dictation with `@cf/openai/whisper-large-v3-turbo` ([pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)). `bun run dev` also sends dictation to Workers AI. The tests do not.
+Use an account with Workers Paid. It includes D1. Check the account's existing usage before deployment. The application uses no R2 storage. Dictation uses Workers AI. Its free allocation is 10,000 neurons a day, about 214 minutes of dictation with `@cf/openai/whisper-large-v3-turbo`. More dictation costs $0.011 for each 1,000 neurons, about $0.0005 for each minute ([pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)). `bun run dev` also sends dictation to Workers AI. The tests do not.
 
 Authenticate Wrangler:
 
@@ -209,7 +207,7 @@ bun run deploy
 
 The production origin is `redlamp.me`. Notebook reads on `www.redlamp.me` redirect to that origin. Sessions expire after seven days. Login permits approximately ten attempts per source IP per minute at each Cloudflare location.
 
-Check login, logout, and a normal draft save on the deployed Worker. Use the Cloudflare dashboard's Worker CPU and D1 usage measurements. Confirm that these requests fit the Free limit of 10 ms CPU per invocation. Local timing does not establish edge CPU usage.
+Check login, logout, and a normal draft save on the deployed Worker. The Cloudflare dashboard shows the CPU time and the D1 usage of the Worker.
 
 ## Releases
 
@@ -230,7 +228,7 @@ umask 077
 bunx wrangler d1 export redlamp-leetcode --remote --output .wrangler/redlamp-leetcode-backup.sql
 ```
 
-D1 Free provides seven days of recovery history. To inspect a recovery point, use a selected timestamp with its UTC offset:
+D1 keeps 30 days of recovery history on Workers Paid ([Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/#notes)). To inspect a recovery point, use a selected timestamp with its UTC offset:
 
 ```sh
 bunx wrangler d1 time-travel info redlamp-leetcode
