@@ -77,6 +77,16 @@ test('a failed attempt shows the wrong cards without the answers and gives no XP
 	await expect(page.getByText('0 XP. До уровня 2: 100 XP.', { exact: true })).toBeVisible();
 });
 
+test('marks the first hard word of a card prompt and of its explanation, and not the options', async ({ page }) => {
+	await signIn(page);
+	await page.route('**/leetcode/api/quiz/heaps-and-queues-1', route => route.fulfill({ json: { title: 'Куча и очереди, глава 1', nextAt: null, cards: [{ id: 'test-deque', type: 'choice', prompt: 'В деке q три числа. Что вернёт дек?', options: ['Число из дека', 'Ничего'] }] } }));
+	await page.route('**/leetcode/api/quiz/heaps-and-queues-1/attempts', route => route.fulfill({ json: { correct: 1, total: 1, passed: true, nextAt: '2026-10-14T12:00:00.000Z', results: [{ cardId: 'test-deque', correct: true, answer: 'Число из дека', explain: 'Дек отдаёт число с конца, а пустой дек даёт ошибку.' }] } }));
+	await page.goto('/leetcode/quiz/heaps-and-queues-1');
+	await expect(page.locator('.quiz-card .term')).toHaveText(['деке']);
+	await page.getByRole('button', { name: 'Число из дека', exact: true }).click();
+	await expect(page.getByRole('article').locator('.term')).toHaveText(['деке', 'Дек']);
+});
+
 test('the parent reads the deck with answers', async ({ page }) => {
 	await signIn(page, 'parent');
 	await page.goto('/leetcode/quiz/permutations-and-combinations-1');

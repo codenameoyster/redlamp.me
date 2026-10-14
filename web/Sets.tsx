@@ -10,6 +10,7 @@ import { Tutor } from './Tutor';
 import { deckStatus } from './Quiz';
 import { LessonFigure } from './LessonFigure';
 import { runTests, type RunResult } from './python';
+import { markTerms, Terms } from './Terms';
 
 const taskCount = (count: number) => plural(count, ['задание', 'задания', 'заданий']);
 export const addProblem = (task: SetTask) => api<Problem>('/problems', { method: 'POST', body: JSON.stringify({ url: task.url, number: task.number ?? null, title: task.title, difficulty: task.difficulty, topics: task.topics, summary: task.note }) });
@@ -22,7 +23,7 @@ function SetList() {
 	const sets = useResource<LearningSetSummary[]>('/sets');
 	return <div className="stack"><div className="heading"><div><h1>Бомжарня</h1><p>Темы по порядку: теория, задачи, квиз.</p></div></div>
 		{sets.error && <p className="error" role="alert">{sets.error}</p>}
-		<div className="lesson-grid">{sets.data?.map(s => <article className="card card-pad stack" key={s.slug}><h2><a href={`/leetcode/sets/${s.slug}`}>{s.title}</a></h2><p>{s.summary}</p><div className="tags">{s.topics.map(t => <span className="tag" key={t}>{t}</span>)}</div><div className="row small"><span>{plural(s.chapterCount, ['глава', 'главы', 'глав'])}</span><span>{s.acceptedCount} из {s.taskCount} заданий принято</span></div></article>)}</div>
+		<div className="lesson-grid">{sets.data?.map(s => <article className="card card-pad stack" key={s.slug}><h2><a href={`/leetcode/sets/${s.slug}`}>{s.title}</a></h2><p><Terms text={s.summary} /></p><div className="tags">{s.topics.map(t => <span className="tag" key={t}>{t}</span>)}</div><div className="row small"><span>{plural(s.chapterCount, ['глава', 'главы', 'глав'])}</span><span>{s.acceptedCount} из {s.taskCount} заданий принято</span></div></article>)}</div>
 	</div>;
 }
 
@@ -30,10 +31,10 @@ function SetOverview({ slug, user }: { slug: string; user: SessionUser }) {
 	const details = useResource<LearningSetDetails>(`/sets/${slug}`), decks = useResource<QuizDeck[]>('/quiz');
 	const set = details.data;
 	if (!set) return <p role="status">{details.error || 'Открываем набор...'}</p>;
-	return <div className="stack"><div className="heading"><div><h1>{set.title}</h1><p>{set.summary}</p></div><div className="row"><Tutor context={{ kind: 'set', id: slug }} title={set.title} user={user} /></div></div>
+	return <div className="stack"><div className="heading"><div><h1>{set.title}</h1><p><Terms text={set.summary} /></p></div><div className="row"><Tutor context={{ kind: 'set', id: slug }} title={set.title} user={user} /></div></div>
 		{(details.error || decks.error) && <p className="error" role="alert">{details.error || decks.error}</p>}
 		<p>Идите по порядку: каждая глава опирается на предыдущую.</p>
-		<section className="card">{set.chapters.map(c => <article className="list-row" key={c.number}><span className="small">Глава {c.number}</span><div className="grow"><h2><a href={`/leetcode/sets/${slug}/${c.number}`}>{c.title}</a></h2><p className="small">{c.summary}</p><p className="small">Задач принято {c.tasks.filter(t => t.accepted).length} из {c.tasks.length}</p><p className="small">Квиз. {deckStatus(decks.data?.find(deck => deck.slug === `${slug}-${c.number}`))}</p></div><a className="button" href={`/leetcode/sets/${slug}/${c.number}`} data-tip="Открыть урок и задачи этой главы.">Открыть главу</a></article>)}</section>
+		<section className="card">{set.chapters.map(c => <article className="list-row" key={c.number}><span className="small">Глава {c.number}</span><div className="grow"><h2><a href={`/leetcode/sets/${slug}/${c.number}`}>{c.title}</a></h2><p className="small"><Terms text={c.summary} /></p><p className="small">Задач принято {c.tasks.filter(t => t.accepted).length} из {c.tasks.length}</p><p className="small">Квиз. {deckStatus(decks.data?.find(deck => deck.slug === `${slug}-${c.number}`))}</p></div><a className="button" href={`/leetcode/sets/${slug}/${c.number}`} data-tip="Открыть урок и задачи этой главы.">Открыть главу</a></article>)}</section>
 	</div>;
 }
 
@@ -43,7 +44,7 @@ function ChapterPage({ slug, number, user }: { slug: string; number: number; use
 	const set = details.data, chapter = set?.chapters[number - 1], html = set && lesson.data?.html;
 	if (!set) return <p role="status">{details.error || 'Открываем набор...'}</p>;
 	if (!chapter) return <p role="alert">Такой главы нет. <a href={`/leetcode/sets/${slug}`}>К набору</a></p>;
-	return <div className="stack"><div className="heading"><div><h1>Глава {number}. {chapter.title}</h1><p>{chapter.summary}</p></div><div className="row"><Tutor context={{ kind: 'set', id: slug }} title={set.title} user={user} lesson={article} /></div></div>
+	return <div className="stack"><div className="heading"><div><h1>Глава {number}. {chapter.title}</h1><p><Terms text={chapter.summary} /></p></div><div className="row"><Tutor context={{ kind: 'set', id: slug }} title={set.title} user={user} lesson={article} /></div></div>
 		{(details.error || decks.error || lesson.error) && <p className="error" role="alert">{details.error || decks.error || lesson.error}</p>}
 		<Lesson html={html ?? ''} figures={lesson.data?.figures} ref={article} />
 		<section className="card"><header className="card-head"><h2>Задачи</h2></header>{chapter.tasks.map(t => <article className="list-row" key={t.slug}><span className="small">{t.label}</span><div className="grow"><h3>{t.problemId ? <a href={`/leetcode/problems/${t.problemId}`}>{t.title}</a> : <a href={t.url} target="_blank" rel="noopener noreferrer">{t.title}</a>}</h3><p className="small">{t.note}</p></div><span className={`tag ${t.difficulty}`}>{difficultyLabels[t.difficulty]}</span>{t.accepted && <span className="tag good">Принято</span>}{t.activeTask && <a className="tag" href={`/leetcode/tasks/${t.activeTask.id}`}>{homeworkLabels[t.activeTask.state]}</a>}{user.role === 'parent' && !t.activeTask && <button onClick={() => setAdding(t)} data-tip="Выбрать домашнюю работу для этой задачи.">Добавить в домашнюю работу</button>}</article>)}</section>
@@ -55,11 +56,12 @@ function ChapterPage({ slug, number, user }: { slug: string; number: number; use
 }
 
 // The lesson HTML is repository content: src/leetcode/sets/<set>/chapter<N>.html. Each figure draws into its placeholder <figure data-figure="id">.
-// Each Python sample without the class no-run gets a run button and an output inside its <pre>.
+// Each Python sample without the class no-run gets a run button and an output inside its <pre>. The first use of each glossary word gets its tip.
 export function Lesson({ html, figures, ref }: { html: string; figures?: Figure[]; ref: RefObject<HTMLElement | null> }) {
 	const [slots, setSlots] = useState<[Figure, Element][]>([]), [samples, setSamples] = useState<[string, Element][]>([]);
 	useEffect(() => {
 		for (const code of ref.current?.querySelectorAll('pre code') ?? []) code.innerHTML = highlight(/\blanguage-(\S+)/.exec(code.className)?.[1] ?? 'python', code.textContent ?? '').html;
+		if (ref.current) markTerms(ref.current);
 		setSlots((figures ?? []).flatMap(figure => { const slot = ref.current?.querySelector(`figure[data-figure="${figure.id}"]`); return slot ? [[figure, slot] as [Figure, Element]] : []; }));
 		setSamples([...ref.current?.querySelectorAll('pre:not(.no-run) > code.language-python') ?? []].map(code => [code.textContent ?? '', code.parentElement!]));
 	}, [html, figures]);

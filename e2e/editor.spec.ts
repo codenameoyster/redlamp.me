@@ -120,7 +120,7 @@ test('protects older recovery when another tab starts a replacement draft', asyn
 	await second.getByRole('button', { name: 'Решено', exact: true }).click();
 	await expect(second.getByText('Попытка сохранена.', { exact: true })).toBeVisible();
 	await page.getByLabel('Основная идея', { exact: true }).fill('Keep the older unsaved explanation');
-	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Конфликт правок');
+	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('На сервере другая копия');
 	page.once('dialog', dialog => dialog.accept());
 	await page.reload();
 	await expect(page.getByRole('region', { name: 'Копия для восстановления' })).toContainText('Keep the older unsaved explanation');
@@ -142,7 +142,7 @@ test('opens the new working copy after a conflict with a saved attempt', async (
 	await second.getByRole('button', { name: 'Решено', exact: true }).click();
 	await expect(second.getByText('Попытка сохранена.', { exact: true })).toBeVisible();
 	await page.getByLabel('Основная идея', { exact: true }).fill('Local explanation');
-	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Конфликт правок');
+	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('На сервере другая копия');
 	page.once('dialog', dialog => dialog.accept());
 	await page.getByRole('button', { name: 'Использовать копию с сервера', exact: true }).click();
 	await expect(page.getByLabel('Основная идея', { exact: true })).toHaveValue('Second tab explanation');
@@ -209,12 +209,12 @@ test('keeps the recovery base version through a restored conflict', async ({ pag
 	page.once('dialog', dialog => dialog.accept());
 	await page.reload();
 	await page.getByRole('button', { name: 'Восстановить несохранённую работу' }).click();
-	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Конфликт правок');
+	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('На сервере другая копия');
 	await expect(page.getByRole('button', { name: 'Скопировать несохранённую работу' })).toBeVisible();
 	page.once('dialog', dialog => dialog.accept());
 	await page.reload();
 	await page.getByRole('button', { name: 'Восстановить несохранённую работу' }).click();
-	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Конфликт правок');
+	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('На сервере другая копия');
 	await expect(page.getByLabel('Основная идея', { exact: true })).toHaveValue('First tab explanation');
 	const server = await page.request.get(`/leetcode/api/problems/${notebook.problem.id}/attempts/${notebook.attempt.id}`);
 	expect((await server.json()).document.approaches[0].idea).toBe('Second tab explanation');
