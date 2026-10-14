@@ -102,7 +102,7 @@ openssl rand -base64 32 | bunx wrangler secret put TUTOR_TOKEN_KEY
 
 For local development, add `TUTOR_TOKEN_KEY=<value>` to `.dev.vars`. Use a value from `openssl rand -base64 32`. A missing key or a key that is not 32 bytes stops the tutor with "The AI tutor needs configuration."
 
-Apply the remote migrations and upload the secret before you upload a preview version. A preview version uses the production database. It gets only the secrets that exist when you upload it.
+Apply the remote migrations and upload the secret before you deploy. A version gets only the secrets that exist when you upload it. `preview_urls = false` in `wrangler.toml` turns off the Version URLs, because a Version URL serves an old version with its old code and the production database.
 
 To connect ChatGPT:
 
