@@ -12,7 +12,7 @@ const words: Record<string, string> = { true: 'True', false: 'False', null: 'Non
 // JSON values of LeetCode become Python literals: the strings stay, true, false and null change.
 const python = (value: string) => value.replace(/"(?:[^"\\]|\\.)*"|\b(?:true|false|null)\b/g, token => words[token] ?? token);
 
-const stdin = 'import sys\ninput = sys.stdin.readline\n\ndef main():\n    # Прочитайте входные данные и выведите ответ.\n    pass\n\nmain()\n';
+const stdin = 'def ans():\n    N = int(input())\n    a = list(map(int, input().split()))\n    # Посчитайте ответ и верните его.\n    return 0\n\nt = int(input())\na = [ans() for _ in range(t)]\nfor res in a:\n    print(res)\n';
 
 // One request gives the examples and the Python 3 starter code.
 // ponytail: the examples compare in exact order, so a correct answer in another order fails. Add an order rule when a student finds such a problem.
