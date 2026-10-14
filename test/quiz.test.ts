@@ -129,9 +129,9 @@ it('lists one deck per chapter with the best passed attempt and the next attempt
 		{ slug: 'two-pointers-2', title: 'Два указателя, глава 2', cardCount: 7, ...empty },
 		{ slug: 'two-pointers-3', title: 'Два указателя, глава 3', cardCount: 8, ...empty },
 		{ slug: 'two-pointers-4', title: 'Два указателя, глава 4', cardCount: 8, ...empty },
-		{ slug: 'heaps-and-queues-1', title: 'Куча и очереди, глава 1', cardCount: 8, ...empty },
-		{ slug: 'heaps-and-queues-2', title: 'Куча и очереди, глава 2', cardCount: 8, ...empty },
-		{ slug: 'heaps-and-queues-3', title: 'Куча и очереди, глава 3', cardCount: 8, ...empty },
-		{ slug: 'heaps-and-queues-4', title: 'Куча и очереди, глава 4', cardCount: 8, ...empty },
+		{ slug: 'heaps-and-queues-1', title: 'Heap, queue и deque, глава 1', cardCount: 8, ...empty },
+		{ slug: 'heaps-and-queues-2', title: 'Heap, queue и deque, глава 2', cardCount: 8, ...empty },
+		{ slug: 'heaps-and-queues-3', title: 'Heap, queue и deque, глава 3', cardCount: 8, ...empty },
+		{ slug: 'heaps-and-queues-4', title: 'Heap, queue и deque, глава 4', cardCount: 8, ...empty },
 	]);
 });

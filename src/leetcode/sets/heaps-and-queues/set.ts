@@ -6,8 +6,8 @@ import chapter4 from './chapter4';
 
 export default {
 	slug: 'heaps-and-queues',
-	title: 'Куча и очереди',
-	summary: 'Очередь, дек и куча отдают нужный элемент за O(1) или за O(log n). Вы моделируете процессы на collections.deque, находите максимум в окне монотонным деком и решаете на heapq задачи про k лучших, слияние списков и жадный выбор.',
-	topics: ['Очередь', 'Дек', 'Куча', 'Скользящее окно'],
+	title: 'Heap, queue и deque',
+	summary: 'Queue, deque и heap отдают нужный элемент за O(1) или за O(log n). Вы моделируете процессы на collections.deque, находите максимум в окне через monotonic deque и решаете на heapq задачи про k лучших, слияние списков и жадный выбор.',
+	topics: ['Queue', 'Deque', 'Heap', 'Скользящее окно'],
 	chapters: [chapter1, chapter2, chapter3, chapter4],
 } satisfies LearningSet;

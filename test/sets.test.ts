@@ -128,7 +128,8 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item 
 });
 
 // The hard words that need a tip in shared/glossary.ts. The list also has words that no set uses yet, so a new set with such a word fails until the word gets a tip.
-const hardWord = /(?<!\p{L})(?:инвариант|O\(|log|метод|куч|дек|стек|монотонн|жадн|моделир|кортеж|рекурс|перебор\p{L}*\s+с\s+возврат|отсеч|трассир|подмассив|подпоследовательн|лексикограф|ленив|индекс|факториал|перестановк|подмножеств|скользящ|ASCII|регистр|слияни|32-бит|линейн|переполн|амортиз|асимптот|мемоиз|итератор|компаратор|эвристик|коллизи|логарифм|граф|бинарн)/giu;
+// An English name of a data structure is a word of its own: heapq, dequeue, collections.deque, deque(...) and deque.popleft are code.
+const hardWord = /(?<!\p{L})(?:инвариант|O\(|log|метод|(?<![\d_.])(?:(?:heap|deque|queue|stack)s?|monotonic|priority)(?![\p{L}\d_(]|\.\p{L})|монотонн|жадн|моделир|кортеж|рекурс|перебор\p{L}*\s+с\s+возврат|отсеч|трассир|подмассив|подпоследовательн|лексикограф|ленив|индекс|факториал|перестановк|подмножеств|скользящ|ASCII|регистр|слияни|32-бит|линейн|переполн|амортиз|асимптот|мемоиз|итератор|компаратор|эвристик|коллизи|логарифм|граф|бинарн)/giu;
 // The hard words of the text that no match of the patterns covers.
 const untipped = (text: string, patterns: RegExp[]) => [...text.matchAll(hardWord)].filter(word => !patterns.some(pattern => [...text.matchAll(pattern)].some(match => match.index <= word.index && word.index < match.index + match[0].length))).map(word => word[0]);
 // Code is not prose. The text of the other tags stays.
@@ -141,6 +142,13 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name hard words have a 
 		...chapter.cards.flatMap(card => [[`${card.id} prompt`, card.prompt], [`${card.id} explain`, card.explain]]),
 	])];
 	expect(texts.flatMap(([place, text]) => untipped(text, patterns).map(word => `${place}: ${word}`))).toEqual([]);
+});
+
+// The sets name the data structures in English. The external link titles are not set text.
+const russianName = /(?<!\p{L})(?:куч(?:а|и|е|у|ей|ею|ам|ами|ах)?|дек(?:а|е|у|ом|и|ов|ам|ами|ах)?|стек(?:а|е|у|ом|и|ов|ам|ами|ах)?)(?!\p{L})/giu;
+const strings = (value: unknown): string[] => typeof value === 'string' ? [value] : value && typeof value === 'object' ? Object.values(value).flatMap(strings) : [];
+it.each(sets.map(item => ({ name: item.slug, item })))('$name names the data structures in English', ({ item }) => {
+	expect(strings({ ...item, chapters: item.chapters.map(chapter => ({ ...chapter, links: [] })) }).flatMap(text => text.match(russianName) ?? [])).toEqual([]);
 });
 
 it('each tip is plain', () => {
