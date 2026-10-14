@@ -5,7 +5,7 @@ export function renderShell(user?: SessionUser): Response {
 	const nonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
 	return new Response(`<!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Тетрадь LeetCode | redlamp</title><link rel="stylesheet" href="/leetcode/assets/style.css"><meta name="csp-nonce" nonce="${nonce}">
+<title>Тетрадь LeetCode | redlamp</title><link rel="icon" href="/leetcode/assets/icon.svg" type="image/svg+xml"><link rel="stylesheet" href="/leetcode/assets/style.css"><meta name="csp-nonce" nonce="${nonce}">
 ${user ? `<script id="session" type="application/json">${JSON.stringify(user)}</script>` : ''}<script type="module" src="/leetcode/assets/main.js"></script></head>
 <body><div id="root"></div><noscript>Включите JavaScript, чтобы пользоваться тетрадью.</noscript></body></html>`, {
 		headers: {
