@@ -162,7 +162,8 @@ export function Workspace({ problemId, taskId, user, registerGuard }: { problemI
 	async function saved(attempt: Attempt, action?: 'save' | 'submit' | 'judge') {
 		problem.reload(); details.reload();
 		if (action === 'submit' || attempt.state === 'draft') return current.setData(attempt);
-		await open(attempt.id);
+		// The judge completes an active homework task, so a task page shows the accepted attempt.
+		if (taskId && action === 'judge') current.setData(attempt); else await open(attempt.id);
 		if (action) setNotice(action === 'judge' ? <span className="tag good">Принято</span> : 'Попытка сохранена.');
 	}
 	async function act(name: string, extra: Record<string, unknown> = {}) {

@@ -60,6 +60,9 @@ for (const row of hidden) {
 		await signIn(page);
 		await page.goto(`/leetcode/tasks/${taskId}`);
 		await page.getByLabel('Код решения', { exact: true }).fill(row.code);
+		// The task reload after an acceptance returns before a new attempt opens.
+		const reloaded = new Promise<void>(resolve => page.on('requestfinished', request => { if (request.url().endsWith(`/leetcode/api/tasks/${taskId}`)) resolve(); }));
+		await page.route('**/leetcode/api/problems/*/attempts', async route => { if (route.request().method() === 'POST') await reloaded; await route.continue(); });
 		await page.getByRole('button', { name: 'Отправить', exact: true }).click();
 		const result = row.verdict === 'Принято' ? page.getByText('Принято', { exact: true }) : page.getByRole('alert', { name: 'Результат проверки' });
 		await expect(result).toHaveText(row.verdict, { useInnerText: true, timeout: 60_000 });
