@@ -17,7 +17,7 @@ export const deckStatus = (deck: QuizDeck | undefined) => deck ? passText(deck) 
 
 export function Quiz({ user, slug }: { user: SessionUser; slug?: string }) {
 	if (!slug) return <DeckList user={user} />;
-	return user.role === 'student' ? <Round key={slug} slug={slug} user={user} /> : <CardList slug={slug} />;
+	return user.role === 'student' ? <Round key={slug} slug={slug} /> : <CardList slug={slug} />;
 }
 
 function DeckList({ user }: { user: SessionUser }) {
@@ -38,7 +38,7 @@ function CardList({ slug }: { slug: string }) {
 
 // The deck slug is the set slug plus the chapter number; the tutor gets the set context.
 // The page keeps the answers and sends all of them after the last card.
-function Round({ slug, user }: { slug: string; user: SessionUser }) {
+function Round({ slug }: { slug: string }) {
 	const round = useResource<QuizRound>(`/quiz/${slug}`);
 	const [index, setIndex] = useState(0), [answers, setAnswers] = useState<Record<string, string | number>>({}), [typed, setTyped] = useState(''), [attempt, setAttempt] = useState<QuizAttempt | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
 	const cards = round.data?.cards ?? [], nextAt = attempt?.nextAt ?? round.data?.nextAt, card = nextAt ? undefined : cards[index] as QuizCard | undefined;
@@ -52,7 +52,7 @@ function Round({ slug, user }: { slug: string; user: SessionUser }) {
 	}
 	if (!round.data) return <p role="status">{round.error || 'Открываем колоду...'}</p>;
 	const given = (item: QuizCard) => item.type === 'short' ? answers[item.id] : item.options[answers[item.id] as number];
-	return <div className="stack"><div className="heading"><div><p className="small">{attempt ? 'Квиз завершён' : card ? `Карточка ${index + 1} из ${cards.length}` : 'Квиз закрыт'}</p><h1>{round.data.title}</h1></div><div className="row"><Tutor context={{ kind: 'set', id: slug.replace(/-[0-9]+$/, '') }} title={round.data.title} user={user} quote={card?.prompt} /><a className="button" href="/leetcode/quiz" data-tip="Вернуться к списку колод. Ответы до последней карточки не сохраняются.">Закончить</a></div></div>
+	return <div className="stack"><div className="heading"><div><p className="small">{attempt ? 'Квиз завершён' : card ? `Карточка ${index + 1} из ${cards.length}` : 'Квиз закрыт'}</p><h1>{round.data.title}</h1></div><div className="row"><Tutor context={{ kind: 'set', id: slug.replace(/-[0-9]+$/, '') }} title={round.data.title} quote={card?.prompt} /><a className="button" href="/leetcode/quiz" data-tip="Вернуться к списку колод. Ответы до последней карточки не сохраняются.">Закончить</a></div></div>
 		{card && <><progress aria-label="Прогресс квиза" value={index} max={cards.length} /><section className="card card-pad stack quiz-card"><p className="prose"><Terms text={card.prompt} /></p>
 			{card.type === 'code' && <Code language={card.language} text={card.code} blank />}
 			{/* The next card shows its options at the same place, so the second click of a double click is ignored. */}

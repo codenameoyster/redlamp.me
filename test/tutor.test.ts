@@ -56,8 +56,8 @@ const minute = (i: number) => new Date(Date.UTC(2026, 9, 9, 10, i)).toISOString(
 it.each([
 	{ name: 'parent cannot send', role: 'parent', method: 'POST', path: '/tutor/messages', body: send(), status: 403 },
 	{ name: 'student reads a thread', role: 'student', method: 'GET', path: `/tutor/messages?kind=problem&id=${PROBLEM}`, status: 200 },
-	{ name: 'parent reads a thread', role: 'parent', method: 'GET', path: `/tutor/messages?kind=problem&id=${PROBLEM}`, status: 200 },
-	{ name: 'student lists threads', role: 'student', method: 'GET', path: '/tutor/threads', status: 403 },
+	{ name: 'parent cannot read a thread', role: 'parent', method: 'GET', path: `/tutor/messages?kind=problem&id=${PROBLEM}`, status: 403 },
+	{ name: 'parent cannot list the threads', role: 'parent', method: 'GET', path: '/tutor/threads', status: 404 },
 	{ name: 'unknown problem', role: 'student', method: 'POST', path: '/tutor/messages', body: send({ kind: 'problem', id: crypto.randomUUID() }), status: 404 },
 	{ name: 'lesson kind', role: 'student', method: 'GET', path: `/tutor/messages?kind=lesson&id=${crypto.randomUUID()}`, status: 400 },
 	{ name: 'unknown set', role: 'student', method: 'POST', path: '/tutor/messages', body: send({ kind: 'set', id: 'missing-set' }), status: 404 },
@@ -209,13 +209,3 @@ it.each([
 	{ name: 'heading marked', html: '<h2>Base case</h2>', expected: '## Base case' },
 	{ name: 'code indentation kept', html: '<pre>if x:\n    y</pre>', expected: 'if x:\n    y' },
 ])('$name', ({ html, expected }) => { expect(htmlText(html)).toBe(expected); });
-
-it.each([
-	{ name: 'newest first', messages: [['problem', PROBLEM, minute(0)], ['set', SET, minute(60)]], expected: [{ kind: 'set', id: SET, title: 'Перестановки и сочетания', count: 1, lastAt: minute(60) }, { kind: 'problem', id: PROBLEM, title: 'Two Sum', count: 1, lastAt: minute(0) }] },
-	{ name: 'count', messages: [0, 1, 2, 3].map(i => ['set', SET, minute(i)]), expected: [{ kind: 'set', id: SET, title: 'Перестановки и сочетания', count: 4, lastAt: minute(3) }] },
-])('$name', async ({ messages, expected }) => {
-	await env.DB.batch(messages.map(([kind, ref, at]) => message(kind, ref, 'student', 'Why?', null, at)));
-	const response = await request('/tutor/threads', 'GET', undefined, await login('parent'));
-	expect(response.status).toBe(200);
-	expect(await response.json()).toEqual({ items: expected, nextOffset: null });
-});

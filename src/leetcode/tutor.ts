@@ -1,6 +1,6 @@
 import { waitUntil } from 'cloudflare:workers';
 import type { Env } from '../index';
-import type { AttemptDocument, SessionUser, TutorEvent, TutorKind, TutorMessage, TutorThread } from '../../shared/leetcode';
+import type { AttemptDocument, SessionUser, TutorEvent, TutorKind, TutorMessage } from '../../shared/leetcode';
 import { requireRole } from './auth';
 import { accessToken, disconnected, unavailable, type Token } from './chatgpt';
 import { choice, HttpError, methods, object, page, pagination, readJson, text, uuid } from './http';
@@ -11,9 +11,6 @@ import evaluation from './evaluate-prompt.txt';
 
 const RESPONSES = 'https://api.openai.com/v1/responses';
 const INTERRUPTED = { code: 'ai_interrupted', message: 'Ответ прервался. Отправьте сообщение ещё раз.' };
-const THREADS = `SELECT context_kind AS kind,context_ref AS id,count(*) AS count,max(created_at) AS lastAt,
-coalesce((SELECT title FROM problems WHERE id=context_ref AND context_kind='problem'),context_ref) AS title
-FROM tutor_messages GROUP BY context_kind,context_ref ORDER BY lastAt DESC,kind,id LIMIT ? OFFSET ?`;
 const ENTITIES: Record<string, string> = { lt: '<', gt: '>', amp: '&', quot: '"', '#39': "'", nbsp: ' ' };
 type Upstream = { type?: string; delta?: string; code?: string | null; response?: { error?: { code?: string } | null } };
 type Turn = Pick<TutorMessage, 'author' | 'body' | 'quote'>;
@@ -140,16 +137,13 @@ async function ask(request: Request, env: Env): Promise<Response> {
 }
 
 export async function handleTutor(request: Request, env: Env, user: SessionUser): Promise<Response | null> {
-	const url = new URL(request.url), match = /^\/leetcode\/api\/tutor\/(messages|threads)$/.exec(url.pathname);
-	if (!match) return null;
-	methods(request, match[1] === 'threads' ? ['GET'] : ['GET', 'POST']);
-	if (request.method === 'POST') { requireRole(user, 'student'); return ask(request, env); }
+	const url = new URL(request.url);
+	if (url.pathname !== '/leetcode/api/tutor/messages') return null;
+	methods(request, ['GET', 'POST']);
+	// The chats belong to the student: the parent can neither read nor write them.
+	requireRole(user, 'student');
+	if (request.method === 'POST') return ask(request, env);
 	const { limit, offset } = pagination(url);
-	if (match[1] === 'threads') {
-		requireRole(user, 'parent');
-		const rows = await env.DB.prepare(THREADS).bind(limit + 1, offset).all<TutorThread>();
-		return Response.json(page(rows.results.map(row => row.kind === 'set' ? { ...row, title: sets.find(set => set.slug === row.id)?.title ?? row.id } : row), limit, offset));
-	}
 	const [kind, id] = thread(url.searchParams.get('kind'), url.searchParams.get('id'));
 	if (kind === 'set') findSet(id); else await getProblem(env, id);
 	const rows = await env.DB.prepare('SELECT id,author,body,quote,created_at AS createdAt FROM tutor_messages WHERE context_kind=? AND context_ref=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?').bind(kind, id, limit + 1, offset).all<TutorMessage>();
