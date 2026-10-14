@@ -107,7 +107,7 @@ test('runs the own tests without a reference and keeps the results after a delet
 	await page.getByLabel('Код решения', { exact: true }).fill('a, b = map(int, input().split())\nprint(a + b)\n');
 	await page.getByRole('button', { name: 'Запустить тесты', exact: true }).click();
 	const rows = page.getByRole('list', { name: 'Результаты тестов' }).getByRole('listitem');
-	const results = ['Тест 1: без проверки Ввод: 2 3 Для этой задачи нет эталонного решения. Ваш ответ: 5', 'Тест 2: без проверки Ввод: 1 1 Для этой задачи нет эталонного решения. Ваш ответ: 2'];
+	const results = ['Тест 1: без проверки Ввод: 2 3 Для этой задачи нет решения-образца. Ваш ответ: 5', 'Тест 2: без проверки Ввод: 1 1 Для этой задачи нет решения-образца. Ваш ответ: 2'];
 	await expect(rows).toHaveText(results, { useInnerText: true, timeout: 30_000 });
 	await expect(rows).toHaveClass(['', '']);
 	await page.getByRole('button', { name: 'Удалить тест 2', exact: true }).click();
@@ -163,7 +163,7 @@ test('compares the own tests with the expected answers', async ({ page, notebook
 		'Тест 2: ✓ Ввод: [[3, 3], 6] Верный ответ: [0, 1] Ваш ответ: [0, 1]',
 		'Тест 3: ✗ Ввод: [[1, 2], 4] Верный ответ: [1, 0] Ваш ответ: [0, 1]',
 		'Тест 4: без проверки Ввод: [[1], 5] Ввод нарушает ограничения задачи. Ваш ответ: [0, 1]',
-		'Тест 5: без проверки Ввод: [[1, 2], 3 Эталонное решение не смогло прочитать ввод. SyntaxError: \'[\' was never closed',
+		'Тест 5: без проверки Ввод: [[1, 2], 3 Решение-образец не смогло прочитать ввод. SyntaxError: \'[\' was never closed',
 		'Тест 6: без проверки Ввод: [[2, 2], 4] Верный ответ слишком большой для проверки. Ваш ответ: [0, 1]',
 	], { useInnerText: true, timeout: 30_000 });
 	await expect(rows).toHaveClass(['pass', 'pass', 'fail', '', '', '']);

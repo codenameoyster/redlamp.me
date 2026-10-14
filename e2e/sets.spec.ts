@@ -1,5 +1,5 @@
 import { test, expect, signIn } from './fixtures';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import type { Figure, Homework, HomeworkTask, Problem } from '../shared/leetcode';
 import twoPointers1 from '../src/leetcode/sets/two-pointers/chapter1';
 import twoPointers2 from '../src/leetcode/sets/two-pointers/chapter2';
@@ -28,14 +28,18 @@ test('assigns set tasks to new and existing homework', async ({ page, context })
 	await signIn(page, 'parent');
 	await page.getByRole('link', { name: 'Бомжарня', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'Бомжарня', level: 1 })).toBeVisible();
+	await expect(row(page, 'Перестановки и сочетания').locator('.term')).toHaveText(['перестановки', 'подмножества']);
 	await page.getByRole('link', { name: 'Перестановки и сочетания', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'Перестановки и сочетания', level: 1 })).toBeVisible();
+	await expect(page.locator('main .heading .term')).toHaveText(['перестановки', 'подмножества']);
+	await expect(row(page, 'Считаем варианты').locator('.term')).toHaveText(['факториал', 'подмножества']);
 	await expect(page.getByRole('link', { name: 'Открыть главу', exact: true })).toHaveCount(4);
 	await expect(row(page, 'Перебор: подмножества, перестановки, сочетания')).toContainText('Задач принято 0 из 5');
 	await expect(row(page, 'Перебор: подмножества, перестановки, сочетания')).toContainText('Квиз. Не пройден');
 	await page.getByRole('link', { name: 'Перебор: подмножества, перестановки, сочетания', exact: true }).click();
 	await expect(page).toHaveURL(chapterPath);
 	await expect(page.getByRole('heading', { name: 'Глава 2. Перебор: подмножества, перестановки, сочетания', level: 1 })).toBeVisible();
+	await expect(page.locator('main .heading .term')).toHaveText(['Индекс', 'перестановки']);
 	await expect(page.locator('article.lesson').getByRole('heading', { name: '3. Рекурсия простыми словами', level: 2 })).toBeVisible();
 	await expect(page.locator('article.lesson pre code .hljs-keyword').first()).toHaveText('def');
 	const reading = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Где узнать больше', level: 2 }) }), link = reading.getByRole('link', { name: 'Перебор с возвратом: элементарные примеры', exact: true });
@@ -235,6 +239,43 @@ test('shows the figures of the new chapter after client navigation', async ({ pa
 	await expect(titles).toHaveText(twoPointers2.figures!.map(figure => figure.title));
 });
 
+// A hard word in code, a hint title or a link stays plain. Only its first use in the lesson prose gets the tip, also when the next use is in another paragraph.
+const termLesson = (page: Page) => page.route('**/leetcode/api/sets/permutations-and-combinations/lesson/2', route => route.fulfill({ json: { html: [
+	'<p class="lead">Урок про очередь.</p>',
+	'<pre><code class="language-python">t = (1, 2)  # кортеж</code></pre>',
+	'<details><summary>Подсказка: кортеж</summary><p>Сравните первые элементы.</p></details>',
+	'<p><a href="https://docs.python.org/3/tutorial/datastructures.html#tuples-and-sequences">Кортеж в Python</a></p>',
+	'<p>Кортеж сравнивают по первому элементу.</p>',
+	'<p>Второй кортеж тоже.</p>',
+].join('\n'), figures: [] } }));
+const tip = (term: Locator) => term.evaluate(element => getComputedStyle(element, '::after').visibility);
+
+test('marks only the first hard word of the lesson prose', async ({ page }) => {
+	await signIn(page);
+	await termLesson(page);
+	await page.goto(chapterPath);
+	await expect(page.locator('article.lesson .term')).toHaveText(['Кортеж']);
+	await expect(page.locator('article.lesson p', { hasText: 'сравнивают' }).locator('.term')).toHaveText('Кортеж');
+});
+
+test('shows the tip of a hard word on hover and on keyboard focus', async ({ page }) => {
+	await signIn(page);
+	await termLesson(page);
+	await page.goto(chapterPath);
+	const term = page.locator('article.lesson .term');
+	await expect(term).toHaveAccessibleDescription("Несколько значений в круглых скобках, например (3, 'a'). Его нельзя изменить.");
+	expect(await tip(term)).toBe('hidden');
+	await term.hover();
+	await expect.poll(() => tip(term)).toBe('visible');
+	await page.mouse.move(0, 0);
+	await expect.poll(() => tip(term)).toBe('hidden');
+	// A click on text sets the start point of the Tab order. The term is the last element of the lesson that takes focus.
+	await page.getByRole('heading', { name: 'Задачи', level: 2 }).click();
+	await page.keyboard.press('Shift+Tab');
+	await expect(term).toBeFocused();
+	await expect.poll(() => tip(term)).toBe('visible');
+});
+
 test('fits the set pages at the mobile width', async ({ page }, testInfo) => {
 	await page.setViewportSize(testInfo.config.projects.find(project => project.name === 'mobile')!.use.viewport!);
 	await signIn(page, 'parent');
@@ -334,7 +375,8 @@ test('runs a lesson sample in the work window', async ({ page, baseURL }) => {
 	await lessonCode(page, ['<pre><code class="language-python">print(2 + 3)</code></pre>']);
 	const problem = await (await page.request.post('/leetcode/api/problems', { headers, data: { url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
 	await page.goto(`/leetcode/problems/${problem.id}`);
-	const sample = page.locator('article.lesson pre');
+	await expect(page.locator('article.lesson', { has: page.getByRole('heading', { name: 'Пример 1' }) }).locator('.term')).toHaveText(['подмножества', 'Метод класса']);
+	const sample = page.locator('article.lesson pre:has(.sample)');
 	await sample.getByRole('button', { name: 'Запустить', exact: true }).click();
 	await expect(sample.locator('output')).toHaveText('5', { timeout: 30_000 });
 });

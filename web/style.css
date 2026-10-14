@@ -20,6 +20,9 @@ button:focus-visible,.button:focus-visible { outline-offset:-5px; }
 /* A touch screen keeps the hover after a tap, so only a device that can hover shows the tip on hover. https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@media/hover */
 [data-tip]:focus-visible::after { visibility:visible; transition:visibility 0s .3s; }
 @media (hover:hover) { [data-tip]:hover::after { visibility:visible; transition:visibility 0s .3s; } }
+/* A word of shared/glossary.ts. A tap on a phone focuses the word, but the focus does not match :focus-visible, so :focus shows its tip. */
+.term { font-style:inherit; text-decoration:underline dotted; text-underline-offset:2px; cursor:help; }
+.term:focus::after { visibility:visible; }
 a { color:var(--link); text-underline-offset:2px; }
 h1,h2,h3,p { margin:0; }
 h1 { font-size:18px; line-height:1.25; }
@@ -202,7 +205,7 @@ progress::-moz-progress-bar { background:repeating-linear-gradient(90deg,var(--o
 .lesson .sample { display:grid; justify-items:start; gap:6px; margin-top:8px; -webkit-user-select:none; user-select:none; }
 .lesson .sample button { font:13px/1.4 var(--sans); }
 .lesson .sample output { display:grid; gap:4px; justify-self:stretch; white-space:pre-wrap; overflow-wrap:anywhere; }
-.lesson-ai { position:absolute; z-index:5; }
+.lesson-ai { position:absolute; z-index:21; }
 .lesson-ai[hidden] { display:none; }
 .filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:8px; }
 .feedback { border-left:3px solid var(--orange); padding:6px 8px; background:var(--field); }

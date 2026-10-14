@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
 import type { FigureRow, LearningSetDetails, LearningSetSummary, SetTask } from '../shared/leetcode';
+import { glossary } from '../shared/glossary';
 import { parsePy, reprPy } from '../src/leetcode/pyliteral';
 import { mulberry32 } from '../src/leetcode/judge';
 import { generatorOf, referenceOf, sets, taskLabel, taskSlug, tasksOf } from '../src/leetcode/sets';
@@ -124,6 +125,26 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item 
 	expect(item.lessons.map(lesson => [...lesson.matchAll(/data-figure="([^"]+)"/g)].map(match => match[1]))).toEqual(item.chapters.map(chapter => (chapter.figures ?? []).map(figure => figure.id)));
 	const figures = item.chapters.flatMap(chapter => chapter.figures ?? []);
 	expect(figures.filter(figure => !slugFormat.test(figure.id) || !figure.title.trim() || !figure.frames.length || figure.frames.some(frame => !frame.caption.trim() || !frame.rows.length || frame.rows.some(badRow))).map(figure => figure.id)).toEqual([]);
+});
+
+// The hard words that need a tip in shared/glossary.ts. The list also has words that no set uses yet, so a new set with such a word fails until the word gets a tip.
+const hardWord = /(?<!\p{L})(?:инвариант|O\(|log|метод|куч|дек|стек|монотонн|жадн|моделир|кортеж|рекурс|перебор\p{L}*\s+с\s+возврат|отсеч|трассир|подмассив|подпоследовательн|лексикограф|ленив|индекс|факториал|перестановк|подмножеств|скользящ|ASCII|регистр|слияни|32-бит|линейн|переполн|амортиз|асимптот|мемоиз|итератор|компаратор|эвристик|коллизи|логарифм|граф|бинарн)/giu;
+// The hard words of the text that no match of the patterns covers.
+const untipped = (text: string, patterns: RegExp[]) => [...text.matchAll(hardWord)].filter(word => !patterns.some(pattern => [...text.matchAll(pattern)].some(match => match.index <= word.index && word.index < match.index + match[0].length))).map(word => word[0]);
+// Code is not prose. The text of the other tags stays.
+const prose = (html: string) => html.replace(/<(pre|code)\b[\s\S]*?<\/\1>/g, ' ').replace(/<[^>]+>/g, '');
+it.each(sets.map(item => ({ name: item.slug, item })))('$name hard words have a tip', ({ item }) => {
+	const patterns = glossary.map(entry => entry.pattern);
+	const texts = [['summary', item.summary], ...item.chapters.flatMap((chapter, index) => [
+		[`chapter ${index + 1} summary`, chapter.summary], [`chapter ${index + 1} lesson`, prose(item.lessons[index])],
+		...chapter.tasks.flatMap(task => [[`${taskSlug(task)} statement`, prose(task.statement ?? '')], [`${taskSlug(task)} note`, task.note]]),
+		...chapter.cards.flatMap(card => [[`${card.id} prompt`, card.prompt], [`${card.id} explain`, card.explain]]),
+	])];
+	expect(texts.flatMap(([place, text]) => untipped(text, patterns).map(word => `${place}: ${word}`))).toEqual([]);
+});
+
+it('each tip is plain', () => {
+	expect(glossary.filter(entry => /[–—]/.test(entry.tip) || untipped(entry.tip, [entry.pattern]).length).map(entry => entry.tip)).toEqual([]);
 });
 
 // The harness sorts the answer for the orders 'any' and 'any-nested'. A sort by the Python text gives the same equality.

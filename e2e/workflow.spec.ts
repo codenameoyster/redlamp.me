@@ -153,3 +153,18 @@ test('hides the tip after a touch tap', async ({ browser, baseURL }, testInfo) =
 		expect(await bar.getByRole('button', { name: 'Тёмная тема', exact: true }).evaluate(button => getComputedStyle(button, '::after').visibility)).toBe('hidden');
 	} finally { await context.close(); }
 });
+
+test('shows the tip of a hard word after a touch tap', async ({ browser, baseURL }, testInfo) => {
+	test.skip(testInfo.project.name !== 'mobile', 'Only the mobile project has a phone viewport.');
+	const context = await browser.newContext({ baseURL, viewport: testInfo.project.use.viewport, hasTouch: true, isMobile: true });
+	const page = await context.newPage();
+	try {
+		await signIn(page);
+		await page.goto('/leetcode/sets/two-pointers/1');
+		const term = page.locator('article.lesson .term').first(), tip = () => term.evaluate(element => getComputedStyle(element, '::after').visibility);
+		await term.tap();
+		await expect.poll(tip).toBe('visible');
+		await page.getByRole('heading', { level: 1 }).tap();
+		await expect.poll(tip).toBe('hidden');
+	} finally { await context.close(); }
+});

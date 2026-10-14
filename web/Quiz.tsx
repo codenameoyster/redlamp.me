@@ -5,6 +5,7 @@ import { useResource } from './useResource';
 import { plural } from './text';
 import { Code } from './Code';
 import { Tutor } from './Tutor';
+import { Terms } from './Terms';
 
 const shown = (card: Card) => card.type === 'short' ? card.answer : card.options[card.answer];
 const cardCount = (count: number) => plural(count, ['карточка', 'карточки', 'карточек']);
@@ -52,7 +53,7 @@ function Round({ slug, user }: { slug: string; user: SessionUser }) {
 	if (!round.data) return <p role="status">{round.error || 'Открываем колоду...'}</p>;
 	const given = (item: QuizCard) => item.type === 'short' ? answers[item.id] : item.options[answers[item.id] as number];
 	return <div className="stack"><div className="heading"><div><p className="small">{attempt ? 'Квиз завершён' : card ? `Карточка ${index + 1} из ${cards.length}` : 'Квиз закрыт'}</p><h1>{round.data.title}</h1></div><div className="row"><Tutor context={{ kind: 'set', id: slug.replace(/-[0-9]+$/, '') }} title={round.data.title} user={user} quote={card?.prompt} /><a className="button" href="/leetcode/quiz" data-tip="Вернуться к списку колод. Ответы до последней карточки не сохраняются.">Закончить</a></div></div>
-		{card && <><progress aria-label="Прогресс квиза" value={index} max={cards.length} /><section className="card card-pad stack quiz-card"><p className="prose">{card.prompt}</p>
+		{card && <><progress aria-label="Прогресс квиза" value={index} max={cards.length} /><section className="card card-pad stack quiz-card"><p className="prose"><Terms text={card.prompt} /></p>
 			{card.type === 'code' && <Code language={card.language} text={card.code} blank />}
 			{/* The next card shows its options at the same place, so the second click of a double click is ignored. */}
 			{(card.type === 'choice' || card.type === 'code') && <div className="stack">{card.options.map((option, i) => <button key={i} disabled={busy} onClick={event => { if (event.detail < 2) void answer(i); }} data-tip="Выбрать этот вариант ответа.">{option}</button>)}</div>}
@@ -60,6 +61,6 @@ function Round({ slug, user }: { slug: string; user: SessionUser }) {
 			{error && <p className="error" role="alert">{error}</p>}
 		</section></>}
 		{nextAt && <section className="card card-pad stack" role="status">{attempt && <h2>Верных ответов: {attempt.correct} из {attempt.total}. {attempt.passed ? 'Квиз засчитан.' : 'Квиз не засчитан.'}</h2>}{attempt && !attempt.passed && <p>Нужно не меньше 80 % верных ответов. Ниже карточки с ошибками. Перечитайте главу.</p>}<p>{after(nextAt)}.</p><a href="/leetcode/quiz">К колодам</a></section>}
-		{attempt && <section className="card">{attempt.results.filter(result => attempt.passed || !result.correct).map(result => { const item = cards.find(c => c.id === result.cardId)!; return <article className="list-row" key={item.id}><div className="grow stack"><h3>{item.prompt}</h3>{item.type === 'code' && <Code language={item.language} text={item.code} blank />}{attempt.passed && <><p className="small">Ваш ответ: {given(item)}</p><p className="small">Правильный ответ: {result.answer}</p><p className="small">{result.explain}</p></>}</div><span className={`tag ${result.correct ? 'good' : 'hard'}`}>{result.correct ? 'Верно' : 'Ошибка'}</span></article>; })}</section>}
+		{attempt && <section className="card">{attempt.results.filter(result => attempt.passed || !result.correct).map(result => { const item = cards.find(c => c.id === result.cardId)!; return <article className="list-row" key={item.id}><div className="grow stack"><h3><Terms text={item.prompt} /></h3>{item.type === 'code' && <Code language={item.language} text={item.code} blank />}{attempt.passed && <><p className="small">Ваш ответ: {given(item)}</p><p className="small">Правильный ответ: {result.answer}</p><p className="small"><Terms text={result.explain ?? ''} /></p></>}</div><span className={`tag ${result.correct ? 'good' : 'hard'}`}>{result.correct ? 'Верно' : 'Ошибка'}</span></article>; })}</section>}
 	</div>;
 }
