@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.0](https://github.com/codenameoyster/redlamp.me/compare/v1.4.0...v1.5.0) (2026-10-14)
+
+
+### Features
+
+* **web:** show the code buttons in one row ([8b7e73d](https://github.com/codenameoyster/redlamp.me/commit/8b7e73d066398b01f96d0463a81656a52119f57e))
+* **web:** show the code buttons in one row ([2d0dbf1](https://github.com/codenameoyster/redlamp.me/commit/2d0dbf1c8265e70ed2a3850b06227afc2de3fc86))
+
 ## [1.4.0](https://github.com/codenameoyster/redlamp.me/compare/v1.3.0...v1.4.0) (2026-10-14)
 
 
