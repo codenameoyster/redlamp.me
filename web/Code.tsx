@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { acceptCompletion, autocompletion, closeCompletion, completeFromList, ifNotIn, selectedCompletion, type CompletionContext, type CompletionSource } from '@codemirror/autocomplete';
-import { Compartment, EditorState, Prec, Transaction } from '@codemirror/state';
+import { Compartment, countColumn, EditorSelection, EditorState, Prec, Transaction } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap, indentWithTab, temporarilySetTabFocusMode } from '@codemirror/commands';
-import { indentUnit, syntaxHighlighting } from '@codemirror/language';
+import { defaultKeymap, history, historyKeymap, indentLess, indentMore, temporarilySetTabFocusMode } from '@codemirror/commands';
+import { getIndentUnit, indentUnit, syntaxHighlighting } from '@codemirror/language';
 import { localCompletionSource, python } from '@codemirror/lang-python';
 import { classHighlighter } from '@lezer/highlight';
 import { highlight } from './highlight';
@@ -42,10 +42,22 @@ const completion = [
 	EditorState.phrases.of({ Completions: 'Подсказки' }),
 ];
 
+// Tab over several lines indents them. Otherwise Tab replaces each selection with spaces up to the next stop of the indent unit.
+const tab = ({ state, dispatch }: EditorView) => {
+	if (state.readOnly) return false;
+	if (state.selection.ranges.some(({ from, to }) => state.doc.lineAt(from).number !== state.doc.lineAt(to).number)) return indentMore({ state, dispatch });
+	const unit = getIndentUnit(state);
+	dispatch(state.update(state.changeByRange(({ from, to }) => {
+		const insert = ' '.repeat(unit - countColumn(state.sliceDoc(state.doc.lineAt(from).from, from), state.tabSize) % unit);
+		return { changes: { from, to, insert }, range: EditorSelection.cursor(from + insert.length) };
+	}), { scrollIntoView: true, userEvent: 'input' }));
+	return true;
+};
+
 // A read-only field keeps a Tab stop, and the commands of a read-only state do not catch Tab. A locked field is out of the Tab order, as a disabled control. The hint stays while the field is locked.
 const access = (readOnly: boolean, locked: boolean) => [EditorState.readOnly.of(readOnly || locked), EditorView.editable.of(!readOnly && !locked), EditorView.contentAttributes.of(readOnly ? { tabindex: '0' } : { 'aria-describedby': hint }), readOnly || locked ? [] : completion];
 
-// Python 3.14 raises TabError for a tab under a block with 4 spaces, so Tab and Shift+Tab add and remove 4 spaces. Escape and then Tab moves the focus out: https://codemirror.net/examples/tab/
+// Python 3.14 raises TabError for a tab under a block with 4 spaces, so Tab inserts spaces up to the next stop of 4 columns and Shift+Tab removes 4 spaces. Escape and then Tab moves the focus out: https://codemirror.net/examples/tab/
 export function CodeField({ value, readOnly, locked = false, onChange }: { value: string; readOnly: boolean; locked?: boolean; onChange: (value: string) => void }) {
 	const parent = useRef<HTMLDivElement>(null), view = useRef<EditorView>(null), change = useRef(onChange);
 	change.current = onChange;
@@ -53,7 +65,7 @@ export function CodeField({ value, readOnly, locked = false, onChange }: { value
 		const editor = new EditorView({ parent: parent.current!, state: EditorState.create({ doc: value, extensions: [
 			lineNumbers(), past.of(history()), EditorView.lineWrapping, indentUnit.of('    '), python(), syntaxHighlighting(classHighlighter),
 			// The Escape binding of defaultKeymap collapses a selection and stops the built-in Escape handler, so Escape sets the Tab focus mode first.
-			keymap.of([{ key: 'Escape', run: temporarilySetTabFocusMode }, ...defaultKeymap, ...historyKeymap, indentWithTab]),
+			keymap.of([{ key: 'Escape', run: temporarilySetTabFocusMode }, ...defaultKeymap, ...historyKeymap, { key: 'Tab', run: tab, shift: indentLess }]),
 			EditorView.contentAttributes.of({ 'aria-label': 'Код решения' }),
 			// The browser hides the nonce attribute, and the nonce property keeps the value: https://html.spec.whatwg.org/multipage/urls-and-fetching.html#nonce-attributes
 			EditorView.cspNonce.of(document.querySelector<HTMLMetaElement>('meta[name="csp-nonce"]')!.nonce!),
@@ -72,5 +84,5 @@ export function CodeField({ value, readOnly, locked = false, onChange }: { value
 		editor.dispatch({ effects: past.reconfigure(history()) });
 	}, [value]);
 	useEffect(() => { view.current!.dispatch({ effects: lock.reconfigure(access(readOnly, locked)) }); }, [readOnly, locked]);
-	return <><div ref={parent} className="code-field" />{!readOnly && <small id={hint}>Tab или Enter при открытом списке: вставить выбранное имя. Tab: сдвинуть строку на 4 пробела вправо. Shift+Tab: сдвинуть влево. Esc и сразу Tab: выйти из поля.</small>}</>;
+	return <><div ref={parent} className="code-field" />{!readOnly && <small id={hint}>Tab или Enter при открытом списке: вставить выбранное имя. Tab: вставить пробелы. Tab при нескольких выделенных строках: сдвинуть их вправо. Shift+Tab: сдвинуть влево. Esc и сразу Tab: выйти из поля.</small>}</>;
 }

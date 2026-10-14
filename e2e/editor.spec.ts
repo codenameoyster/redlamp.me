@@ -277,7 +277,9 @@ test('keeps the recovery copy while the starter code waits', async ({ page, note
 const keys = [
 	{ name: 'inserts four spaces with Tab on an empty line', code: 'def f():\n', keys: ['Tab'], text: 'return 1', expected: 'def f():\n    return 1', leaves: false },
 	{ name: 'indents every selected line with Tab', code: 'a\nb', keys: ['ControlOrMeta+A', 'Tab'], text: '', expected: '    a\n    b', leaves: false },
-	{ name: 'shifts the whole line with Tab after its text', code: 'x', keys: ['Tab'], text: '', expected: '    x', leaves: false },
+	{ name: 'inserts spaces up to the next stop with Tab after its text', code: 'x', keys: ['Tab'], text: 'y', expected: 'x   y', leaves: false },
+	{ name: 'inserts four spaces with Tab at a stop', code: 'abcd', keys: ['Tab'], text: 'y', expected: 'abcd    y', leaves: false },
+	{ name: 'replaces a selection inside one line with spaces up to the next stop', code: 'abcdef', keys: ['Home', 'ArrowRight', 'Shift+ArrowRight', 'Shift+ArrowRight', 'Tab'], text: 'Z', expected: 'a   Zdef', leaves: false },
 	{ name: 'removes one level of indentation with Shift+Tab', code: '        x', keys: ['Shift+Tab'], text: '', expected: '    x', leaves: false },
 	{ name: 'removes a short indentation with Shift+Tab', code: '  x', keys: ['Shift+Tab'], text: '', expected: 'x', leaves: false },
 	{ name: 'keeps the focus on Shift+Tab on a line without indentation', code: 'x', keys: ['Shift+Tab'], text: '', expected: 'x', leaves: false },
