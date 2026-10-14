@@ -70,12 +70,10 @@ export async function handleAttempts(request: Request, env: Env, user: SessionUs
 	}
 	if (match[3]) {
 		const data = object(await readJson(request), ['version']);
-		const results = await env.DB.batch([
-			env.DB.prepare("UPDATE attempts SET state='saved',version=version+1,saved_at=?,updated_at=? WHERE id=? AND problem_id=? AND state='draft' AND version=?").bind(now, now, id, problemId, integer(data.version)),
-			saveProgress(env, problemId, id, now),
-		]);
-		if (!results[0].meta.changes) await getAttempt(env, problemId, id);
-		changed(results[0]);
+		// A draft holds a copied or a default understanding, so the save keeps the progress of the problem.
+		const result = await env.DB.prepare("UPDATE attempts SET state='saved',version=version+1,saved_at=?,updated_at=? WHERE id=? AND problem_id=? AND state='draft' AND version=?").bind(now, now, id, problemId, integer(data.version)).run();
+		if (!result.meta.changes) await getAttempt(env, problemId, id);
+		changed(result);
 		return Response.json(await getAttempt(env, problemId, id));
 	}
 	// Only the judge and the solved route accept an attempt, so a draft update changes only the document.

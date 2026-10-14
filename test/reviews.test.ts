@@ -93,7 +93,6 @@ it.each([
 });
 
 it.each([
-	{ name: 'parent edit after a student save', earlier: 'save', later: 'edit', expected: 200, fields: { version: 2, progressVersion: 2 }, reviews: 0 },
 	{ name: 'student review after a parent edit', earlier: 'edit', later: 'review', expected: 201, fields: { version: 2, progressVersion: 2, nextReviewDate: null }, reviews: 1 },
 	{ name: 'second review with the same progress version', earlier: 'review', later: 'review', expected: 409, fields: { version: 1, progressVersion: 2 }, reviews: 1 },
 	{ name: 'parent edit after the student marks a draft solved', earlier: 'solved', later: 'edit', expected: 200, fields: { version: 2, progressVersion: 2 }, reviews: 0 },
@@ -101,8 +100,7 @@ it.each([
 	const draftId = crypto.randomUUID(), parent = await login('parent');
 	await env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'draft',?,'','accepted','with_help','now','now')").bind(draftId, first, JSON.stringify({ notes: 'Explain the invariant.', approaches: [] })).run();
 	const problem = await (await request(`/problems/${first}`, 'GET', undefined, cookie)).json() as Problem;
-	const write = (kind: string) => kind === 'save' ? request(`/problems/${first}/attempts/${draftId}/save`, 'POST', { version: 1 }, cookie)
-		: kind === 'solved' ? request(`/problems/${first}/solved`, 'POST', { attemptId: draftId }, cookie)
+	const write = (kind: string) => kind === 'solved' ? request(`/problems/${first}/solved`, 'POST', { attemptId: draftId }, cookie)
 		: kind === 'edit' ? request(`/problems/${first}`, 'PATCH', { url: 'https://leetcode.com/problems/one/', number: null, title: 'Edited', difficulty: 'medium', topics: [], summary: '', version: problem.version }, parent)
 		: request(`/problems/${first}/reviews`, 'POST', { version: problem.progressVersion, result: 'with_help', note: '', reviewedOn: '2026-10-07', nextReviewDate: null }, cookie);
 	expect((await write(earlier)).ok).toBe(true);
