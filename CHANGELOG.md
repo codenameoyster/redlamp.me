@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.6](https://github.com/codenameoyster/redlamp.me/compare/v1.7.5...v1.7.6) (2026-10-14)
+
+
+### Bug Fixes
+
+* **web:** show the accepted attempt after «Отправить» on a task page ([acfc266](https://github.com/codenameoyster/redlamp.me/commit/acfc26662237a4f26a67d105b45fbdc24ff5423a))
+
 ## [1.7.5](https://github.com/codenameoyster/redlamp.me/compare/v1.7.4...v1.7.5) (2026-10-14)
 
 
