@@ -43,17 +43,18 @@ def check(code):
     return '[]'
 
 
-# LeetCode accepts a tuple where it expects a list.
+# LeetCode accepts a tuple where it expects a list, so plain() changes each tuple to a list. The judge (canonical() in src/leetcode/judge.ts) compares Python text, so True is not 1. plain() changes each bool to the tuple (bool, value), so a bool equals only a bool.
 def plain(value):
-    return [plain(item) for item in value] if isinstance(value, (list, tuple)) else value
+    return [plain(item) for item in value] if isinstance(value, (list, tuple)) else (bool, value) if type(value) is bool else value
 
 
 def same(value, expected, order):
     value, expected = plain(value), plain(expected)
+    # The judge needs a list for a free order, and a list in each item for 'any-nested'.
     if order == 'any':
-        return sorted(value) == sorted(expected)
+        return isinstance(value, list) and sorted(value) == sorted(expected)
     if order == 'any-nested':
-        return sorted(sorted(item) for item in value) == sorted(sorted(item) for item in expected)
+        return isinstance(value, list) and all(isinstance(item, list) for item in value) and sorted(sorted(item) for item in value) == sorted(sorted(item) for item in expected)
     return value == expected
 
 
