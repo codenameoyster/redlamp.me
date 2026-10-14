@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.3](https://github.com/codenameoyster/redlamp.me/compare/v1.5.2...v1.5.3) (2026-10-14)
+
+
+### Bug Fixes
+
+* **leetcode:** keep the URL of an accepted problem or a problem in homework ([5c8d1c1](https://github.com/codenameoyster/redlamp.me/commit/5c8d1c1d2a6ce51daffb3195c1409bc0ff0d742f))
+
 ## [1.5.2](https://github.com/codenameoyster/redlamp.me/compare/v1.5.1...v1.5.2) (2026-10-14)
 
 
