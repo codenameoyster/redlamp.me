@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.0](https://github.com/codenameoyster/redlamp.me/compare/v1.3.0...v1.4.0) (2026-10-14)
+
+
+### Features
+
+* **web:** format the code with a button ([2e4b5bb](https://github.com/codenameoyster/redlamp.me/commit/2e4b5bbe9965d5b68e361e4853f4c0db4be04db0))
+* **web:** format the code with a button ([a058b2d](https://github.com/codenameoyster/redlamp.me/commit/a058b2d90e10a2258db90ba355f3dcfc5899d4ed))
+
 ## [1.3.0](https://github.com/codenameoyster/redlamp.me/compare/v1.2.1...v1.3.0) (2026-10-14)
 
 
