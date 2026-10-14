@@ -25,6 +25,10 @@ function post<T>(message: object): Promise<T> {
 }
 
 export const checkCode = (code: string) => post<{ diagnostics: Diagnostic[] }>({ type: 'check', code }).then(value => value.diagnostics);
+export const formatCode = (code: string) => post<{ code?: string; line?: number }>({ type: 'format', code }).then(value => {
+	if (value.code === undefined) throw new Error(`Не удалось отформатировать: ошибка в строке ${value.line}.`);
+	return value.code;
+});
 export const pythonWords = () => post<{ words: string[] }>({ type: 'words' }).then(value => value.words);
 // The line is 1-based and the column is 0-based, as in jedi.
 export const completeCode = (code: string, line: number, column: number) => post<{ names: string[] }>({ type: 'complete', code, line, column }).then(value => value.names);
