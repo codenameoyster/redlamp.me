@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.1](https://github.com/codenameoyster/redlamp.me/compare/v1.7.0...v1.7.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **web:** refuse a prefix method that returns no length ([9aa669c](https://github.com/codenameoyster/redlamp.me/commit/9aa669c94c04a766cc17a088b8a7a28bb071719f))
+* **web:** refuse a prefix method that returns no length ([75afb61](https://github.com/codenameoyster/redlamp.me/commit/75afb619507f5ffa4547c8ed31eda705d929f462))
+
 ## [1.7.0](https://github.com/codenameoyster/redlamp.me/compare/v1.6.0...v1.7.0) (2026-10-14)
 
 
