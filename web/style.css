@@ -124,6 +124,7 @@ pre code { font:inherit; }
 .code-field .cm-content { min-height:300px; caret-color:var(--code-text); }
 .code-field .cm-gutters { background:none; border:0; color:#808080; }
 .code-field .cm-focused { outline:1px dotted var(--ink); outline-offset:1px; }
+.code-field .cm-tooltip { background:var(--code); border:1px solid #808080; }
 .hljs-keyword,.hljs-selector-tag,.hljs-meta,.tok-keyword,.tok-meta { color:#f38020; }
 .hljs-string,.hljs-regexp,.tok-string,.tok-string2 { color:#55ff55; }
 .hljs-number,.hljs-literal,.tok-number,.tok-bool { color:#ffff55; }
