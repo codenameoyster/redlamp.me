@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.5](https://github.com/codenameoyster/redlamp.me/compare/v1.7.4...v1.7.5) (2026-10-14)
+
+
+### Bug Fixes
+
+* **web:** compare the visible test answers by the rules of the judge ([c466ead](https://github.com/codenameoyster/redlamp.me/commit/c466eadfa53343f0e9ba31c4b14a65d1e6d2c55d))
+* **web:** compare the visible test answers by the rules of the judge ([b1f101a](https://github.com/codenameoyster/redlamp.me/commit/b1f101a04eed0726f3d71f24f255fa73f4efd738))
+
 ## [1.7.4](https://github.com/codenameoyster/redlamp.me/compare/v1.7.3...v1.7.4) (2026-10-14)
 
 
