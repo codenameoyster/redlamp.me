@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/codenameoyster/redlamp.me/compare/v1.2.1...v1.3.0) (2026-10-14)
+
+
+### Features
+
+* **sets:** use the English names of the data structures in the Heap and queues set ([fc84f26](https://github.com/codenameoyster/redlamp.me/commit/fc84f2695bf6baf212c0b9b35ee657234bc446d9))
+* **sets:** use the English names of the data structures in the Heap and queues set ([dc68687](https://github.com/codenameoyster/redlamp.me/commit/dc6868779aaf21d1ca962209ccc4313c4733ce93))
+
 ## [1.2.1](https://github.com/codenameoyster/redlamp.me/compare/v1.2.0...v1.2.1) (2026-10-14)
 
 
