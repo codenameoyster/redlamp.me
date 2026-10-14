@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.2](https://github.com/codenameoyster/redlamp.me/compare/v1.7.1...v1.7.2) (2026-10-14)
+
+
+### Bug Fixes
+
+* **sets:** test the windows and the tie rule of LeetCode 2462 ([33e5469](https://github.com/codenameoyster/redlamp.me/commit/33e5469a671088baa43ddd873c341988813b3065))
+
 ## [1.7.1](https://github.com/codenameoyster/redlamp.me/compare/v1.7.0...v1.7.1) (2026-10-14)
 
 
