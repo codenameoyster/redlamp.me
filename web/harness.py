@@ -76,6 +76,9 @@ def run(code, spec, test):
                 args = ast.literal_eval(test['input'])
                 result = getattr(names['Solution'](), spec['method'])(*args)
                 check = spec.get('check', 'return')
+                # A slice with None or with a length outside the list can still equal the expected prefix.
+                if check == 'prefix' and not (type(result) is int and 0 <= result <= len(args[0])):
+                    raise ValueError(f'метод должен вернуть длину от 0 до {len(args[0])}, а вернул {result!r}')
                 value = args[0] if check == 'arg0' else args[0][:result] if check == 'prefix' else result
     except SystemExit:
         pass
