@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.9](https://github.com/codenameoyster/redlamp.me/compare/v1.7.8...v1.7.9) (2026-10-16)
+
+
+### Bug Fixes
+
+* **web:** open every homework task on its problem page ([a9ad66d](https://github.com/codenameoyster/redlamp.me/commit/a9ad66d5b3462aa7dd686d8cee25cca4d6edde76))
+* **web:** open every homework task on its problem page ([241a6e3](https://github.com/codenameoyster/redlamp.me/commit/241a6e3352f86ddc680e6757afd90b1fb4ef0def))
+
 ## [1.7.8](https://github.com/codenameoyster/redlamp.me/compare/v1.7.7...v1.7.8) (2026-10-14)
 
 
