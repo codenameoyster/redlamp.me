@@ -64,7 +64,7 @@ it.each([
 		{ number: 4, title: 'Порядок и номер', summary: 'Следующая перестановка, пути в сетке, k-я перестановка и ферзи. Вы находите один вариант или число вариантов без списка всех.', tasks: ['next-permutation', 'unique-paths', 'permutation-sequence', 'n-queens'] },
 	]);
 	const rows = details.chapters.flatMap(chapter => chapter.tasks);
-	expect(rows.find(task => task.slug === 'subsets')).toEqual({ ...set.chapters[1].tasks.find(task => taskSlug(task) === 'subsets'), slug: 'subsets', label: 'LeetCode 78', problemId, accepted, activeTask: active ? { id: taskId, homeworkId, homeworkTitle: 'Week 41: backtracking', state: taskState } : null });
+	expect(rows.find(task => task.slug === 'subsets')).toEqual({ ...set.chapters[1].tasks.find(task => taskSlug(task) === 'subsets'), slug: 'subsets', label: 'LeetCode 78', problemId, accepted, activeTask: active ? { state: taskState } : null });
 	expect(rows.filter(task => task.problemId || task.accepted || task.activeTask).map(task => task.slug)).toEqual(inLibrary ? ['subsets'] : []);
 });
 

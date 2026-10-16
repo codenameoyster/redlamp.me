@@ -1,6 +1,6 @@
 import { test, expect, signIn } from './fixtures';
 import type { Locator, Page } from '@playwright/test';
-import type { Figure, Homework, HomeworkTask, Problem } from '../shared/leetcode';
+import type { Figure, Homework, Problem } from '../shared/leetcode';
 import twoPointers1 from '../src/leetcode/sets/two-pointers/chapter1';
 import twoPointers2 from '../src/leetcode/sets/two-pointers/chapter2';
 
@@ -61,7 +61,7 @@ test('assigns set tasks to new and existing homework', async ({ page, context })
 	await first.getByLabel('Срок', { exact: true }).fill('2026-10-20');
 	await first.getByRole('button', { name: 'Создать и назначить', exact: true }).click();
 	await expect(first).toHaveCount(0);
-	await expect(subsets.getByRole('link', { name: 'Назначено', exact: true })).toHaveAttribute('href', /^\/leetcode\/tasks\/[a-f0-9-]{36}$/);
+	await expect(subsets.getByRole('link', { name: 'Назначено', exact: true })).toHaveAttribute('href', /^\/leetcode\/problems\/[a-f0-9-]{36}$/);
 	await expect(subsets.getByRole('link', { name: 'Subsets', exact: true })).toHaveAttribute('href', /^\/leetcode\/problems\/[a-f0-9-]{36}$/);
 	await expect(subsets.getByRole('button', { name: 'Добавить в домашнюю работу' })).toHaveCount(0);
 	const permutations = row(page, 'Permutations'), add = permutations.getByRole('button', { name: 'Добавить в домашнюю работу', exact: true });
@@ -86,14 +86,14 @@ test('assigns set tasks to new and existing homework', async ({ page, context })
 	await second.getByRole('searchbox', { name: 'Найти домашнюю работу', exact: true }).fill('BACKTRACKING');
 	await bundle.getByRole('button', { name: 'Назначить', exact: true }).click();
 	await expect(second).toHaveCount(0);
-	await expect(permutations.getByRole('link', { name: 'Назначено', exact: true })).toHaveAttribute('href', /^\/leetcode\/tasks\/[a-f0-9-]{36}$/);
+	await expect(permutations.getByRole('link', { name: 'Назначено', exact: true })).toHaveAttribute('href', /^\/leetcode\/problems\/[a-f0-9-]{36}$/);
 	await page.getByRole('link', { name: 'Задачи', exact: true }).click();
 	const library = page.getByRole('region', { name: 'Библиотека задач' });
 	await expect(library.getByRole('link', { name: 'Subsets', exact: true })).toBeVisible();
 	await expect(library.getByRole('link', { name: 'Permutations', exact: true })).toBeVisible();
 	expect(await (await page.request.get('/leetcode/api/problems?q=subsets')).json()).toMatchObject({ items: [{ url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: ['Массив', 'Перебор'], summary: 'LeetCode, medium. Шаблон с индексом start. Сохраняйте копию path[:] при каждом вызове, ответов будет 2 в степени n.' }] });
 	await page.getByRole('link', { name: 'Домашняя работа', exact: true }).click();
-	await expect(page.getByRole('region', { name: 'Будущее', exact: true }).getByRole('link', { name: 'Week 41: backtracking', exact: true })).toHaveCount(2);
+	await expect(page.getByRole('region', { name: 'В процессе', exact: true }).getByRole('link', { name: 'Week 41: backtracking', exact: true })).toHaveCount(2);
 	await signIn(page);
 	await page.goto(setPath);
 	await expect(row(page, 'Перебор: подмножества, перестановки, сочетания')).toContainText('Задач принято 0 из 5');
@@ -306,13 +306,10 @@ test('links a set as material of a problem', async ({ page, notebook }) => {
 	await expect(page).toHaveURL(setPath);
 });
 
-test('shows the chapter of a task as its material', async ({ page, baseURL }) => {
-	const headers = { Origin: new URL(baseURL!).origin };
+test('shows the chapter of a problem as its material', async ({ page, baseURL }) => {
 	await signIn(page, 'parent');
-	const homework = await (await page.request.post('/leetcode/api/homework', { headers, data: { title: 'Week 41', instructions: '', dueDate: null } })).json() as Homework;
-	const problem = await (await page.request.post('/leetcode/api/problems', { headers, data: { url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
-	const task = await (await page.request.post('/leetcode/api/tasks', { headers, data: { homeworkId: homework.id, problemId: problem.id } })).json() as HomeworkTask;
-	await page.goto(`/leetcode/tasks/${task.id}`);
+	const problem = await (await page.request.post('/leetcode/api/problems', { headers: { Origin: new URL(baseURL!).origin }, data: { url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
+	await page.goto(`/leetcode/problems/${problem.id}`);
 	const materials = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Материалы', level: 2 }) });
 	await expect(materials.locator('small')).toHaveText('Перестановки и сочетания');
 	await expect(materials.getByRole('button', { name: /^Отвязать/ })).toHaveCount(0);

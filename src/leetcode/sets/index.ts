@@ -55,7 +55,7 @@ export async function acceptedSetSlugs(env: Env): Promise<Set<string>> {
 	return new Set(rows.results.map(row => row.slug));
 }
 
-type TaskRow = { slug: string; problemId: string; accepted: number; id: string | null; homeworkId: string; homeworkTitle: string; state: TaskState };
+type TaskRow = { slug: string; problemId: string; accepted: number; state: TaskState | null };
 export async function handleSets(request: Request, env: Env, user: SessionUser): Promise<Response | null> {
 	const link = /^\/leetcode\/api\/(problems|homework)\/([^/]+)\/sets(?:\/([^/]+))?$/.exec(new URL(request.url).pathname);
 	if (link) {
@@ -93,12 +93,12 @@ export async function handleSets(request: Request, env: Env, user: SessionUser):
 		if (!html) throw new HttpError(404, 'not_found', 'Такой главы нет.');
 		return Response.json({ html, figures: set.chapters[Number(match[2]) - 1].figures ?? [] });
 	}
-	const rows = await env.DB.prepare(`SELECT p.slug,p.id AS problemId,${solvedSQL} AS accepted,t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,t.state
-		FROM problems p LEFT JOIN homework_tasks t ON t.problem_id=p.id AND t.state NOT IN ('completed','cancelled') LEFT JOIN homework h ON h.id=t.homework_id WHERE p.slug IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(tasksOf(set).map(taskSlug))).all<TaskRow>();
+	const rows = await env.DB.prepare(`SELECT p.slug,p.id AS problemId,${solvedSQL} AS accepted,t.state
+		FROM problems p LEFT JOIN homework_tasks t ON t.problem_id=p.id AND t.state NOT IN ('completed','cancelled') WHERE p.slug IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(tasksOf(set).map(taskSlug))).all<TaskRow>();
 	const library = new Map(rows.results.map(row => [row.slug, row]));
 	const details: LearningSetDetails = { slug: set.slug, title: set.title, summary: set.summary, topics: set.topics, chapters: set.chapters.map((chapter, index) => ({ number: index + 1, title: chapter.title, summary: chapter.summary, links: chapter.links, tasks: chapter.tasks.map(task => {
 		const value = taskSlug(task), row = library.get(value);
-		return { ...task, slug: value, label: taskLabel(task), problemId: row?.problemId ?? null, accepted: Boolean(row?.accepted), activeTask: row?.id ? { id: row.id, homeworkId: row.homeworkId, homeworkTitle: row.homeworkTitle, state: row.state } : null };
+		return { ...task, slug: value, label: taskLabel(task), problemId: row?.problemId ?? null, accepted: Boolean(row?.accepted), activeTask: row?.state ? { state: row.state } : null };
 	}) })) };
 	return Response.json(details);
 }

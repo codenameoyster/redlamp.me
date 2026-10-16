@@ -1,5 +1,5 @@
 import type { Env } from '../index';
-import type { Feedback, Homework, HomeworkBoard, HomeworkSummary, HomeworkTask, Role, SessionUser, Submission } from '../../shared/leetcode';
+import type { Feedback, Homework, HomeworkBoard, HomeworkSummary, HomeworkTask, Role, SessionUser } from '../../shared/leetcode';
 import { requireRole } from './auth';
 import { getProblem } from './problems';
 import { calendarDate, changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
@@ -81,24 +81,22 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		await env.DB.prepare('INSERT INTO homework (id,title,instructions,due_date,created_at,updated_at) VALUES (?,?,?,?,?,?)').bind(newId, title, instructions, dueDate, now, now).run();
 		return Response.json(await getHomework(env, newId), { status: 201 });
 	}
-	const match = /^\/leetcode\/api\/tasks(?:\/([^/]+)(?:\/(start|review|cancel))?)?$/.exec(url.pathname);
+	const match = /^\/leetcode\/api\/tasks(?:\/([^/]+)\/(start|review|cancel))?$/.exec(url.pathname);
 	if (!match) return null;
 	const id = match[1] ? uuid(match[1]) : null, action = match[2];
-	methods(request, action ? ['POST'] : id ? ['GET'] : ['GET', 'POST']);
+	methods(request, action ? ['POST'] : ['GET', 'POST']);
 	if (request.method === 'GET') {
-		if (id) {
-			const task = await getTask(env, id, user.role);
-			const submissions = await env.DB.prepare('SELECT id,task_id AS taskId,attempt_id AS attemptId,task_version AS taskVersion,created_at AS createdAt FROM submissions WHERE task_id=? ORDER BY created_at DESC,id DESC LIMIT 50').bind(id).all<Submission>();
-			return Response.json({ homework: await getHomework(env, task.homeworkId), task, submissions: submissions.results });
-		}
 		if (url.searchParams.get('view') === 'board') {
-			const section = (states: string, order: string) => env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.state IN ${states} ORDER BY ${order},t.id LIMIT 200`).bind(user.role);
-			const [progress, future, accepted] = (await env.DB.batch<HomeworkTask>([section("('in_progress','submitted','changes_requested')", 'h.due_date IS NULL,h.due_date'), section("('assigned')", 'h.due_date IS NULL,h.due_date'), section("('completed')", 't.updated_at DESC')])).map(rows => rows.results.map(unreadValue));
-			return Response.json({ progress, future, accepted } satisfies HomeworkBoard);
+			// The active homework with the earliest due date is in progress. The other active homework is in the future.
+			const [active, accepted] = (await env.DB.batch<HomeworkTask>([
+				env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.state NOT IN ('completed','cancelled') ORDER BY h.due_date IS NULL,h.due_date,h.created_at,h.id,t.created_at,t.id LIMIT 200`).bind(user.role),
+				env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.state='completed' ORDER BY t.updated_at DESC,t.id LIMIT 200`).bind(user.role),
+			])).map(rows => rows.results.map(unreadValue));
+			const current = active[0]?.homeworkId;
+			return Response.json({ progress: active.filter(t => t.homeworkId === current), future: active.filter(t => t.homeworkId !== current), accepted } satisfies HomeworkBoard);
 		}
 		const { limit, offset } = pagination(url), where = ['1=1'], args: string[] = [];
 		if (url.searchParams.has('problemId')) { where.push('t.problem_id=?'); args.push(uuid(url.searchParams.get('problemId'))); }
-		if (url.searchParams.get('active') === '1') where.push("t.state NOT IN ('completed','cancelled')");
 		const rows = await env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE ${where.join(' AND ')} ORDER BY (t.state='submitted') DESC,t.created_at DESC,t.id LIMIT ? OFFSET ?`).bind(user.role, ...args, limit + 1, offset).all<HomeworkTask>();
 		return Response.json(page(rows.results.map(unreadValue), limit, offset));
 	}

@@ -162,3 +162,17 @@ it.each([
 	const { dueReviews } = await (await request('/dashboard?today=2026-10-07', 'GET', undefined, cookie)).json() as Dashboard;
 	expect(Object.fromEntries(dueReviews.map(problem => [problem.slug, problem.fromHomework]))).toEqual({ one: fromHomework, two: false, three: false });
 });
+
+// The attempts of beforeEach are saved. A draft of a problem with an accepted attempt is not a next step.
+it.each([
+	{ name: 'draft of an unaccepted problem is a next step', slug: 'three', archived: false, titles: ['unaccepted independently'] },
+	{ name: 'draft of an accepted problem is not a next step', slug: 'one', archived: false, titles: [] },
+	{ name: 'draft of an archived problem is not a next step', slug: 'three', archived: true, titles: [] },
+])('$name', async ({ slug, archived, titles }) => {
+	await env.DB.batch([
+		env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) SELECT ?,id,'draft','{}','','not_submitted','needs_practice','now','now' FROM problems WHERE slug=?").bind(crypto.randomUUID(), slug),
+		env.DB.prepare('UPDATE problems SET archived_at=? WHERE slug=?').bind(archived ? 'now' : null, slug),
+	]);
+	const { drafts } = await (await request('/dashboard?today=2026-10-07', 'GET', undefined, cookie)).json() as Dashboard;
+	expect(drafts.map(draft => draft.problemTitle)).toEqual(titles);
+});

@@ -10,6 +10,7 @@ test('opens, submits, returns, and completes a task in one window', async ({ pag
 	await page.getByLabel('Задание', { exact: true }).fill('Explain the invariant.');
 	await page.getByRole('button', { name: 'Создать домашнюю работу', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'Week 41: hash maps', level: 1 })).toBeVisible();
+	const homeworkPath = new URL(page.url()).pathname, taskURL = `/leetcode/problems/${notebook.problem.id}`;
 	await page.getByRole('button', { name: 'Изменить домашнюю работу', exact: true }).click();
 	await page.getByLabel('Срок', { exact: true }).fill('2026-10-20');
 	await page.getByRole('button', { name: 'Сохранить домашнюю работу', exact: true }).click();
@@ -18,11 +19,11 @@ test('opens, submits, returns, and completes a task in one window', async ({ pag
 	await page.getByRole('button', { name: 'Добавить задание', exact: true }).click();
 	await expect(page.getByText('Назначено', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: notebook.problem.title, exact: true }).click();
+	await expect(page).toHaveURL(taskURL);
 	await expect(page.getByText('Explain the invariant.', { exact: true })).toBeVisible();
-	const taskURL = page.url(), taskPath = new URL(taskURL).pathname;
 	await signIn(page);
-	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
-	await expect(page.getByRole('link', { name: 'Week 41: hash maps', exact: true })).toHaveAttribute('href', taskPath);
+	await page.goto(taskURL);
+	await expect(page.getByRole('link', { name: 'Week 41: hash maps', exact: true })).toHaveAttribute('href', homeworkPath);
 	await expect(page.getByRole('link', { name: 'LeetCode ↗', exact: true })).toHaveAttribute('href', notebook.problem.url);
 	await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: { mode: 'call', method: 'twoSum' }, source: 'leetcode', standard: [{ input: '[[2, 7, 11, 15], 9]', expected: '[0, 1]' }], own: [] } }));
 	await page.goto(taskURL);
@@ -60,14 +61,35 @@ test('opens, submits, returns, and completes a task in one window', async ({ pag
 	await page.getByRole('link', { name: 'Week 41: hash maps', exact: true }).click();
 	await expect(page.getByText('Завершено', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Домашняя работа', exact: true }).click();
-	await expect(page.getByRole('region', { name: 'Принятое', exact: true }).getByRole('link', { name: notebook.problem.title, exact: true })).toHaveAttribute('href', taskPath);
+	await expect(page.getByRole('region', { name: 'Принятое', exact: true }).getByRole('link', { name: notebook.problem.title, exact: true })).toHaveAttribute('href', taskURL);
+});
+
+// The judge completes the task with the accepted attempt. The work window then opens a new draft, where the student writes the notes.
+test('shows the newest notes of a completed task from the homework page', async ({ page, notebook, server }) => {
+	const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id, 'completed'), submissionId = crypto.randomUUID();
+	await DB.batch([
+		DB.prepare("UPDATE attempts SET state='saved',acceptance='accepted',saved_at='now' WHERE id=?").bind(notebook.attempt.id),
+		DB.prepare("INSERT INTO submissions (id,task_id,attempt_id,task_version,created_at) VALUES (?,?,?,1,'now')").bind(submissionId, taskId, notebook.attempt.id),
+		DB.prepare('UPDATE homework_tasks SET current_submission_id=? WHERE id=?').bind(submissionId, taskId),
+	]);
+	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
+	await page.getByLabel('Общие заметки', { exact: true }).fill('Правило суммы.');
+	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
+	await signIn(page, 'parent');
+	await page.goto('/leetcode/homework');
+	await page.getByRole('region', { name: 'Принятое', exact: true }).getByRole('link', { name: notebook.problem.title, exact: true }).click();
+	await expect(page).toHaveURL(`/leetcode/problems/${notebook.problem.id}`);
+	await expect(page.getByText('Завершено', { exact: true })).toBeVisible();
+	await expect(page.getByLabel('Общие заметки', { exact: true })).toHaveValue('Правило суммы.');
+	await expect(page.getByLabel('Отзыв', { exact: true })).toBeVisible();
 });
 
 test('shows the tasks in three sections and spreads the accepted tasks over 30 days', async ({ page, notebook, server }) => {
 	const { DB } = await server.getWorker<TestEnv>().getEnv(), [started, waiting, dropped] = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()];
 	const insert = DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,?,?,'easy','[]','','','now','now')");
 	await DB.batch([insert.bind(started, 'started', 'Started'), insert.bind(waiting, 'waiting', 'Waiting'), insert.bind(dropped, 'dropped', 'Dropped')]);
-	for (const [id, state] of [[notebook.problem.id, 'completed'], [started, 'in_progress'], [waiting, 'assigned'], [dropped, 'cancelled']]) await addTask(DB, id, state);
+	// The started homework is due first, so its task is in progress and the assigned task of the later homework is in the future.
+	for (const row of [{ id: notebook.problem.id, state: 'completed', due: null }, { id: started, state: 'in_progress', due: '2026-10-11' }, { id: waiting, state: 'assigned', due: '2026-10-12' }, { id: dropped, state: 'cancelled', due: null }]) await addTask(DB, row.id, row.state, row.due);
 	await page.getByRole('link', { name: 'Домашняя работа', exact: true }).click();
 	const section = (name: string) => page.getByRole('region', { name, exact: true }), accepted = section('Принятое');
 	await expect(section('В процессе').getByRole('heading', { level: 3 })).toHaveText(['Started']);
@@ -115,9 +137,10 @@ test('parent changes the due date from the homework header', async ({ page, note
 });
 
 test('cancels the task from the work window', async ({ page, notebook, server }) => {
-	const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id);
+	const { DB } = await server.getWorker<TestEnv>().getEnv();
+	await addTask(DB, notebook.problem.id);
 	await signIn(page, 'parent');
-	await page.goto(`/leetcode/tasks/${taskId}`);
+	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
 	await expect(page.getByText('Назначено', { exact: true })).toBeVisible();
 	page.once('dialog', dialog => dialog.accept());
 	await page.getByRole('button', { name: 'Отменить задание', exact: true }).click();
@@ -183,13 +206,12 @@ const panes = [
 	{ name: 'shows the notes beside the code without a chapter', url: 'https://leetcode.com/problems/two-sum/', title: 'Two Sum', chapter: false },
 ];
 for (const row of panes) {
-	test(row.name, async ({ page, baseURL, server }) => {
+	test(row.name, async ({ page, baseURL }) => {
 		await signIn(page);
 		const problem = await (await page.request.post('/leetcode/api/problems', { headers: { Origin: new URL(baseURL!).origin }, data: { url: row.url, number: null, title: row.title, difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
 		await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: null, source: 'none', standard: [], own: [] } }));
 		await page.route('**/leetcode/api/sets/permutations-and-combinations/lesson/2', route => route.fulfill({ json: { html: '<p class="lead">Урок.</p>\n<figure data-figure="test-pane"></figure>', figures: [{ id: 'test-pane', title: 'Рисунок главы', frames: [{ caption: 'Рисунок в окне работы.', rows: [{ cells: [1, 2] }] }] }] } }));
-		const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, problem.id);
-		await page.goto(`/leetcode/tasks/${taskId}`);
+		await page.goto(`/leetcode/problems/${problem.id}`);
 		const code = page.getByLabel('Код решения', { exact: true }), idea = page.getByLabel('Основная идея', { exact: true });
 		await expect(code).toBeEditable();
 		await expect(page.getByRole('link', { name: 'Глава 2. Перебор: подмножества, перестановки, сочетания', exact: true })).toHaveCount(row.chapter ? 2 : 0);
