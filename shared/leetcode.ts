@@ -1,7 +1,7 @@
 export type Role = 'parent' | 'student';
 export interface SessionUser { role: Role; username: string }
 export interface Page<T> { items: T[]; nextOffset: number | null }
-export const NOTEBOOK_PAGE = /^\/leetcode(?:\/(?:problems|homework)(?:\/[a-f0-9-]{36}(?:\/review)?)?|\/tasks\/[a-f0-9-]{36}|\/sets(?:\/[a-z0-9-]+(?:\/[1-9][0-9]?)?)?|\/quiz(?:\/[a-z0-9-]+)?|\/tutor)?$/;
+export const NOTEBOOK_PAGE = /^\/leetcode(?:\/(?:problems|homework)(?:\/[a-f0-9-]{36}(?:\/review)?)?|\/sets(?:\/[a-z0-9-]+(?:\/[1-9][0-9]?)?)?|\/quiz(?:\/[a-z0-9-]+)?|\/tutor)?$/;
 export type Acceptance = 'not_submitted' | 'not_accepted' | 'accepted';
 export type Understanding = 'needs_practice' | 'with_help' | 'independent';
 export type Difficulty = 'easy' | 'medium' | 'hard';
@@ -60,11 +60,9 @@ export interface HomeworkTask {
 	id: string; homeworkId: string; homeworkTitle: string; instructions: string; dueDate: string | null; postponedTo: string | null; problemId: string; problemTitle: string; difficulty: Difficulty;
 	state: TaskState; submissionId: string | null; version: number; createdAt: string; updatedAt: string; unread: boolean;
 }
-export interface Submission { id: string; taskId: string; attemptId: string; taskVersion: number; createdAt: string }
 export interface Feedback { id: string; problemId: string; taskId: string | null; submissionId: string | null; author: Role; kind: 'reply' | 'changes_requested' | 'completed'; body: string; createdAt: string }
 export interface HomeworkDetails { homework: Homework; tasks: HomeworkTask[] }
 export type HomeworkBoard = Record<'progress' | 'future' | 'accepted', HomeworkTask[]>;
-export interface TaskDetails { homework: Homework; task: HomeworkTask; submissions: Submission[] }
 export interface TestCase { input: string; expected: string | null }
 // call: LeetCode style. input is a Python literal list of the arguments, expected a Python literal.
 // check: 'return' compares the return value, 'arg0' the first argument after the call (in-place tasks), 'prefix' the first argument cut to the returned length (Remove Duplicates).
@@ -89,7 +87,7 @@ export interface Chapter { title: string; summary: string; tasks: SetTask[]; car
 export interface LearningSet { slug: string; title: string; summary: string; topics: string[]; chapters: Chapter[] }
 export interface ChapterRef { set: string; setTitle: string; number: number; title: string }
 export interface LearningSetSummary extends Omit<LearningSet, 'chapters'> { chapterCount: number; taskCount: number; acceptedCount: number }
-export type SetTaskRow = SetTask & { slug: string; label: string; problemId: string | null; accepted: boolean; activeTask: Pick<HomeworkTask, 'id' | 'homeworkId' | 'homeworkTitle' | 'state'> | null };
+export type SetTaskRow = SetTask & { slug: string; label: string; problemId: string | null; accepted: boolean; activeTask: Pick<HomeworkTask, 'state'> | null };
 export interface LearningSetDetails extends Omit<LearningSet, 'chapters'> { chapters: { number: number; title: string; summary: string; links: Chapter['links']; tasks: SetTaskRow[] }[] }
 export type Card = { id: string; prompt: string; explain: string } & (
 	{ type: 'choice'; options: string[]; answer: number }

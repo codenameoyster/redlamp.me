@@ -54,15 +54,12 @@ for (const row of hidden) {
 		test.slow();
 		const { DB } = await server.getWorker<TestEnv>().getEnv(), problemId = crypto.randomUUID();
 		await DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,'container-with-most-water','Container With Most Water','medium','[]','','','now','now')").bind(problemId).run();
-		const { taskId } = await addTask(DB, problemId, 'in_progress');
+		await addTask(DB, problemId, 'in_progress');
 		// The real tests route asks leetcode.com for the starter code.
 		await page.route('**/leetcode/api/problems/*/tests', route => route.fulfill({ json: { spec: { mode: 'call', method: 'maxArea' }, source: 'set', standard: [], own: [], skeleton: '' } }));
 		await signIn(page);
-		await page.goto(`/leetcode/tasks/${taskId}`);
+		await page.goto(`/leetcode/problems/${problemId}`);
 		await page.getByLabel('Код решения', { exact: true }).fill(row.code);
-		// The task reload after an acceptance returns before a new attempt opens.
-		const reloaded = new Promise<void>(resolve => page.on('requestfinished', request => { if (request.url().endsWith(`/leetcode/api/tasks/${taskId}`)) resolve(); }));
-		await page.route('**/leetcode/api/problems/*/attempts', async route => { if (route.request().method() === 'POST') await reloaded; await route.continue(); });
 		await page.getByRole('button', { name: 'Отправить', exact: true }).click();
 		const result = row.verdict === 'Принято' ? page.getByText('Принято', { exact: true }) : page.getByRole('alert', { name: 'Результат проверки' });
 		await expect(result).toHaveText(row.verdict, { useInnerText: true, timeout: 60_000 });

@@ -1,5 +1,5 @@
 import { test, expect, signIn, addMessages, type TestEnv } from './fixtures';
-import type { TaskDetails } from '../shared/leetcode';
+import type { AttemptSummary, Page } from '../shared/leetcode';
 
 test('completes learning with two accounts and a linked set', async ({ page: parent, browser, baseURL }, testInfo) => {
 	const studentContext = await browser.newContext({ baseURL, viewport: testInfo.project.use.viewport });
@@ -28,12 +28,13 @@ test('completes learning with two accounts and a linked set', async ({ page: par
 		await expect(parent.getByRole('link', { name: 'Перестановки и сочетания', exact: true })).toBeVisible();
 		await parent.getByRole('link', { name: 'Minimum Window Substring', exact: true }).click();
 		await expect(parent.getByRole('heading', { name: 'Minimum Window Substring', level: 1 })).toBeVisible();
-		const taskURL = parent.url(), taskId = taskURL.split('/').at(-1)!;
+		const taskURL = parent.url();
 		await signIn(student);
 		await student.goto(taskURL);
+		await student.getByRole('link', { name: 'Week 41: sliding window', exact: true }).click();
 		await student.getByRole('link', { name: 'Перестановки и сочетания', exact: true }).click();
 		await expect(student.getByRole('heading', { name: 'Перестановки и сочетания', level: 1 })).toBeVisible();
-		await student.goBack();
+		await student.goto(taskURL);
 		await student.getByLabel('Основная идея', { exact: true }).fill('Shrink only while all target counts are satisfied.');
 		await student.getByLabel('Код решения', { exact: true }).fill(`return sliding_window(source, target) # ${'long_code_line_'.repeat(40)}`);
 		expect(await student.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -42,8 +43,7 @@ test('completes learning with two accounts and a linked set', async ({ page: par
 		await expect(student.getByText('Отправлено', { exact: true })).toBeVisible();
 		await parent.reload();
 		await expect(parent.getByText('Отправлено', { exact: true })).toBeVisible();
-		const firstDetails = await (await parent.request.get(`/leetcode/api/tasks/${taskId}`)).json() as TaskDetails;
-		const firstAttemptId = firstDetails.submissions[0].attemptId;
+		const firstAttemptId = ((await (await parent.request.get(`/leetcode/api/problems/${problemId}/attempts`)).json()) as Page<AttemptSummary>).items[0].id;
 		await parent.getByLabel('Отзыв', { exact: true }).fill('Explain why shrinking cannot miss a shorter valid window.');
 		await parent.getByRole('button', { name: 'Вернуть на доработку' }).click();
 		await expect(parent.getByText('Нужны правки: Explain why shrinking cannot miss a shorter valid window.', { exact: true })).toBeVisible();

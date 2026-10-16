@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { hasWork, type Approach, type Attempt, type AttemptSummary, type ChapterRef, type DraftValue, type Feedback, type Figure, type HomeworkTask, type JudgeOutput, type Judgement, type Page, type Problem, type ProblemTests, type SessionUser, type TaskDetails, type TestRun } from '../shared/leetcode';
+import { hasWork, type Approach, type Attempt, type AttemptSummary, type ChapterRef, type DraftValue, type Feedback, type Figure, type HomeworkTask, type JudgeOutput, type Judgement, type Page, type Problem, type ProblemTests, type SessionUser, type TestRun } from '../shared/leetcode';
 import { api, ApiError, message } from './api';
 import { useResource } from './useResource';
 import { useDraft, type LeaveGuard, type RegisterGuard } from './useDraft';
@@ -132,22 +132,20 @@ export function DraftEditor({ initial, user, registerGuard, saved, task, chapter
 	</div>;
 }
 
-// The window of a library problem (problemId) or of a homework task (taskId).
-export function Workspace({ problemId, taskId, user, registerGuard }: { problemId?: string; taskId?: string; user: SessionUser; registerGuard: RegisterGuard }) {
-	const details = useResource<TaskDetails>(taskId ? `/tasks/${taskId}` : null), task = details.data?.task;
-	const id = problemId ?? task?.problemId, student = user.role === 'student';
-	const problem = useResource<Problem>(id ? `/problems/${id}` : null);
-	const attempts = useResource<Page<AttemptSummary>>(id ? `/problems/${id}/attempts` : null);
-	const tasks = useResource<Page<HomeworkTask>>(problemId ? `/tasks?problemId=${problemId}&active=1` : null);
+// The window of a problem. The newest task of the problem shows its homework and its review state.
+export function Workspace({ problemId: id, user, registerGuard }: { problemId: string; user: SessionUser; registerGuard: RegisterGuard }) {
+	const student = user.role === 'student';
+	const problem = useResource<Problem>(`/problems/${id}`);
+	const attempts = useResource<Page<AttemptSummary>>(`/problems/${id}/attempts`);
+	const tasks = useResource<Page<HomeworkTask>>(`/tasks?problemId=${id}`), task = tasks.data?.items[0];
 	// The first page also records the read marker of the unread dot.
-	const reviews = useResource<Page<Feedback>>(task ? `/problems/${task.problemId}/feedback` : null, task?.version);
-	const chapter = useResource<{ chapters: ChapterRef[] }>(id ? `/problems/${id}/sets` : null).data?.chapters[0];
+	const reviews = useResource<Page<Feedback>>(task ? `/problems/${id}/feedback` : null, task?.version);
+	const chapter = useResource<{ chapters: ChapterRef[] }>(`/problems/${id}/sets`).data?.chapters[0];
 	const lesson = useResource<{ html: string; figures: Figure[] }>(chapter ? `/sets/${chapter.set}/lesson/${chapter.number}` : null);
-	const statement = useResource<{ html: string | null; text: string | null }>(id ? `/problems/${id}/statement` : null).data;
-	// A submitted or completed task shows the submitted attempt. Otherwise the student works in the draft and the parent reads the newest attempt.
-	const frozen = task && ['submitted', 'completed'].includes(task.state) ? details.data!.submissions.find(s => s.id === task.submissionId)?.attemptId : undefined;
-	const [work, setWork] = useState<string>(), latest = attempts.data?.items[0], attemptId = frozen ?? (student ? work : latest?.id);
-	const current = useResource<Attempt>(id && attemptId ? `/problems/${id}/attempts/${attemptId}` : null);
+	const statement = useResource<{ html: string | null; text: string | null }>(`/problems/${id}/statement`).data;
+	// The student works in the draft and the parent reads the newest attempt.
+	const [work, setWork] = useState<string>(), latest = attempts.data?.items[0], attemptId = student ? work : latest?.id;
+	const current = useResource<Attempt>(attemptId ? `/problems/${id}/attempts/${attemptId}` : null);
 	const [editing, setEditing] = useState(false), [code, setCode] = useState(''), [feedback, setFeedback] = useState(''), [notice, setNotice] = useState<ReactNode>(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
 	const guard = useRef<LeaveGuard | null>(null), article = useRef<HTMLElement>(null), statementRoot = useRef<HTMLElement>(null);
 	const register = useCallback<RegisterGuard>(value => { guard.current = value; registerGuard(value); }, [registerGuard]);
@@ -157,20 +155,19 @@ export function Workspace({ problemId, taskId, user, registerGuard }: { problemI
 		catch (error) { if (error instanceof ApiError && error.fields?.attemptId) setWork(error.fields.attemptId); else setError(message(error)); }
 	}
 	// Opening an assigned task starts it. A failed start keeps the task assigned, and the submit still works.
-	useEffect(() => { if (student && task?.state === 'assigned') void api(`/tasks/${task.id}/start`, { method: 'POST', body: JSON.stringify({ version: task.version }) }).then(details.reload, details.reload); }, [task?.state]);
+	useEffect(() => { if (student && task?.state === 'assigned') void api(`/tasks/${task.id}/start`, { method: 'POST', body: JSON.stringify({ version: task.version }) }).then(tasks.reload, tasks.reload); }, [task?.state]);
 	// The student works in the draft, else in a new draft that copies the newest saved attempt, else in a new empty draft.
-	const ready = student && !work && !frozen && Boolean(attempts.data) && (!taskId || Boolean(task));
+	const ready = student && !work && Boolean(attempts.data);
 	useEffect(() => { if (ready) { if (latest?.state === 'draft') setWork(latest.id); else void open(latest?.id); } }, [ready]);
 	async function saved(attempt: Attempt, action?: 'save' | 'submit' | 'judge') {
-		problem.reload(); details.reload();
+		problem.reload(); tasks.reload();
 		if (action === 'submit' || attempt.state === 'draft') return current.setData(attempt);
-		// The judge completes an active homework task, so a task page shows the accepted attempt.
-		if (taskId && action === 'judge') current.setData(attempt); else await open(attempt.id);
+		await open(attempt.id);
 		if (action) setNotice(action === 'judge' ? <span className="tag good">Принято</span> : 'Попытка сохранена.');
 	}
 	async function act(name: string, extra: Record<string, unknown> = {}) {
 		setBusy(true); setError('');
-		try { await api(`/tasks/${task!.id}/${name}`, { method: 'POST', body: JSON.stringify({ version: task!.version, ...extra }) }); details.reload(); }
+		try { await api(`/tasks/${task!.id}/${name}`, { method: 'POST', body: JSON.stringify({ version: task!.version, ...extra }) }); tasks.reload(); }
 		catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
 	async function archive() {
@@ -184,21 +181,21 @@ export function Workspace({ problemId, taskId, user, registerGuard }: { problemI
 		try { await api(`/problems/${id}/restore`, { method: 'POST', body: JSON.stringify({ version: problem.data!.version }) }); problem.reload(); } catch (error) { setError(message(error)); }
 	}
 	const record = problem.data;
-	if (!record) return <p role="status">{details.error || problem.error || 'Открываем задачу...'}</p>;
-	const review = reviews.data?.items.find(f => f.taskId === task?.id && f.kind !== 'reply');
+	if (!record) return <p role="status">{problem.error || 'Открываем задачу...'}</p>;
+	const review = reviews.data?.items.find(f => f.taskId === task?.id && f.kind !== 'reply'), active = task && !['completed', 'cancelled'].includes(task.state);
 	const chapterPane = chapter && lesson.data && <section className="stack"><h2><a href={`/leetcode/sets/${chapter.set}/${chapter.number}`}>Глава {chapter.number}. {chapter.title}</a></h2><Lesson html={lesson.data.html} figures={lesson.data.figures} ref={article} /></section>;
 	return <div className="stack">
 		<div className="heading"><div>{task && <p className="small"><a href={`/leetcode/homework/${task.homeworkId}`}>{task.homeworkTitle}</a></p>}<h1>{record.title}</h1><div className="tags"><span className={`tag ${record.difficulty}`}>{difficultyLabels[record.difficulty]}</span>{task && <><span className="tag">{homeworkLabels[task.state]}</span><span className="small">{task.dueDate ? `Срок: ${task.dueDate}` : 'Без срока'}</span></>}{record.topics.map(topic => <span className="tag" key={topic}>{topic}</span>)}{record.archivedAt && <span className="tag">В архиве</span>}</div></div>
-			<div className="row"><a href={record.url} target="_blank" rel="noopener noreferrer">{record.slug.startsWith('cf-') ? 'Codeforces' : 'LeetCode'} ↗</a>{student && <Tutor context={{ kind: 'problem', id: record.id }} title={record.title} flush={() => guard.current?.flush()} lesson={chapterPane && current.data ? article : undefined} evaluate={Boolean(code.trim())} />}{!task && <button onClick={() => setEditing(true)} data-tip="Открыть форму изменения задачи.">Изменить задачу</button>}{user.role === 'parent' && task && !['completed', 'cancelled'].includes(task.state) && <button disabled={busy} onClick={() => { if (confirm('Отменить это задание?')) void act('cancel'); }} data-tip="Отменить это задание домашней работы.">Отменить задание</button>}</div></div>
+			<div className="row"><a href={record.url} target="_blank" rel="noopener noreferrer">{record.slug.startsWith('cf-') ? 'Codeforces' : 'LeetCode'} ↗</a>{student && <Tutor context={{ kind: 'problem', id: record.id }} title={record.title} flush={() => guard.current?.flush()} lesson={chapterPane && current.data ? article : undefined} evaluate={Boolean(code.trim())} />}<button onClick={() => setEditing(true)} data-tip="Открыть форму изменения задачи.">Изменить задачу</button>{user.role === 'parent' && active && <button disabled={busy} onClick={() => { if (confirm('Отменить это задание?')) void act('cancel'); }} data-tip="Отменить это задание домашней работы.">Отменить задание</button>}</div></div>
 		{/* The statement HTML comes from the set files of the repository, not from a user. */}
 		{statement?.html ? <Lesson html={statement.html} ref={statementRoot} /> : statement && (statement.text ?? record.summary) && <p className="prose">{statement.text ?? record.summary}</p>}
 		{task?.instructions && <p className="prose">{task.instructions}</p>}
 		{review && <p className="notice">{review.kind === 'completed' ? 'Завершено' : 'Нужны правки'}{review.body && `: ${review.body}`}</p>}
-		{!task && <div className="row"><a href={`/leetcode/problems/${record.id}/review`}>Повторить задачу</a>{record.archivedAt ? <button onClick={restore} data-tip="Вернуть задачу в список задач.">Вернуть из архива</button> : <button onClick={archive} data-tip="Убрать задачу в архив.">В архив</button>}{tasks.data?.items.map(t => <a key={t.id} href={`/leetcode/tasks/${t.id}`}>{t.homeworkTitle}</a>)}</div>}
-		{(error || attempts.error || current.error || reviews.error) && <p className="error" role="alert">{error || attempts.error || current.error || reviews.error}</p>}
+		<div className="row"><a href={`/leetcode/problems/${record.id}/review`}>Повторить задачу</a>{record.archivedAt ? <button onClick={restore} data-tip="Вернуть задачу в список задач.">Вернуть из архива</button> : !active && <button onClick={archive} data-tip="Убрать задачу в архив.">В архив</button>}</div>
+		{(error || attempts.error || current.error || tasks.error || reviews.error) && <p className="error" role="alert">{error || attempts.error || current.error || tasks.error || reviews.error}</p>}
 		{current.data ? <DraftEditor key={`${current.data.id}:${current.data.state}`} initial={current.data} user={user} registerGuard={register} task={task} saved={saved} chapter={chapterPane} onCode={setCode} notice={notice} /> : <p className="empty">{!student && attempts.data?.items.length === 0 ? 'Ученик ещё не начал работу.' : 'Открываем работу...'}</p>}
 		{user.role === 'parent' && (task?.state === 'submitted' || task?.state === 'completed') && <section className="card card-pad stack"><h2>Проверка отправки</h2><label>Отзыв<textarea aria-label="Отзыв" value={feedback} onChange={event => setFeedback(event.target.value)} maxLength={8000} /></label><div className="row"><button disabled={busy} onClick={() => void act('review', { submissionId: task.submissionId, decision: 'changes_requested', body: feedback })} data-tip="Вернуть задание ученику с вашим отзывом.">Вернуть на доработку</button>{task.state === 'submitted' && <button className="primary" disabled={busy} onClick={() => void act('review', { submissionId: task.submissionId, decision: 'completed', body: feedback })} data-tip="Принять работу и завершить задание.">Завершить</button>}</div></section>}
-		<Materials problemId={record.id} homework={details.data?.homework} user={user} changed={details.reload} />
+		<Materials problemId={record.id} user={user} />
 		{editing && <ProblemForm problem={record} student={user.role === 'student'} close={() => setEditing(false)} saved={() => { setEditing(false); problem.reload(); }} />}
 	</div>;
 }

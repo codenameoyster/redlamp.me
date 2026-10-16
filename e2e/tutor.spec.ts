@@ -1,4 +1,4 @@
-import { test, expect, signIn, addMessages, addTask, type TestEnv } from './fixtures';
+import { test, expect, signIn, addMessages, type TestEnv } from './fixtures';
 import type { Page, Route } from '@playwright/test';
 import type { D1Database } from '@cloudflare/workers-types';
 import type { TutorEvent } from '../shared/leetcode';
@@ -227,19 +227,9 @@ test('loads older messages above the newest page', async ({ page, notebook, serv
 	await expect(older).toHaveCount(0);
 });
 
-test('opens the chat of the problem on the task page', async ({ page, notebook, server }) => {
-	const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id);
-	await addMessages(DB, 'problem', notebook.problem.id, [{ author: 'student', body: 'Where do I start?' }, { author: 'assistant', body: 'Look at the smallest input.' }]);
-	await page.goto(`/leetcode/tasks/${taskId}`);
-	await page.getByRole('button', { name: 'Спросить ИИ', exact: true }).click();
-	await expect(messages(page)).toHaveCount(2);
-	await expect(messages(page).nth(1)).toContainText('Look at the smallest input.');
-});
-
 const ai = /^(Спросить ИИ|Оценить решение с ИИ)$/;
 const placements = [
 	{ name: 'shows no AI button to the parent on the problem page', role: 'parent', path: async (_DB: D1Database, problemId: string) => `/leetcode/problems/${problemId}`, heading: 'Two Sum' },
-	{ name: 'shows no AI button to the parent on the task page', role: 'parent', path: async (DB: D1Database, problemId: string) => `/leetcode/tasks/${(await addTask(DB, problemId)).taskId}`, heading: 'Two Sum' },
 	{ name: 'shows no AI button to the parent on the set page', role: 'parent', path: async () => setPath, heading: 'Перестановки и сочетания' },
 	{ name: 'shows no AI button to the parent on the chapter page', role: 'parent', path: async () => chapterPath, heading: 'Глава 2. Перебор: подмножества, перестановки, сочетания' },
 	{ name: 'shows no AI button on Today', role: 'student', path: async () => '/leetcode', heading: 'Стройте понимание, задача за задачей.' },

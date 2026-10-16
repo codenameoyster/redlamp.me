@@ -7,10 +7,10 @@ const dueDates = [
 for (const row of dueDates) {
 	test(row.name, async ({ page, server, notebook }) => {
 		const { DB } = await server.getWorker<TestEnv>().getEnv();
-		const { taskId } = await addTask(DB, notebook.problem.id, row.state, '2020-01-01');
+		await addTask(DB, notebook.problem.id, row.state, '2020-01-01');
 		await page.goto('/leetcode');
 		await expect(page.getByText(row.due, { exact: true })).toBeVisible();
-		await expect(page.getByRole('heading', { level: 3, name: notebook.problem.title }).getByRole('link')).toHaveAttribute('href', `/leetcode/tasks/${taskId}`);
+		await expect(page.getByRole('heading', { level: 3, name: notebook.problem.title }).getByRole('link')).toHaveAttribute('href', `/leetcode/problems/${notebook.problem.id}`);
 		await expect(page.getByText('Week 41', { exact: true })).toBeVisible();
 	});
 }
@@ -32,16 +32,16 @@ for (const row of nextSteps) {
 }
 
 const focus = [
-	{ name: 'draft of a task opens the task window', task: 'in_progress', window: 'task' },
-	{ name: 'draft of a library problem opens the problem window', task: null, window: 'problem' },
-	{ name: 'draft beside a submitted task opens the problem window', task: 'submitted', window: 'problem' },
+	{ name: 'draft of a task opens the problem window', task: 'in_progress' },
+	{ name: 'draft of a library problem opens the problem window', task: null },
+	{ name: 'draft beside a submitted task opens the problem window', task: 'submitted' },
 ];
 for (const row of focus) {
 	test(row.name, async ({ page, server, notebook }) => {
 		const { DB } = await server.getWorker<TestEnv>().getEnv();
-		const taskId = row.task && (await addTask(DB, notebook.problem.id, row.task)).taskId;
+		if (row.task) await addTask(DB, notebook.problem.id, row.task);
 		await page.goto('/leetcode');
-		await expect(page.getByRole('link', { name: 'Продолжить работу', exact: true })).toHaveAttribute('href', row.window === 'task' ? `/leetcode/tasks/${taskId}` : `/leetcode/problems/${notebook.problem.id}`);
+		await expect(page.getByRole('link', { name: 'Продолжить работу', exact: true })).toHaveAttribute('href', `/leetcode/problems/${notebook.problem.id}`);
 	});
 }
 
