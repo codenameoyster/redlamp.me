@@ -211,9 +211,7 @@ Check login, logout, and a normal draft save on the deployed Worker. The Cloudfl
 
 ## Releases
 
-The sidebar shows the version from `package.json`. The versions follow [Semantic Versioning](https://semver.org/). The release-please workflow reads the Conventional Commits on `main` and keeps a release PR open. A `feat` commit increases the minor version. A `fix` commit increases the patch version. Merge the release PR to publish the version. The merge updates `package.json` and `CHANGELOG.md`, tags `vX.Y.Z` and publishes a GitHub release. Workers Builds then deploys the new version.
-
-The workflow can open the release PR only when **Allow GitHub Actions to create and approve pull requests** is on in **Settings**, **Actions**, **General**.
+The sidebar shows the version from `package.json`. The versions follow [Semantic Versioning](https://semver.org/). Increase the version in `package.json` in the pull request that changes the notebook. A feature increases the minor version. A fix increases the patch version. Workers Builds deploys `main` after the merge.
 
 ## Credential rotation
 
