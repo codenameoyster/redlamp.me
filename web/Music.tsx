@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
@@ -7,13 +7,14 @@ const bands = [[0, 2], [2, 6], [6, 20], [20, 64]];
 
 // Layout keeps the cards on page changes, so the music plays on.
 export function Music() {
-	return <div className="music-players" onPlay={event => { for (const audio of event.currentTarget.querySelectorAll('audio')) if (audio !== event.target) audio.pause(); }}>
-		<Track title="Жирчевня" src="/leetcode/assets/zhirchevnya.mp3" cover="/leetcode/assets/zhirchevnya-cover.svg" />
-		<Track title="Бомжарня" src="/leetcode/assets/melody.mp3" cover="/leetcode/assets/melody-cover.svg" />
+	const selected = useRef<HTMLAudioElement | null>(null);
+	return <div className="music-players" onPlay={event => { for (const audio of event.currentTarget.querySelectorAll('audio')) if (audio !== selected.current) audio.pause(); }}>
+		<Track title="Жирчевня" src="/leetcode/assets/zhirchevnya.mp3" cover="/leetcode/assets/zhirchevnya-cover.svg" selected={selected} />
+		<Track title="Бомжарня" src="/leetcode/assets/melody.mp3" cover="/leetcode/assets/melody-cover.svg" selected={selected} />
 	</div>;
 }
 
-function Track({ title, src, cover }: { title: string; src: string; cover: string }) {
+function Track({ title, src, cover, selected }: { title: string; src: string; cover: string; selected: RefObject<HTMLAudioElement | null> }) {
 	const audio = useRef<HTMLAudioElement>(null), seek = useRef<HTMLInputElement>(null), line = useRef<HTMLSpanElement>(null), time = useRef<HTMLSpanElement>(null), bars = useRef<(HTMLSpanElement | null)[]>([]), dragging = useRef(false), starting = useRef(false);
 	const graph = useRef<{ context: AudioContext; analyser: AnalyserNode } | null>(null);
 	const [playing, setPlaying] = useState(false), [touched, setTouched] = useState(false), [failed, setFailed] = useState(false);
@@ -25,6 +26,7 @@ function Track({ title, src, cover }: { title: string; src: string; cover: strin
 	}
 	async function toggle() {
 		const element = audio.current!;
+		selected.current = element;
 		// A second click while the melody starts would connect the element to a second audio graph.
 		if (starting.current) return;
 		setTouched(true);
@@ -42,9 +44,10 @@ function Track({ title, src, cover }: { title: string; src: string; cover: strin
 				graph.current = { context, analyser };
 			}
 			await graph.current.context.resume();
+			if (selected.current !== element) return;
 			await element.play();
 			setFailed(false);
-		} catch { setPlaying(false); setFailed(true); } finally { starting.current = false; }
+		} catch { if (selected.current === element) { setPlaying(false); setFailed(true); } } finally { starting.current = false; }
 	}
 	function jump(value: number) {
 		const element = audio.current!;

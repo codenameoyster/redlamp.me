@@ -1,4 +1,4 @@
-import { test, expect, signIn } from './fixtures';
+import { test, expect, signIn, type TestEnv } from './fixtures';
 
 for (const [title, position] of [['Бомжарня', '0:11 / 0:23'], ['Жирчевня', '1:32 / 3:04']]) test(`plays ${title} across page changes`, async ({ page, notebook }) => {
 	await page.goto('/leetcode');
@@ -30,6 +30,40 @@ test('pauses the other track when switching players', async ({ page }) => {
 	await expect.poll(() => original.locator('audio').evaluate((element: HTMLAudioElement) => element.paused)).toBe(false);
 	await expect.poll(() => added.locator('audio').evaluate((element: HTMLAudioElement) => element.paused)).toBe(true);
 	await expect(added.getByRole('button', { name: 'Включить мелодию', exact: true })).toBeVisible();
+});
+
+test('keeps the latest selection when the other download finishes', async ({ page }) => {
+	await signIn(page);
+	const original = page.getByRole('group', { name: 'Бомжарня', exact: true }), added = page.getByRole('group', { name: 'Жирчевня', exact: true });
+	let release!: () => void;
+	const held = new Promise<void>(resolve => { release = resolve; });
+	await page.route('**/leetcode/assets/zhirchevnya.mp3', async route => { await held; await route.continue(); });
+	try {
+		await Promise.all([page.waitForRequest('**/leetcode/assets/zhirchevnya.mp3'), added.getByRole('button', { name: 'Включить мелодию', exact: true }).click()]);
+		await original.getByRole('button', { name: 'Включить мелодию', exact: true }).click();
+		await expect.poll(() => original.locator('audio').evaluate((element: HTMLAudioElement) => element.paused)).toBe(false);
+		release();
+		await expect.poll(() => added.locator('audio').evaluate((element: HTMLAudioElement) => element.readyState)).toBeGreaterThanOrEqual(2);
+		const time = await original.locator('audio').evaluate((element: HTMLAudioElement) => element.currentTime);
+		await expect.poll(() => original.locator('audio').evaluate((element: HTMLAudioElement) => element.currentTime)).toBeGreaterThan(time + 0.3);
+		expect(await added.locator('audio').evaluate((element: HTMLAudioElement) => element.paused)).toBe(true);
+		await added.getByRole('button', { name: 'Включить мелодию', exact: true }).click();
+		await expect.poll(() => added.locator('audio').evaluate((element: HTMLAudioElement) => element.paused)).toBe(false);
+		await expect.poll(() => original.locator('audio').evaluate((element: HTMLAudioElement) => element.paused)).toBe(true);
+	} finally { release(); }
+});
+
+for (const width of [390, 760]) test(`keeps pagination clickable above the players at ${width}px`, async ({ page, server }) => {
+	await page.setViewportSize({ width, height: 844 });
+	const { DB } = await server.getWorker<TestEnv>().getEnv();
+	await DB.batch(Array.from({ length: 21 }, (_, i) => DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,?,?,'easy','[]','','','now','now')").bind(crypto.randomUUID(), `music-layout-${i}`, `Problem ${i}`)));
+	await signIn(page);
+	await page.goto('/leetcode/problems?limit=20');
+	const next = page.getByRole('link', { name: 'Ещё задачи', exact: true });
+	await expect(next).toBeVisible();
+	await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+	await next.click({ timeout: 1500 });
+	await expect(page).toHaveURL(/offset=20/);
 });
 
 test('tells when the melody does not start', async ({ page }) => {
