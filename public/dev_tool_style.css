@@ -304,17 +304,3 @@ canvas {
   font-size: 0.82rem;
   line-height: 1.6;
 }
-
-/* Top-right BFS step counter badge */
-.step-info {
-  position: absolute;
-  top: 16px;
-  right: 20px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.72rem;
-  color: var(--muted);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 4px 10px;
-}
