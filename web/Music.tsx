@@ -1,12 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 // The frequency bins of each bar for an FFT size of 256 at 48 kHz: about 0-375 Hz, 375-1125 Hz, 1125-3750 Hz and 3750-12000 Hz.
 const bands = [[0, 2], [2, 6], [6, 20], [20, 64]];
 
-// The melody of the student in a card like the music card of omarchy.org. Layout keeps the card on page changes, so the melody plays on.
+// Layout keeps the cards on page changes, so the music plays on.
 export function Music() {
+	const selected = useRef<HTMLAudioElement | null>(null);
+	return <div className="music-players" onPlay={event => { for (const audio of event.currentTarget.querySelectorAll('audio')) if (audio !== selected.current) audio.pause(); }}>
+		<Track title="Жирчевня" src="/leetcode/assets/zhirchevnya.mp3" cover="/leetcode/assets/zhirchevnya-cover.svg" selected={selected} />
+		<Track title="Бомжарня" src="/leetcode/assets/melody.mp3" cover="/leetcode/assets/melody-cover.svg" selected={selected} />
+	</div>;
+}
+
+function Track({ title, src, cover, selected }: { title: string; src: string; cover: string; selected: RefObject<HTMLAudioElement | null> }) {
 	const audio = useRef<HTMLAudioElement>(null), seek = useRef<HTMLInputElement>(null), line = useRef<HTMLSpanElement>(null), time = useRef<HTMLSpanElement>(null), bars = useRef<(HTMLSpanElement | null)[]>([]), dragging = useRef(false), starting = useRef(false);
 	const graph = useRef<{ context: AudioContext; analyser: AnalyserNode } | null>(null);
 	const [playing, setPlaying] = useState(false), [touched, setTouched] = useState(false), [failed, setFailed] = useState(false);
@@ -18,6 +26,7 @@ export function Music() {
 	}
 	async function toggle() {
 		const element = audio.current!;
+		selected.current = element;
 		// A second click while the melody starts would connect the element to a second audio graph.
 		if (starting.current) return;
 		setTouched(true);
@@ -26,7 +35,7 @@ export function Music() {
 		try {
 			if (!graph.current) {
 				// Static assets answer without byte ranges, and the browser seeks only in a resource with ranges or in a blob.
-				const response = await fetch('/leetcode/assets/melody.mp3');
+				const response = await fetch(src);
 				if (!response.ok) throw new Error('melody');
 				element.src = URL.createObjectURL(await response.blob());
 				const context = new AudioContext(), analyser = context.createAnalyser(), gain = context.createGain();
@@ -35,9 +44,10 @@ export function Music() {
 				graph.current = { context, analyser };
 			}
 			await graph.current.context.resume();
+			if (selected.current !== element) return;
 			await element.play();
-			setPlaying(true); setFailed(false);
-		} catch { setPlaying(false); setFailed(true); } finally { starting.current = false; }
+			setFailed(false);
+		} catch { if (selected.current === element) { setPlaying(false); setFailed(true); } } finally { starting.current = false; }
 	}
 	function jump(value: number) {
 		const element = audio.current!;
@@ -69,13 +79,13 @@ export function Music() {
 		}
 		return () => { cancelAnimationFrame(frame); for (const bar of bars.current) if (bar) bar.style.height = '2px'; };
 	}, [playing]);
-	return <div className="music">
-		<audio ref={audio} loop />
-		<button className={playing ? 'cover playing' : 'cover'} onClick={toggle} aria-label={playing ? 'Выключить мелодию' : 'Включить мелодию'} data-tip={playing ? 'Выключить мелодию.' : 'Включить мелодию.'}>
+	return <div className="music" role="group" aria-label={title}>
+		<audio ref={audio} loop onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} />
+		<button className={playing ? 'cover playing' : 'cover'} style={{ backgroundImage: `url(${cover})` }} onClick={toggle} aria-label={playing ? 'Выключить мелодию' : 'Включить мелодию'} data-tip={playing ? 'Выключить мелодию.' : 'Включить мелодию.'}>
 			{!touched && <span className="music-ring" aria-hidden="true" />}
 			<span className="cover-shade">{playing ? <Volume2 size={18} /> : <VolumeX size={18} />}</span>
 		</button>
-		<span className="music-text"><strong>{failed ? 'Мелодия не включилась' : 'Бомжарня'}</strong><span className="music-artist"><span>Bibik</span><span ref={time} aria-hidden="true" /></span></span>
+		<span className="music-text"><strong>{failed ? 'Мелодия не включилась' : title}</strong><span className="music-artist"><span>Bibik</span><span ref={time} aria-hidden="true" /></span></span>
 		<span className="music-bars" aria-hidden="true">{bands.map((band, index) => <span key={index} ref={bar => { bars.current[index] = bar; }} />)}</span>
 		<span ref={line} className="music-line" aria-hidden="true" />
 		{graph.current && <input ref={seek} type="range" min={0} max={1000} step={5} defaultValue={0} aria-label="Позиция в мелодии" onPointerDown={() => { dragging.current = true; }} onPointerUp={() => { dragging.current = false; }} onPointerCancel={() => { dragging.current = false; }} onChange={event => jump(Number(event.target.value))} />}
