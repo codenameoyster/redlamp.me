@@ -30,11 +30,12 @@ it.each([
 
 let student: string, problemId: string, attemptId: string;
 const slug = 'two-sum-ii-input-array-is-sorted';
+const lookupContent = sets.contentOf, material = lookupContent(slug)!;
 // A test generator for Two Sum II. The last input takes a number from random.
 const generate = (random: () => number) => { const n = 1 + Math.floor(random() * 1000); return ['[[2, 7, 11, 15], 9]', '[[2, 3, 4], 6]', `[[0, ${n}], ${n}]`]; };
 const insertProblem = env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,?,'Problem','medium','[]','','','now','now')");
 beforeEach(async () => {
-	vi.spyOn(sets, 'generatorOf').mockImplementation(value => value === slug ? generate : undefined);
+	vi.spyOn(sets, 'contentOf').mockImplementation(value => { const content = lookupContent(value); return content && { ...content, generate: value === slug ? generate : undefined }; });
 	student = await login(); problemId = crypto.randomUUID();
 	await insertProblem.bind(problemId, slug).run();
 	attemptId = (await (await request(`/problems/${problemId}/attempts`, 'POST', {}, student)).json() as { id: string }).id;
@@ -144,7 +145,7 @@ it.each([
 	{ name: 'completed task stays', message: false, task: 'completed', understanding: 'independent', after: { state: 'completed', version: 1, taskVersion: null, feedback: 0 } },
 	{ name: 'cancelled task stays', message: false, task: 'cancelled', understanding: 'independent', after: { state: 'cancelled', version: 1, taskVersion: null, feedback: 0 } },
 ])('$name', async ({ message, task, understanding, after }) => {
-	vi.mocked(sets.generatorOf).mockReturnValue(undefined);
+	vi.mocked(sets.contentOf).mockReturnValue({ ...material, generate: undefined });
 	const homeworkId = crypto.randomUUID();
 	await withNotes.bind('Two pointers.').run();
 	if (message) await insertMessage.bind(crypto.randomUUID(), 'problem', problemId, 'student').run();
@@ -163,7 +164,7 @@ it.each([
 	{ name: 'solved attempt again', role: 'student', judged: false, notes: 'Two pointers.', attempt: 'saved', status: 409, code: 'conflict' },
 	{ name: 'unknown attempt', role: 'student', judged: false, notes: 'Two pointers.', attempt: 'unknown', status: 404, code: 'not_found' },
 ])('$name', async ({ role, judged, notes, attempt, status, code }) => {
-	if (!judged) vi.mocked(sets.generatorOf).mockReturnValue(undefined);
+	if (!judged) vi.mocked(sets.contentOf).mockReturnValue({ ...material, generate: undefined });
 	const homeworkId = crypto.randomUUID();
 	await env.DB.batch([withNotes.bind(notes), insertBundle.bind(homeworkId), insertTask.bind(crypto.randomUUID(), homeworkId, problemId, 'in_progress')]);
 	if (attempt === 'saved') await env.DB.prepare("UPDATE attempts SET state='saved'").run();

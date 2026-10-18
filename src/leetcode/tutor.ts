@@ -5,7 +5,7 @@ import { requireRole } from './auth';
 import { accessToken, disconnected, unavailable, type Token } from './chatgpt';
 import { choice, HttpError, methods, object, page, pagination, readJson, text, uuid } from './http';
 import { getProblem, question } from './problems';
-import { chaptersOf, sets, taskLabel } from './sets';
+import { contentOf, sets, taskLabel } from './sets';
 import prompt from './tutor-prompt.txt';
 import evaluation from './evaluate-prompt.txt';
 
@@ -50,7 +50,7 @@ async function context(env: Env, kind: TutorKind, id: string, quote: string | nu
 	if (kind === 'set') {
 		const set = findSet(id);
 		const chapters = set.chapters.map((chapter, index) => [`${index + 1}. ${chapter.title}: ${chapter.summary}`, ...chapter.tasks.map(task => `${task.title} (${taskLabel(task)}, ${task.difficulty}). ${task.note}`)].join('\n'));
-		return `${clip(`Learning set: ${set.title}\nSummary: ${set.summary}\nTopics: ${set.topics.join(', ')}\nChapters:\n${chapters.join('\n')}`, 4000)}\n\n${lessonText(set.lessons.map((html, index) => `<h1>Глава ${index + 1}. ${set.chapters[index].title}</h1>\n${html}`).join('\n'), quote)}`;
+		return `${clip(`Learning set: ${set.title}\nSummary: ${set.summary}\nTopics: ${set.topics.join(', ')}\nChapters:\n${chapters.join('\n')}`, 4000)}\n\n${lessonText(set.chapters.map((chapter, index) => `<h1>Глава ${index + 1}. ${chapter.title}</h1>\n${chapter.lesson}`).join('\n'), quote)}`;
 	}
 	const problem = await getProblem(env, id);
 	const [statement, task, attempt] = await Promise.all([
@@ -61,8 +61,8 @@ async function context(env: Env, kind: TutorKind, id: string, quote: string | nu
 	const parts = [clip([`Problem: ${problem.number === null ? '' : `${problem.number}. `}${problem.title} (${problem.difficulty})`, `Topics: ${problem.topics.join(', ')}`, `Summary: ${problem.summary}`, ...(task ? [`Homework: ${task.title}. State: ${task.state}. Due date: ${task.dueDate ?? 'none'}.`] : [])].join('\n'), 4000)];
 	if (statement) parts.push(`LeetCode statement:\n${clip(htmlText(statement), 6000)}`);
 	if (task) parts.push(`Homework instructions:\n${clip(task.instructions, 2000)}`);
-	const [chapter] = chaptersOf(problem.slug);
-	if (chapter) parts.push(`Chapter: ${chapter.setTitle}, глава ${chapter.number}. ${chapter.title}\n${clip(lessonText(findSet(chapter.set).lessons[chapter.number - 1], quote), 8000)}`);
+	const chapter = contentOf(problem.slug)?.chapters[0];
+	if (chapter) parts.push(`Chapter: ${chapter.ref.setTitle}, глава ${chapter.ref.number}. ${chapter.ref.title}\n${clip(lessonText(chapter.lesson, quote), 8000)}`);
 	if (attempt) {
 		const work = JSON.parse(attempt.document) as AttemptDocument;
 		parts.push(`${attempt.state === 'draft' ? 'Current draft' : 'Newest saved attempt'}:\n${clip([`Notes: ${work.notes}`, ...work.approaches.map((a, i) => `Approach ${i + 1}: ${a.label}\nIdea: ${a.idea}\nWhy it works: ${a.correctness}\nTime complexity: ${a.timeComplexity}\nSpace complexity: ${a.spaceComplexity}\nEdge cases: ${a.edgeCases}\nMistakes: ${a.mistakes}\nLanguage: ${a.language}\nCode:\n${a.code}`)].join('\n\n'), 12_000)}`);

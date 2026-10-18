@@ -5,7 +5,7 @@ import { latestRuns } from './attempts';
 import { calendarDate, HttpError, integer, methods, object, readJson, text, uuid } from './http';
 import { getProblem, question } from './problems';
 import { parsePy, reprPy } from '../../shared/answers';
-import { referenceOf, sets, taskSlug, tasksOf, type Reference } from './sets';
+import { contentOf, type Reference } from './sets';
 import { htmlText } from './tutor';
 
 const words: Record<string, string> = { true: 'True', false: 'False', null: 'None', '&quot;': '"', '&#39;': "'", '&lt;': '<', '&gt;': '>', '&amp;': '&', '&nbsp;': ' ' };
@@ -52,7 +52,7 @@ export async function handleTests(request: Request, env: Env): Promise<Response 
 		// 20 inputs of 10,000 characters at two bytes each fit in 400 KB of JSON.
 		const { inputs } = object(await readJson(request, 409_600), ['inputs']);
 		if (!Array.isArray(inputs) || inputs.length > 20) throw new HttpError(400, 'invalid_input', 'Проверьте поля запроса.');
-		const reference = referenceOf(problem.slug);
+		const reference = contentOf(problem.slug)?.reference;
 		// The inputs can be the hidden inputs of an open judge seed. A slug can move to another problem, so the answers make the seeds of all problems stale.
 		await env.DB.prepare('DELETE FROM judge_runs').run();
 		return Response.json({ expected: inputs.map(input => { text(input, 10_000, true); return reference ? expectedOf(reference, input) : null; }) });
@@ -68,7 +68,7 @@ export async function handleTests(request: Request, env: Env): Promise<Response 
 		if (!result.meta.changes) throw new HttpError(409, 'too_many_tests', 'У задачи уже 20 своих тестов. Удалите лишний тест.');
 		return Response.json(value, { status: 201 });
 	}
-	const task = sets.flatMap(tasksOf).find(item => taskSlug(item) === problem.slug)?.tests, codeforces = problem.slug.startsWith('cf-');
+	const task = contentOf(problem.slug)?.task.tests, codeforces = problem.slug.startsWith('cf-');
 	const found = codeforces ? null : await lookup(problem.slug).catch(() => null), leetcode = task ? null : found?.tests;
 	const { cases = [], ...spec } = task ?? leetcode ?? (codeforces ? { mode: 'stdio' as const } : {});
 	const own = (await env.DB.prepare('SELECT id,input,created_at AS createdAt FROM problem_tests WHERE problem_id=? ORDER BY created_at,id').bind(problem.id).all<OwnTest>()).results;
@@ -80,7 +80,7 @@ export async function handleStatement(request: Request, env: Env): Promise<Respo
 	const match = /^\/leetcode\/api\/problems\/([^/]+)\/statement$/.exec(new URL(request.url).pathname);
 	if (!match) return null;
 	methods(request, ['GET']);
-	const problem = await getProblem(env, uuid(match[1])), html = sets.flatMap(tasksOf).find(task => taskSlug(task) === problem.slug)?.statement ?? null;
+	const problem = await getProblem(env, uuid(match[1])), html = contentOf(problem.slug)?.task.statement ?? null;
 	const content = html !== null || problem.slug.startsWith('cf-') ? null : await question<{ content: string | null }>(problem.slug, 'content').then(value => value?.content, () => null);
 	return Response.json({ html, text: content ? htmlText(content) : null });
 }

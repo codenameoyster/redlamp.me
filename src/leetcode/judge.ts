@@ -5,7 +5,7 @@ import { getAttempt, saveProgress } from './attempts';
 import { changed, HttpError, integer, methods, object, readJson, uuid } from './http';
 import { getProblem } from './problems';
 import { parsePy, reprPy, same } from '../../shared/answers';
-import { generatorOf, referenceOf, sets, taskSlug, tasksOf, type Reference } from './sets';
+import { contentOf, type Reference } from './sets';
 
 // Mulberry32, a seeded 32-bit PRNG: https://gist.github.com/tommyettinger/46a874533244883189143505d203312c
 export function mulberry32(seed: number): () => number {
@@ -39,7 +39,7 @@ export async function handleJudge(request: Request, env: Env, user: SessionUser)
 	if (!match) return null;
 	methods(request, ['POST']);
 	requireRole(user, 'student');
-	const problem = await getProblem(env, uuid(match[1])), generate = generatorOf(problem.slug), solved = match[2] === 'solved';
+	const problem = await getProblem(env, uuid(match[1])), content = contentOf(problem.slug), generate = content?.generate, solved = match[2] === 'solved';
 	let attemptId: string, result: Judgement = { verdict: 'accepted', failed: null };
 	if (solved) {
 		if (generate) throw new HttpError(409, 'judged', 'Эту задачу проверяют скрытые тесты. Нажмите «Отправить».');
@@ -59,7 +59,7 @@ export async function handleJudge(request: Request, env: Env, user: SessionUser)
 		if (!Array.isArray(data.outputs) || data.outputs.length !== inputs.length) throw new HttpError(400, 'invalid_input', 'Проверьте поля запроса.');
 		// A wrong verdict shows the answer of the failed test, so each seed gives one verdict.
 		if (!await env.DB.prepare('DELETE FROM judge_runs WHERE problem_id=? AND seed=? RETURNING seed').bind(problem.id, seed).first()) throw new HttpError(409, 'stale_seed', 'Эта проверка устарела. Нажмите «Отправить» ещё раз.');
-		result = judge(referenceOf(problem.slug)!, sets.flatMap(tasksOf).find(task => taskSlug(task) === problem.slug)!.tests!, inputs, data.outputs.map(outputOf));
+		result = judge(content!.reference!, content!.task.tests!, inputs, data.outputs.map(outputOf));
 		if (result.verdict !== 'accepted') return Response.json(result);
 	}
 	// The draft becomes the accepted attempt. The judge completes the active homework task of the problem. The solved route submits the task for the parent review. The later statements change rows only when the attempt was a draft.
