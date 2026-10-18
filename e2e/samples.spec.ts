@@ -1,6 +1,7 @@
 import { globSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { loadPyodide } from 'pyodide';
+import { same } from '../shared/answers';
 
 // Each lesson sample with a run button runs through web/harness.py, as the button runs it. Workers do not allow WebAssembly.compile, so this check runs in Node and not in vitest. https://developers.cloudflare.com/workers/runtime-apis/web-standards/#javascript-standards
 // The test opens no page, so it needs no server and no browser.
@@ -34,9 +35,9 @@ def timed(*args):
         sys.settrace(None)`);
 			return python.globals.get('timed');
 		});
-		const result = JSON.parse((await run)(sample.code, JSON.stringify({ mode: 'stdio' }), JSON.stringify({ input: sample.input, expected: sample.expected }))) as { ok: boolean | null; output: string; error: { message: string; line: number | null } | null };
+		const result = JSON.parse((await run)(sample.code, JSON.stringify({ mode: 'stdio' }), JSON.stringify({ input: sample.input, expected: sample.expected }))) as { output: string; error: { message: string; line: number | null } | null };
 		expect(result.error).toBeNull();
-		expect(result.ok).not.toBe(false);
+		if (sample.expected !== null) expect(same({ mode: 'stdio' }, sample.expected, result.output)).toBe(true);
 		expect(result.output.trim()).not.toBe('');
 	});
 }

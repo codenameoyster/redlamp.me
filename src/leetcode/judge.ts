@@ -4,7 +4,7 @@ import { requireRole } from './auth';
 import { getAttempt, saveProgress } from './attempts';
 import { changed, HttpError, integer, methods, object, readJson, uuid } from './http';
 import { getProblem } from './problems';
-import { parsePy, reprPy } from './pyliteral';
+import { parsePy, reprPy, same } from '../../shared/answers';
 import { generatorOf, referenceOf, sets, taskSlug, tasksOf, type Reference } from './sets';
 
 // Mulberry32, a seeded 32-bit PRNG: https://gist.github.com/tommyettinger/46a874533244883189143505d203312c
@@ -15,17 +15,6 @@ export function mulberry32(seed: number): () => number {
 		z ^= z + Math.imul(z ^ z >>> 7, z | 61);
 		return ((z ^ z >>> 14) >>> 0) / 2 ** 32;
 	};
-}
-
-// The stdout tokens, or the Python text of the value with the lists of a free order sorted. A sort by the Python text gives the same equality as the sort of the harness.
-function canonical(spec: TestSpec, answer: string): string {
-	if (spec.mode === 'stdio') return answer.split(/\s+/).filter(Boolean).join(' ');
-	const value = parsePy(answer), order = spec.order ?? 'exact';
-	return order === 'exact' ? reprPy(value) : JSON.stringify((value as unknown[]).map(item => order === 'any' ? reprPy(item) : JSON.stringify((item as unknown[]).map(reprPy).sort())).sort());
-}
-// An output that is not a Python literal, or not a list for a free order, is a wrong answer.
-export function same(spec: TestSpec, expected: string, output: string): boolean {
-	try { return canonical(spec, expected) === canonical(spec, output); } catch { return false; }
 }
 
 const cut = (value: string) => value.length > 2000 ? `${value.slice(0, 2000)}…` : value;

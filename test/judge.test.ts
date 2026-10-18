@@ -1,8 +1,8 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { login, request } from './client';
-import type { JudgeOutput, TestSpec } from '../shared/leetcode';
-import { judge, mulberry32, same } from '../src/leetcode/judge';
+import type { JudgeOutput } from '../shared/leetcode';
+import { judge, mulberry32 } from '../src/leetcode/judge';
 import * as sets from '../src/leetcode/sets';
 
 // The values come from the C code of the reference: https://gist.github.com/tommyettinger/46a874533244883189143505d203312c
@@ -13,26 +13,6 @@ it.each([
 ])('$name', ({ seed, values }) => {
 	const random = mulberry32(seed);
 	expect([random(), random(), random()]).toEqual(values.map(value => value / 2 ** 32));
-});
-
-const call = (order?: 'any' | 'any-nested'): TestSpec => ({ mode: 'call', method: 'solve', ...order && { order } });
-it.each([
-	{ name: 'same list in another format', spec: call(), expected: '[1, 2]', output: '[1,2]', equal: true },
-	{ name: 'exact order with another order', spec: call(), expected: '[1, 2]', output: '[2, 1]', equal: false },
-	{ name: 'tuple for a list', spec: call(), expected: '[1, 2]', output: '(1, 2)', equal: true },
-	{ name: 'float with a zero fraction for an int', spec: call(), expected: '2', output: '2.0', equal: true },
-	{ name: 'string for a boolean', spec: call(), expected: 'True', output: "'True'", equal: false },
-	{ name: 'any order with another outer order', spec: call('any'), expected: '[[1, 2], [3]]', output: '[[3], [1, 2]]', equal: true },
-	{ name: 'any order with another inner order', spec: call('any'), expected: '[[1, 2], [3]]', output: '[[3], [2, 1]]', equal: false },
-	{ name: 'any order with other duplicates', spec: call('any'), expected: '[1, 1, 2]', output: '[1, 2, 2]', equal: false },
-	{ name: 'any order with None', spec: call('any'), expected: '[1]', output: 'None', equal: false },
-	{ name: 'any-nested order with other inner and outer orders', spec: call('any-nested'), expected: '[[1, 2], [3]]', output: '[[3], [2, 1]]', equal: true },
-	{ name: 'any-nested order with a missing list', spec: call('any-nested'), expected: '[[1, 2], [3]]', output: '[[1, 2]]', equal: false },
-	{ name: 'output that is not a Python literal', spec: call(), expected: '[1]', output: '<object at 0x1>', equal: false },
-	{ name: 'stdio with other white space', spec: { mode: 'stdio' } as TestSpec, expected: '1 2\n3\n', output: '1  2 3', equal: true },
-	{ name: 'stdio with joined tokens', spec: { mode: 'stdio' } as TestSpec, expected: '1 2\n', output: '12\n', equal: false },
-])('$name', ({ spec, expected, output, equal }) => {
-	expect(same(spec, expected, output)).toBe(equal);
 });
 
 // The reference doubles the number of the input.

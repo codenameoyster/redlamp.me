@@ -1,7 +1,8 @@
 import init, { PositionEncoding, Workspace, type Diagnostic as RuffDiagnostic } from '@astral-sh/ruff-wasm-web';
 import { loadPyodide } from 'pyodide';
 import harness from './harness.py' with { type: 'text' };
-import { diagnosticText } from './python';
+import { diagnosticText, type RunResult } from './python';
+import { same } from '../shared/answers';
 
 type Found = { line: number; column: number; code: string | null; message: string };
 const ready = Promise.all([loadPyodide({ indexURL: '/leetcode/assets/pyodide/' }), init({ module_or_path: '/leetcode/assets/ruff/ruff_wasm_bg.wasm' })]).then(([python]) => {
@@ -15,7 +16,11 @@ let jedi: Promise<unknown> | undefined;
 const handle = async ({ data }: MessageEvent) => {
 	try {
 		const { python, ruff, check, run, words, complete } = await ready, start = performance.now();
-		if (data.type === 'run') return postMessage({ id: data.id, ...JSON.parse(run(data.code, JSON.stringify(data.spec), JSON.stringify(data.test))), ms: Math.round(performance.now() - start) });
+		if (data.type === 'run') {
+			const result: Pick<RunResult, 'output' | 'stdout' | 'error'> = JSON.parse(run(data.code, JSON.stringify(data.spec), JSON.stringify(data.test)));
+			const ok = data.test.expected === null ? null : result.error === null && same(data.spec, data.test.expected, result.output);
+			return postMessage({ id: data.id, ...result, ok, ms: Math.round(performance.now() - start) });
+		}
 		if (data.type === 'words') return postMessage({ id: data.id, words: JSON.parse(words()) });
 		if (data.type === 'format') {
 			try { return postMessage({ id: data.id, code: ruff.format(data.code) }); }

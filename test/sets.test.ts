@@ -3,7 +3,7 @@ import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
 import type { FigureRow, LearningSetDetails, LearningSetSummary, SetTask } from '../shared/leetcode';
 import { glossary } from '../shared/glossary';
-import { parsePy, reprPy } from '../src/leetcode/pyliteral';
+import { parsePy, reprPy, same } from '../shared/answers';
 import { mulberry32 } from '../src/leetcode/judge';
 import { generatorOf, referenceOf, sets, taskLabel, taskSlug, tasksOf, type Reference } from '../src/leetcode/sets';
 import { expectedOf } from '../src/leetcode/tests';
@@ -155,14 +155,10 @@ it('each tip is plain', () => {
 	expect(glossary.filter(entry => /[–—]/.test(entry.tip) || untipped(entry.tip, [entry.pattern]).length).map(entry => entry.tip)).toEqual([]);
 });
 
-// The harness sorts the answer for the orders 'any' and 'any-nested'. A sort by the Python text gives the same equality.
-const ordered = (value: unknown, order = 'exact'): string => order === 'exact' ? reprPy(value) : JSON.stringify((value as unknown[]).map(item => order === 'any' ? reprPy(item) : JSON.stringify((item as unknown[]).map(reprPy).sort())).sort());
 it.each(sets.flatMap(tasksOf).map(task => ({ name: taskSlug(task), task })))('$name reference passes the standard tests', ({ task }) => {
 	const tests = task.tests!, reference = referenceOf(taskSlug(task));
 	expect(reference?.mode).toBe(tests.mode);
-	// The answer goes through the expected route path: the stdout text or the Python text of the value. Stdout compares token by token.
-	const form = (text: string) => tests.mode === 'stdio' ? text.split(/\s+/).filter(Boolean).join(' ') : ordered(parsePy(text), tests.order);
-	expect(tests.cases.map(item => { const answer = expectedOf(reference!, item.input); return answer && 'value' in answer ? form(answer.value) : answer; })).toEqual(tests.cases.map(item => form(item.expected!)));
+	expect(tests.cases.filter(item => { const answer = expectedOf(reference!, item.input); return !answer || !('value' in answer) || !same(tests, item.expected!, answer.value); })).toEqual([]);
 });
 
 // The hidden tests of seeds 1 and 2^32 - 1. Each input must have the argument count of the reference and satisfy the constraints. A reference run of 100 ms or more makes the judge route slow.
