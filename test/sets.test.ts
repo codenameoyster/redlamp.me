@@ -4,9 +4,8 @@ import { login, request } from './client';
 import type { FigureRow, LearningSetDetails, LearningSetSummary, SetTask } from '../shared/leetcode';
 import { glossary } from '../shared/glossary';
 import { parsePy, reprPy, same } from '../shared/answers';
-import { mulberry32 } from '../src/leetcode/judge';
+import { expectedOf, mulberry32 } from '../src/leetcode/judge';
 import { contentOf, sets, taskLabel, taskSlug, tasksOf, type Reference } from '../src/leetcode/sets';
-import { expectedOf } from '../src/leetcode/tests';
 import { htmlText } from '../src/leetcode/tutor';
 
 let student: string;

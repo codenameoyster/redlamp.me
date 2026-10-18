@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { login, request } from './client';
 import type { JudgeOutput } from '../shared/leetcode';
-import { judge, mulberry32 } from '../src/leetcode/judge';
+import { handleJudge, judge, mulberry32 } from '../src/leetcode/judge';
 import * as sets from '../src/leetcode/sets';
 
 // The values come from the C code of the reference: https://gist.github.com/tommyettinger/46a874533244883189143505d203312c
@@ -80,7 +80,7 @@ it.each([
 	{ name: 'seed that the server did not give', start: false, replay: false, answered: null, status: 409, code: 'stale_seed' },
 	{ name: 'seed used for a second verdict', start: true, replay: true, answered: null, status: 409, code: 'stale_seed' },
 	{ name: 'seed whose inputs the reference answered as own tests', start: true, replay: false, answered: 'same', status: 409, code: 'stale_seed' },
-	{ name: 'seed whose inputs another problem answered as own tests', start: true, replay: false, answered: 'other', status: 409, code: 'stale_seed' },
+	{ name: 'seed invalidated by another problem without a reference', start: true, replay: false, answered: 'other', status: 409, code: 'stale_seed' },
 ])('$name', async ({ start, replay, answered, status, code }) => {
 	const seed = start ? (await (await request(`/problems/${problemId}/judge/start`, 'POST', undefined, student)).json() as { seed: number }).seed : 2, outputs = generate(mulberry32(seed)).map(() => ({ value: '[9, 9]' }));
 	if (replay) await request(`/problems/${problemId}/judge`, 'POST', { seed, attemptId, outputs }, student);
@@ -92,6 +92,48 @@ it.each([
 	const response = await request(`/problems/${problemId}/judge`, 'POST', { seed, attemptId, outputs }, student);
 	expect(response.status).toBe(status);
 	expect(await response.json()).toMatchObject(code ? { error: { code } } : { verdict: 'wrong', failed: { index: 0 } });
+});
+
+it.each([
+	{ name: 'the same problem', target: 'same', role: 'student', expected: [{ value: '4\n' }] },
+	{ name: 'another problem with a reference but no generator', target: 'reference', role: 'student', expected: [{ value: '4\n' }] },
+	{ name: 'another problem without a reference', target: 'none', role: 'student', expected: [null] },
+	{ name: 'a parent request', target: 'same', role: 'parent', expected: [{ value: '4\n' }] },
+] as const)('owns disclosure through $name and the next acceptance check', async ({ target, role, expected }) => {
+	const fixture: NonNullable<ReturnType<typeof sets.contentOf>> = { ...material, task: { ...material.task, tests: { mode: 'stdio', cases: [] } }, reference: double, generate: () => ['1', '2'] };
+	vi.mocked(sets.contentOf).mockImplementation(value => value === slug ? fixture : value === 'cf-1821-a' ? { ...fixture, generate: undefined } : undefined);
+	vi.spyOn(crypto, 'getRandomValues').mockReturnValueOnce(new Uint32Array([11])).mockReturnValueOnce(new Uint32Array([12])).mockReturnValueOnce(new Uint32Array([13]));
+	const post = (id: string, route: string, body = {}, userRole: 'student' | 'parent' = 'student') => handleJudge(new Request(`https://redlamp.me/leetcode/api/problems/${id}/${route}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), env, { role: userRole, username: `${userRole}-test` });
+	const first = await (await post(problemId, 'judge/start'))!.json() as { seed: number };
+	const second = await (await post(problemId, 'judge/start'))!.json() as { seed: number };
+	const id = target === 'same' ? problemId : crypto.randomUUID();
+	if (target !== 'same') await insertProblem.bind(id, target === 'reference' ? 'cf-1821-a' : 'two-sum').run();
+	const disclosure = await post(id, 'tests/expected', { inputs: ['2'] }, role);
+	expect(disclosure).not.toBeNull();
+	expect(await disclosure!.json()).toEqual({ expected });
+	const outputs = [{ value: '2\n' }, { value: '4\n' }];
+	await expect(post(problemId, 'judge', { seed: first.seed, attemptId, outputs })).rejects.toMatchObject({ status: 409, code: 'stale_seed' });
+	await expect(post(problemId, 'judge', { seed: second.seed, attemptId, outputs })).rejects.toMatchObject({ status: 409, code: 'stale_seed' });
+	const fresh = await (await post(problemId, 'judge/start'))!.json() as { seed: number };
+	expect(await (await post(problemId, 'judge', { seed: fresh.seed, attemptId, outputs }))!.json()).toEqual({ verdict: 'accepted', failed: null });
+	await expect(post(problemId, 'judge', { seed: fresh.seed, attemptId, outputs })).rejects.toMatchObject({ status: 409, code: 'stale_seed' });
+});
+
+it.each([
+	{ name: 'invalid envelope keeps open checks', body: { inputs: '1' }, status: 400, stale: false },
+	{ name: 'too many inputs keep open checks', body: { inputs: Array(21).fill('1') }, status: 400, stale: false },
+	{ name: 'invalid entry invalidates open checks', body: { inputs: [1] }, status: 400, stale: true },
+	{ name: 'empty disclosure invalidates open checks', body: { inputs: [] }, status: 200, stale: true },
+])('$name', async ({ body, status, stale }) => {
+	expect((await request(`/problems/${problemId}/tests/expected`, 'POST', body, student)).status).toBe(status);
+	const response = await request(`/problems/${problemId}/judge`, 'POST', { seed: 1, attemptId, outputs: answers }, student);
+	expect(response.status).toBe(stale ? 409 : 200);
+	expect(await response.json()).toMatchObject(stale ? { error: { code: 'stale_seed' } } : { verdict: 'accepted', failed: null });
+});
+
+it('compares hidden answers above the own-test answer limit', () => {
+	const answer = 'x'.repeat(100_001);
+	expect(judge({ mode: 'stdio', solve: () => answer }, { mode: 'stdio' }, ['1'], [{ value: answer }])).toEqual({ verdict: 'accepted', failed: null });
 });
 
 const insertMessage = env.DB.prepare("INSERT INTO tutor_messages (id,context_kind,context_ref,author,body,created_at) VALUES (?,?,?,?,'Hint','now')");

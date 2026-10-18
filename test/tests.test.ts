@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { login, request } from './client';
 import type { ProblemTests } from '../shared/leetcode';
 import { sets, taskSlug, tasksOf, type Reference } from '../src/leetcode/sets';
-import { expectedOf } from '../src/leetcode/tests';
+import { expectedOf } from '../src/leetcode/judge';
 
 let cookie: string;
 beforeEach(async () => { cookie = await login(); });
