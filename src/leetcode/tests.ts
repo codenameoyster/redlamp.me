@@ -4,7 +4,7 @@ import { requireRole } from './auth';
 import { latestRuns } from './attempts';
 import { calendarDate, HttpError, integer, methods, object, readJson, text, uuid } from './http';
 import { getProblem, question } from './problems';
-import { parsePy, reprPy } from './pyliteral';
+import { parsePy, reprPy } from '../../shared/answers';
 import { referenceOf, sets, taskSlug, tasksOf, type Reference } from './sets';
 import { htmlText } from './tutor';
 

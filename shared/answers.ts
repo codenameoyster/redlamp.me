@@ -1,3 +1,5 @@
+import type { TestSpec } from './leetcode';
+
 // The Python literals of the tests: int, float, str, True, False, None, list, tuple (as a list) and dict with str keys.
 // One token: a number, a string in single or double quotes, a name or a mark. White space can come before each token.
 const TOKEN = /\s*(?:(-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)|'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)"|(True|False|None)\b|([[\](){},:]))/y;
@@ -55,4 +57,16 @@ export function reprPy(value: unknown): string {
 	if (Array.isArray(value)) return `[${value.map(reprPy).join(', ')}]`;
 	if (typeof value === 'object') return `{${Object.entries(value).map(([key, item]) => `${reprPy(key)}: ${reprPy(item)}`).join(', ')}}`;
 	throw new TypeError(`No Python literal for ${typeof value}.`);
+}
+
+// Stdout compares token by token. Other answers compare Python literals with the specified list order.
+function canonical(spec: TestSpec, answer: string): string {
+	if (spec.mode === 'stdio') return answer.split(/\s+/).filter(Boolean).join(' ');
+	const value = parsePy(answer), order = spec.order ?? 'exact';
+	return order === 'exact' ? reprPy(value) : JSON.stringify((value as unknown[]).map(item => order === 'any' ? reprPy(item) : JSON.stringify((item as unknown[]).map(reprPy).sort())).sort());
+}
+
+// An output that is not a Python literal, or not a list for a free order, is a wrong answer.
+export function same(spec: TestSpec, expected: string, output: string): boolean {
+	try { return canonical(spec, expected) === canonical(spec, output); } catch { return false; }
 }

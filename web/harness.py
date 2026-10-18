@@ -43,21 +43,6 @@ def check(code):
     return '[]'
 
 
-# LeetCode accepts a tuple where it expects a list, so plain() changes each tuple to a list. The judge (canonical() in src/leetcode/judge.ts) compares Python text, so True is not 1. plain() changes each bool to the tuple (bool, value), so a bool equals only a bool.
-def plain(value):
-    return [plain(item) for item in value] if isinstance(value, (list, tuple)) else (bool, value) if type(value) is bool else value
-
-
-def same(value, expected, order):
-    value, expected = plain(value), plain(expected)
-    # The judge needs a list for a free order, and a list in each item for 'any-nested'.
-    if order == 'any':
-        return isinstance(value, list) and sorted(value) == sorted(expected)
-    if order == 'any-nested':
-        return isinstance(value, list) and all(isinstance(item, list) for item in value) and sorted(sorted(item) for item in value) == sorted(sorted(item) for item in expected)
-    return value == expected
-
-
 def failure(error):
     frames = [frame.lineno for frame in traceback.extract_tb(error.__traceback__) if frame.filename == FILE]
     line = error.lineno if isinstance(error, SyntaxError) and error.filename == FILE else frames[-1] if frames else None
@@ -87,11 +72,11 @@ def run(code, spec, test):
         error = failure(exception)
     if stdio:
         output, printed = printed.getvalue(), ''
-        ok = None if expected is None else error is None and output.split() == expected.split()
     else:
         output, printed = '' if error else repr(value), printed.getvalue()
         try:
-            ok = None if expected is None else error is None and same(value, ast.literal_eval(expected), spec.get('order', 'exact'))
+            if expected is not None and error is None:
+                ast.literal_eval(expected)
         except Exception as exception:
-            ok, error = False, failure(exception)
-    return json.dumps({'ok': ok, 'output': output, 'stdout': printed, 'error': error})
+            error = failure(exception)
+    return json.dumps({'output': output, 'stdout': printed, 'error': error})
