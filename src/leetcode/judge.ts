@@ -1,11 +1,11 @@
 import type { Env } from '../index';
-import { hasWork, type JudgeOutput, type Judgement, type SessionUser, type TestSpec } from '../../shared/leetcode';
+import { hasWork, type Expected, type JudgeOutput, type Judgement, type SessionUser, type TestSpec } from '../../shared/leetcode';
 import { requireRole } from './auth';
 import { getAttempt, saveProgress } from './attempts';
-import { changed, HttpError, integer, methods, object, readJson, uuid } from './http';
+import { changed, HttpError, integer, methods, object, readJson, text, uuid } from './http';
 import { getProblem } from './problems';
 import { parsePy, reprPy, same } from '../../shared/answers';
-import { generatorOf, referenceOf, sets, taskSlug, tasksOf, type Reference } from './sets';
+import { contentOf, type Reference } from './sets';
 
 // Mulberry32, a seeded 32-bit PRNG: https://gist.github.com/tommyettinger/46a874533244883189143505d203312c
 export function mulberry32(seed: number): () => number {
@@ -28,6 +28,20 @@ export function judge(reference: Reference, spec: TestSpec, inputs: string[], ou
 	return { verdict: 'accepted', failed: null };
 }
 
+// The harness parses the answer in the 2-second time limit of the run. An answer of more than 100,000 characters can make a correct solution fail.
+const sized = (value: string): Expected => value.length > 100_000 ? { error: 'size' } : { value };
+
+// A reference error other than the constraints error comes from an input of a wrong shape or type.
+export function expectedOf(reference: Reference, input: string): Expected {
+	try {
+		if (reference.mode === 'stdio') return sized(reference.solve(input));
+		const args = parsePy(input);
+		return Array.isArray(args) && args.length === reference.solve.length ? sized(reprPy(reference.solve(...args))) : { error: 'input' };
+	} catch (error) {
+		return { error: error instanceof RangeError && error.message === 'constraints' ? 'constraints' : 'input' };
+	}
+}
+
 function outputOf(value: unknown): JudgeOutput {
 	const item = object(value, ['value', 'error', 'timeout']), [key, extra] = Object.keys(item);
 	if (extra || (key === 'timeout' ? item.timeout !== true : typeof item[key] !== 'string' || (item[key] as string).length > 1_000_000)) throw new HttpError(400, 'invalid_input', 'Проверьте поля запроса.');
@@ -35,11 +49,22 @@ function outputOf(value: unknown): JudgeOutput {
 }
 
 export async function handleJudge(request: Request, env: Env, user: SessionUser): Promise<Response | null> {
-	const match = /^\/leetcode\/api\/problems\/([^/]+)\/(judge\/start|judge|solved)$/.exec(new URL(request.url).pathname);
+	const match = /^\/leetcode\/api\/problems\/([^/]+)\/(judge\/start|judge|solved|tests\/expected)$/.exec(new URL(request.url).pathname);
 	if (!match) return null;
 	methods(request, ['POST']);
-	requireRole(user, 'student');
-	const problem = await getProblem(env, uuid(match[1])), generate = generatorOf(problem.slug), solved = match[2] === 'solved';
+	const expected = match[2] === 'tests/expected';
+	if (!expected) requireRole(user, 'student');
+	const problem = await getProblem(env, uuid(match[1]));
+	if (expected) {
+		// 20 inputs of 10,000 characters at two bytes each fit in 400 KB of JSON.
+		const { inputs } = object(await readJson(request, 409_600), ['inputs']);
+		if (!Array.isArray(inputs) || inputs.length > 20) throw new HttpError(400, 'invalid_input', 'Проверьте поля запроса.');
+		const reference = contentOf(problem.slug)?.reference;
+		// The inputs can be the hidden inputs of an open judge seed. A slug can move to another problem, so the answers make the seeds of all problems stale.
+		await env.DB.prepare('DELETE FROM judge_runs').run();
+		return Response.json({ expected: inputs.map(input => { text(input, 10_000, true); return reference ? expectedOf(reference, input) : null; }) });
+	}
+	const content = contentOf(problem.slug), generate = content?.generate, solved = match[2] === 'solved';
 	let attemptId: string, result: Judgement = { verdict: 'accepted', failed: null };
 	if (solved) {
 		if (generate) throw new HttpError(409, 'judged', 'Эту задачу проверяют скрытые тесты. Нажмите «Отправить».');
@@ -59,7 +84,7 @@ export async function handleJudge(request: Request, env: Env, user: SessionUser)
 		if (!Array.isArray(data.outputs) || data.outputs.length !== inputs.length) throw new HttpError(400, 'invalid_input', 'Проверьте поля запроса.');
 		// A wrong verdict shows the answer of the failed test, so each seed gives one verdict.
 		if (!await env.DB.prepare('DELETE FROM judge_runs WHERE problem_id=? AND seed=? RETURNING seed').bind(problem.id, seed).first()) throw new HttpError(409, 'stale_seed', 'Эта проверка устарела. Нажмите «Отправить» ещё раз.');
-		result = judge(referenceOf(problem.slug)!, sets.flatMap(tasksOf).find(task => taskSlug(task) === problem.slug)!.tests!, inputs, data.outputs.map(outputOf));
+		result = judge(content!.reference!, content!.task.tests!, inputs, data.outputs.map(outputOf));
 		if (result.verdict !== 'accepted') return Response.json(result);
 	}
 	// The draft becomes the accepted attempt. The judge completes the active homework task of the problem. The solved route submits the task for the parent review. The later statements change rows only when the attempt was a draft.

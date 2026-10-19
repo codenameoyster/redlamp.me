@@ -1,50 +1,41 @@
 import type { Env } from '../../index';
-import type { ChapterRef, LearningSet, LearningSetDetails, LearningSetSummary, SessionUser, SetTask, TaskState } from '../../../shared/leetcode';
+import type { Chapter, ChapterRef, LearningSet, LearningSetDetails, LearningSetSummary, SessionUser, SetTask, TaskState } from '../../../shared/leetcode';
 import { requireRole } from '../auth';
 import { getHomework } from '../homework';
 import { changed, HttpError, integer, methods, object, readJson, uuid } from '../http';
 import { getProblem, slug as problemSlug, solvedSQL } from '../problems';
 import heapsAndQueues from './heaps-and-queues/set';
-import heapsAndQueues1 from './heaps-and-queues/chapter1.html';
-import heapsAndQueues2 from './heaps-and-queues/chapter2.html';
-import heapsAndQueues3 from './heaps-and-queues/chapter3.html';
-import heapsAndQueues4 from './heaps-and-queues/chapter4.html';
 import heapsAndQueuesGenerators from './heaps-and-queues/generators';
 import heapsAndQueuesSolutions from './heaps-and-queues/solutions';
 import permutationsAndCombinations from './permutations-and-combinations/set';
-import permutationsAndCombinations1 from './permutations-and-combinations/chapter1.html';
-import permutationsAndCombinations2 from './permutations-and-combinations/chapter2.html';
-import permutationsAndCombinations3 from './permutations-and-combinations/chapter3.html';
-import permutationsAndCombinations4 from './permutations-and-combinations/chapter4.html';
 import permutationsAndCombinationsGenerators from './permutations-and-combinations/generators';
 import permutationsAndCombinationsSolutions from './permutations-and-combinations/solutions';
 import twoPointers from './two-pointers/set';
-import twoPointers1 from './two-pointers/chapter1.html';
-import twoPointers2 from './two-pointers/chapter2.html';
-import twoPointers3 from './two-pointers/chapter3.html';
-import twoPointers4 from './two-pointers/chapter4.html';
 import twoPointersGenerators from './two-pointers/generators';
 import twoPointersSolutions from './two-pointers/solutions';
 
-export const sets: (LearningSet & { lessons: string[] })[] = [
-	{ ...permutationsAndCombinations, lessons: [permutationsAndCombinations1, permutationsAndCombinations2, permutationsAndCombinations3, permutationsAndCombinations4] },
-	{ ...twoPointers, lessons: [twoPointers1, twoPointers2, twoPointers3, twoPointers4] },
-	{ ...heapsAndQueues, lessons: [heapsAndQueues1, heapsAndQueues2, heapsAndQueues3, heapsAndQueues4] },
-];
+export type LearningSetContent = Omit<LearningSet, 'chapters'> & { chapters: (Chapter & { lesson: string })[] };
+export const sets: LearningSetContent[] = [permutationsAndCombinations, twoPointers, heapsAndQueues];
 
 // A reference solution of a set task. A call input gives solve.length arguments. solve returns the value that the harness compares and throws RangeError('constraints') for an input outside the statement constraints.
 // The references stay on the server, so the student cannot read them.
 export type Reference = { mode: 'call'; solve: (...args: unknown[]) => unknown } | { mode: 'stdio'; solve: (stdin: string) => string };
 const references = new Map<string, Reference>(Object.entries({ ...permutationsAndCombinationsSolutions, ...twoPointersSolutions, ...heapsAndQueuesSolutions }));
-export const referenceOf = (slug: string): Reference | undefined => references.get(slug);
 // A generator of the hidden tests of a set task: 10 to 16 inputs in the test format of the task. random is a seeded PRNG.
 export type Generator = (random: () => number) => string[];
 const generators = new Map<string, Generator>(Object.entries({ ...permutationsAndCombinationsGenerators, ...twoPointersGenerators, ...heapsAndQueuesGenerators }));
-export const generatorOf = (slug: string): Generator | undefined => generators.get(slug);
 
 export const tasksOf = (set: LearningSet): SetTask[] => set.chapters.flatMap(chapter => chapter.tasks);
 export const taskSlug = (task: SetTask): string => problemSlug(task.url);
-export const chaptersOf = (slug: string): ChapterRef[] => sets.flatMap(set => set.chapters.flatMap((chapter, index) => chapter.tasks.some(task => taskSlug(task) === slug) ? [{ set: set.slug, setTitle: set.title, number: index + 1, title: chapter.title }] : []));
+export function contentOf(slug: string) {
+	const matches = sets.flatMap(set => set.chapters.flatMap((chapter, index) => {
+		const task = chapter.tasks.find(task => taskSlug(task) === slug);
+		return task ? [{ task, ref: { set: set.slug, setTitle: set.title, number: index + 1, title: chapter.title }, lesson: chapter.lesson }] : [];
+	}));
+	if (!matches.length) return undefined;
+	return { task: matches[0].task, reference: references.get(slug), generate: generators.get(slug), chapters: matches.map(({ ref, lesson }) => ({ ref, lesson })) };
+}
+const chaptersOf = (slug: string): ChapterRef[] => contentOf(slug)?.chapters.map(chapter => chapter.ref) ?? [];
 export function taskLabel(task: SetTask): string {
 	const value = taskSlug(task);
 	return value.startsWith('cf-') ? `Codeforces ${value.slice(3).replace('-', '').toUpperCase()}` : task.number ? `LeetCode ${task.number}` : 'LeetCode';
@@ -89,9 +80,9 @@ export async function handleSets(request: Request, env: Env, user: SessionUser):
 	const set = sets.find(item => item.slug === match[1]);
 	if (!set) throw new HttpError(404, 'not_found', 'Такого набора нет.');
 	if (match[2]) {
-		const html = set.lessons[Number(match[2]) - 1];
-		if (!html) throw new HttpError(404, 'not_found', 'Такой главы нет.');
-		return Response.json({ html, figures: set.chapters[Number(match[2]) - 1].figures ?? [] });
+		const chapter = set.chapters[Number(match[2]) - 1];
+		if (!chapter) throw new HttpError(404, 'not_found', 'Такой главы нет.');
+		return Response.json({ html: chapter.lesson, figures: chapter.figures ?? [] });
 	}
 	const rows = await env.DB.prepare(`SELECT p.slug,p.id AS problemId,${solvedSQL} AS accepted,t.state
 		FROM problems p LEFT JOIN homework_tasks t ON t.problem_id=p.id AND t.state NOT IN ('completed','cancelled') WHERE p.slug IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(tasksOf(set).map(taskSlug))).all<TaskRow>();

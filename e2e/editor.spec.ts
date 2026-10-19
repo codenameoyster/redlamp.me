@@ -245,6 +245,9 @@ test('copies the code', async ({ page, context, notebook }) => {
 const formats = [
 	{ name: 'formats the code with Ruff', code: 'x=1;y=[1,2 ,3]', message: '', formatted: 'x = 1\ny = [1, 2, 3]\n', keys: [], expected: 'x = 1\ny = [1, 2, 3]\n', shown: 0 },
 	{ name: 'gives the old code back with Ctrl+Z after the format', code: 'x=1;y=[1,2 ,3]', message: '', formatted: 'x = 1\ny = [1, 2, 3]\n', keys: ['ControlOrMeta+Z'], expected: 'x=1;y=[1,2 ,3]', shown: 0 },
+	{ name: 'undoes later typing separately from formatting', code: 'x=1', message: '', formatted: 'x = 1\n', keys: ['ControlOrMeta+End', 'a', 'ControlOrMeta+Z'], expected: 'x = 1\n', shown: 0 },
+	{ name: 'undoes formatting after later typing', code: 'x=1', message: '', formatted: 'x = 1\n', keys: ['ControlOrMeta+End', 'a', 'ControlOrMeta+Z', 'ControlOrMeta+Z'], expected: 'x=1', shown: 0 },
+	{ name: 'adds no undo step for code that is already formatted', code: 'x = 1\n', message: '', formatted: 'x = 1\n', keys: ['ControlOrMeta+Z'], expected: '', shown: 0 },
 	{ name: 'keeps code with a syntax error and names its line', code: 'x = 1\ndef f(:\n    pass', message: 'Не удалось отформатировать: ошибка в строке 2.', formatted: 'x = 1\ndef f(:\n    pass', keys: [], expected: 'x = 1\ndef f(:\n    pass', shown: 1 },
 	{ name: 'names the line of an unclosed bracket', code: 'n = int(input())\nprint(sum(range(n))\n', message: 'Не удалось отформатировать: ошибка в строке 2.', formatted: 'n = int(input())\nprint(sum(range(n))\n', keys: [], expected: 'n = int(input())\nprint(sum(range(n))\n', shown: 1 },
 	{ name: 'removes the format message after a change of the code', code: 'x = 1\ndef f(:\n    pass', message: 'Не удалось отформатировать: ошибка в строке 2.', formatted: 'x = 1\ndef f(:\n    pass', keys: ['ControlOrMeta+End', 'Backspace'], expected: 'x = 1\ndef f(:\n    pas', shown: 0 },
@@ -255,6 +258,7 @@ for (const row of formats) {
 		const code = page.getByLabel('Код решения', { exact: true });
 		await code.fill(row.code);
 		await page.getByRole('button', { name: 'Форматировать', exact: true }).click();
+		await expect(page.getByRole('button', { name: 'Форматировать', exact: true })).toBeEnabled({ timeout: 30_000 });
 		if (row.message) await expect(page.getByText(row.message, { exact: true })).toBeVisible({ timeout: 30_000 });
 		await expect.poll(() => lines(code), { timeout: 30_000 }).toEqual(row.formatted.split('\n'));
 		await code.focus();
@@ -266,6 +270,120 @@ for (const row of formats) {
 		await expect.poll(() => lines(code)).toEqual(row.expected.split('\n'));
 	});
 }
+
+// Hold the real worker's format response while other messages continue.
+async function holdFormat(page: Page) {
+	return page.evaluateHandle(() => {
+		const gate = { held: false, release: () => {} }, NativeWorker = Worker;
+		window.Worker = class extends NativeWorker {
+			constructor(url: string | URL, options?: WorkerOptions) {
+				super(url, options);
+				const formats = new Set<number>(), post = this.postMessage.bind(this);
+				this.postMessage = data => { if (data.type === 'format') formats.add(data.id); post(data); };
+				this.addEventListener('message', event => {
+					if (!formats.delete(event.data.id)) return;
+					event.stopImmediatePropagation(); gate.held = true;
+					gate.release = () => { gate.held = false; this.dispatchEvent(new MessageEvent('message', { data: event.data })); };
+				});
+			}
+		};
+		return gate;
+	});
+}
+
+const delayedFormats = [
+	{ name: 'keeps edits made while formatting waits', source: 'x=1', edit: 'y=2', expected: 'y=2' },
+	{ name: 'discards a format error after the code changes', source: 'def f(:', edit: 'x=1', expected: 'x=1' },
+	{ name: 'applies formatting after cursor movement', source: 'x=1', edit: null, expected: 'x = 1\n' },
+];
+for (const row of delayedFormats) {
+	test(row.name, async ({ page, notebook }) => {
+		await expect(page.getByRole('heading', { name: notebook.problem.title })).toBeVisible();
+		const gate = await holdFormat(page), code = page.getByLabel('Код решения', { exact: true });
+		await code.fill(row.source);
+		await page.getByRole('button', { name: 'Форматировать', exact: true }).click();
+		await expect.poll(() => gate.evaluate(gate => gate.held), { timeout: 30_000 }).toBe(true);
+		if (row.edit !== null) await code.fill(row.edit);
+		else { await code.focus(); await page.keyboard.press('Home'); }
+		await gate.evaluate(async gate => { gate.release(); await new Promise<void>(resolve => requestAnimationFrame(() => resolve())); });
+		await expect(page.getByRole('button', { name: 'Форматировать', exact: true })).toBeEnabled();
+		await expect.poll(() => lines(code)).toEqual(row.expected.split('\n'));
+		await expect(page.getByText(/^Не удалось отформатировать/)).toHaveCount(0);
+		await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
+		await page.reload();
+		await expect.poll(() => lines(code)).toEqual(row.expected.split('\n'));
+	});
+}
+
+test('clears the format error and undo history when using the server copy', async ({ page, context, notebook }) => {
+	const second = await context.newPage(), code = page.getByLabel('Код решения', { exact: true });
+	await second.goto(`/leetcode/problems/${notebook.problem.id}`);
+	await second.getByLabel('Код решения', { exact: true }).fill('x=1');
+	await expect(second.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
+	await code.fill('def f(:');
+	await page.getByRole('button', { name: 'Форматировать', exact: true }).click();
+	await expect(page.getByText('Не удалось отформатировать: ошибка в строке 1.', { exact: true })).toBeVisible({ timeout: 30_000 });
+	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('На сервере другая копия');
+	page.once('dialog', dialog => dialog.accept());
+	await page.getByRole('button', { name: 'Использовать копию с сервера', exact: true }).click();
+	await expect.poll(() => lines(code)).toEqual(['x=1']);
+	await expect(page.getByText(/^Не удалось отформатировать/)).toHaveCount(0);
+	await code.focus();
+	await page.keyboard.press('ControlOrMeta+Z');
+	await expect.poll(() => lines(code)).toEqual(['x=1']);
+});
+
+for (const row of [
+	{ name: 'discards formatting while the draft is locked', replaced: false, expected: 'x=1' },
+	{ name: 'discards formatting after a replacement draft opens', replaced: true, expected: 'y=2' },
+]) {
+	test(row.name, async ({ page, notebook }) => {
+		const gate = await holdFormat(page), code = page.getByLabel('Код решения', { exact: true });
+		let release!: () => void, entered!: () => void;
+		const held = new Promise<void>(resolve => { release = resolve; }), solving = new Promise<void>(resolve => { entered = resolve; });
+		if (!row.replaced) await page.route(`**/problems/${notebook.problem.id}/solved`, async route => {
+			entered(); await held; await route.fulfill({ status: 409, json: { error: { code: 'conflict', message: 'Save refused for this check.' } } });
+		});
+		await code.fill('x=1');
+		await page.getByRole('button', { name: 'Форматировать', exact: true }).click();
+		await expect.poll(() => gate.evaluate(gate => gate.held), { timeout: 30_000 }).toBe(true);
+		await page.getByRole('button', { name: 'Решено', exact: true }).click();
+		if (row.replaced) {
+			await expect(page.getByText('Попытка сохранена.', { exact: true })).toBeVisible();
+			await code.fill(row.expected);
+		} else { await solving; await expect(code).not.toBeEditable(); }
+		await gate.evaluate(async gate => { gate.release(); await new Promise<void>(resolve => requestAnimationFrame(() => resolve())); });
+		await expect(page.getByText('Форматируем...', { exact: true })).toHaveCount(0);
+		await expect.poll(() => lines(code)).toEqual([row.expected]);
+		if (!row.replaced) { release(); await expect(page.getByRole('alert')).toContainText('Save refused for this check.'); }
+		await expect(code).toBeEditable();
+		await expect(page.getByRole('button', { name: 'Форматировать', exact: true })).toBeEnabled();
+	});
+}
+
+test('keeps formatting through a pending autosave', async ({ page, notebook }) => {
+	const gate = await holdFormat(page), code = page.getByLabel('Код решения', { exact: true }), format = page.getByRole('button', { name: 'Форматировать', exact: true });
+	let release!: () => void, entered!: () => void;
+	const held = new Promise<void>(resolve => { release = resolve; }), saving = new Promise<void>(resolve => { entered = resolve; });
+	await page.route(`**/attempts/${notebook.attempt.id}`, async route => {
+		if (route.request().method() !== 'PUT') return route.continue();
+		const response = await route.fetch(); entered(); await held; await route.fulfill({ response });
+	}, { times: 1 });
+	await code.fill('x=1');
+	await saving;
+	await format.click();
+	await expect.poll(() => gate.evaluate(gate => gate.held), { timeout: 30_000 }).toBe(true);
+	await expect(format).toBeDisabled();
+	await expect(page.getByText('Форматируем...', { exact: true })).toBeVisible();
+	await expect(code).toBeEditable();
+	await gate.evaluate(gate => gate.release());
+	await expect(format).toBeEnabled();
+	await expect.poll(() => lines(code)).toEqual(['x = 1', '']);
+	release();
+	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
+	await page.reload();
+	await expect.poll(() => lines(code)).toEqual(['x = 1', '']);
+});
 
 // The parent view and the review page show the code read-only. The recovery copy locks the field, and the fieldset disables the button.
 const fixedCode = [

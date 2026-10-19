@@ -4,14 +4,29 @@ import { login, request } from './client';
 import type { FigureRow, LearningSetDetails, LearningSetSummary, SetTask } from '../shared/leetcode';
 import { glossary } from '../shared/glossary';
 import { parsePy, reprPy, same } from '../shared/answers';
-import { mulberry32 } from '../src/leetcode/judge';
-import { generatorOf, referenceOf, sets, taskLabel, taskSlug, tasksOf, type Reference } from '../src/leetcode/sets';
-import { expectedOf } from '../src/leetcode/tests';
+import { expectedOf, mulberry32 } from '../src/leetcode/judge';
+import { contentOf, sets, taskLabel, taskSlug, tasksOf, type Reference } from '../src/leetcode/sets';
 import { htmlText } from '../src/leetcode/tutor';
 
 let student: string;
 const set = sets.find(item => item.slug === 'permutations-and-combinations')!;
 const twoPointers = sets.find(item => item.slug === 'two-pointers')!;
+
+it.each([
+	{ name: 'in-place problem with its ordering lesson', slug: 'next-permutation', spec: { mode: 'call', method: 'nextPermutation', check: 'arg0' }, input: '[[1, 2, 3]]', answer: '[1, 3, 2]', chapter: 4, title: 'Порядок и номер', lesson: '2. Следующая перестановка' },
+	{ name: 'standard-input problem with its counting lesson', slug: 'cf-1821-a', spec: { mode: 'stdio' }, input: '2\n??\n0\n', answer: '90\n0\n', chapter: 1, title: 'Считаем варианты', lesson: '2. Правило произведения' },
+])('resolves $name', ({ slug, spec, input, answer, chapter, title, lesson }) => {
+	const content = contentOf(slug)!;
+	expect(content.task.tests).toMatchObject(spec);
+	expect(expectedOf(content.reference!, input)).toEqual({ value: answer });
+	expect(content.chapters.map(item => item.ref)).toEqual([{ set: 'permutations-and-combinations', setTitle: 'Перестановки и сочетания', number: chapter, title }]);
+	expect(content.chapters[0].lesson).toContain(lesson);
+});
+
+it('returns no learning material for a problem outside the sets', () => {
+	expect(contentOf('two-sum')).toBeUndefined();
+});
+
 const insertProblem = env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,?,'Problem','medium','[]','','','now','now')");
 const insertAttempt = env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,?,'{}','',?,'with_help','now','now')");
 const insertBundle = env.DB.prepare("INSERT INTO homework (id,title,instructions,created_at,updated_at) VALUES (?,?,'','now','now')");
@@ -69,9 +84,9 @@ it.each([
 });
 
 it.each([
-	{ name: 'student chapter 1 lesson', role: 'student', item: set, chapter: '1', body: { html: set.lessons[0], figures: [] } },
-	{ name: 'parent chapter 4 lesson', role: 'parent', item: set, chapter: '4', body: { html: set.lessons[3], figures: [] } },
-	{ name: 'lesson with figures', role: 'student', item: twoPointers, chapter: '1', body: { html: twoPointers.lessons[0], figures: twoPointers.chapters[0].figures } },
+	{ name: 'student chapter 1 lesson', role: 'student', item: set, chapter: '1', body: { html: set.chapters[0].lesson, figures: [] } },
+	{ name: 'parent chapter 4 lesson', role: 'parent', item: set, chapter: '4', body: { html: set.chapters[3].lesson, figures: [] } },
+	{ name: 'lesson with figures', role: 'student', item: twoPointers, chapter: '1', body: { html: twoPointers.chapters[0].lesson, figures: twoPointers.chapters[0].figures } },
 	{ name: 'chapter 5 is missing', role: 'parent', item: set, chapter: '5', body: null },
 	{ name: 'chapter 0 is missing', role: 'parent', item: set, chapter: '0', body: null },
 	{ name: 'chapter x is missing', role: 'parent', item: set, chapter: 'x', body: null },
@@ -116,13 +131,13 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item 
 	expect(item.chapters.filter(chapter => chapter.links.length < 3 || chapter.links.length > 5).map(chapter => chapter.title)).toEqual([]);
 	expect(links.filter(link => new URL(link.url).protocol !== 'https:').map(link => link.url)).toEqual([]);
 	expect(links.filter((link, index) => links.findIndex(other => other.url === link.url) !== index).map(link => link.url)).toEqual([]);
-	expect(item.lessons).toHaveLength(item.chapters.length);
-	expect(item.lessons.map(lesson => htmlText(lesson).length).filter(length => length >= 6000)).toEqual([]);
-	expect(item.lessons.flatMap(lesson => [...lesson.matchAll(/<([a-z][a-z0-9]*)/gi)].map(match => match[1]).filter(tag => !fragmentTag.test(tag)))).toEqual([]);
-	expect(item.lessons.flatMap((lesson, index) => lesson.startsWith('<p class="lead">') && !/\s(?:style|on[a-z]+)=|<div(?! class="rule">)/i.test(lesson) ? [] : [index + 1])).toEqual([]);
+	const lessons = item.chapters.map(chapter => chapter.lesson);
+	expect(lessons.map(lesson => htmlText(lesson).length).filter(length => length >= 6000)).toEqual([]);
+	expect(lessons.flatMap(lesson => [...lesson.matchAll(/<([a-z][a-z0-9]*)/gi)].map(match => match[1]).filter(tag => !fragmentTag.test(tag)))).toEqual([]);
+	expect(lessons.flatMap((lesson, index) => lesson.startsWith('<p class="lead">') && !/\s(?:style|on[a-z]+)=|<div(?! class="rule">)/i.test(lesson) ? [] : [index + 1])).toEqual([]);
 	// A figure is an empty placeholder on its own line. The placeholders follow the order of chapter.figures.
-	expect(item.lessons.map(lesson => (lesson.match(/<figure\b/g) ?? []).length - (lesson.match(/^<figure data-figure="[a-z0-9-]+"><\/figure>$/gm) ?? []).length)).toEqual(item.lessons.map(() => 0));
-	expect(item.lessons.map(lesson => [...lesson.matchAll(/data-figure="([^"]+)"/g)].map(match => match[1]))).toEqual(item.chapters.map(chapter => (chapter.figures ?? []).map(figure => figure.id)));
+	expect(lessons.map(lesson => (lesson.match(/<figure\b/g) ?? []).length - (lesson.match(/^<figure data-figure="[a-z0-9-]+"><\/figure>$/gm) ?? []).length)).toEqual(lessons.map(() => 0));
+	expect(lessons.map(lesson => [...lesson.matchAll(/data-figure="([^"]+)"/g)].map(match => match[1]))).toEqual(item.chapters.map(chapter => (chapter.figures ?? []).map(figure => figure.id)));
 	const figures = item.chapters.flatMap(chapter => chapter.figures ?? []);
 	expect(figures.filter(figure => !slugFormat.test(figure.id) || !figure.title.trim() || !figure.frames.length || figure.frames.some(frame => !frame.caption.trim() || !frame.rows.length || frame.rows.some(badRow))).map(figure => figure.id)).toEqual([]);
 });
@@ -137,7 +152,7 @@ const prose = (html: string) => html.replace(/<(pre|code)\b[\s\S]*?<\/\1>/g, ' '
 it.each(sets.map(item => ({ name: item.slug, item })))('$name hard words have a tip', ({ item }) => {
 	const patterns = glossary.map(entry => entry.pattern);
 	const texts = [['summary', item.summary], ...item.chapters.flatMap((chapter, index) => [
-		[`chapter ${index + 1} summary`, chapter.summary], [`chapter ${index + 1} lesson`, prose(item.lessons[index])],
+		[`chapter ${index + 1} summary`, chapter.summary], [`chapter ${index + 1} lesson`, prose(chapter.lesson)],
 		...chapter.tasks.flatMap(task => [[`${taskSlug(task)} statement`, prose(task.statement ?? '')], [`${taskSlug(task)} note`, task.note]]),
 		...chapter.cards.flatMap(card => [[`${card.id} prompt`, card.prompt], [`${card.id} explain`, card.explain]]),
 	])];
@@ -156,7 +171,7 @@ it('each tip is plain', () => {
 });
 
 it.each(sets.flatMap(tasksOf).map(task => ({ name: taskSlug(task), task })))('$name reference passes the standard tests', ({ task }) => {
-	const tests = task.tests!, reference = referenceOf(taskSlug(task));
+	const content = contentOf(taskSlug(task))!, tests = content.task.tests!, reference = content.reference;
 	expect(reference?.mode).toBe(tests.mode);
 	expect(tests.cases.filter(item => { const answer = expectedOf(reference!, item.input); return !answer || !('value' in answer) || !same(tests, item.expected!, answer.value); })).toEqual([]);
 });
@@ -164,7 +179,7 @@ it.each(sets.flatMap(tasksOf).map(task => ({ name: taskSlug(task), task })))('$n
 // The hidden tests of seeds 1 and 2^32 - 1. Each input must have the argument count of the reference and satisfy the constraints. A reference run of 100 ms or more makes the judge route slow.
 // The judge route refuses an output over 1,000,000 characters, so a longer answer can never pass.
 it.each(sets.flatMap(tasksOf).map(task => ({ name: taskSlug(task), task })))('$name generator gives valid hidden tests', ({ task }) => {
-	const reference = referenceOf(taskSlug(task))!, generate = generatorOf(taskSlug(task)), inputs = generate?.(mulberry32(1)) ?? [];
+	const content = contentOf(taskSlug(task))!, reference = content.reference!, generate = content.generate, inputs = generate?.(mulberry32(1)) ?? [];
 	expect(inputs.length).toBeGreaterThanOrEqual(10);
 	expect(inputs.length).toBeLessThanOrEqual(16);
 	expect([...inputs, ...generate?.(mulberry32(2 ** 32 - 1)) ?? []].flatMap((input, index) => {
@@ -238,7 +253,7 @@ it.each([
 	{ name: 'sum of the k cheapest costs', wrong: (costs: number[], k: number) => [...costs].sort((a, b) => a - b).slice(0, k).reduce((sum, cost) => sum + cost, 0) },
 	{ name: 'tie that goes to the right group', wrong: rightTie },
 ])('LeetCode 2462 rejects the $name', ({ wrong }) => {
-	const slug = 'total-cost-to-hire-k-workers', reference = referenceOf(slug) as Extract<Reference, { mode: 'call' }>, generate = generatorOf(slug)!;
+	const content = contentOf('total-cost-to-hire-k-workers')!, reference = content.reference as Extract<Reference, { mode: 'call' }>, generate = content.generate!;
 	for (let seed = 1; seed <= 50; seed++) {
 		const small = generate(mulberry32(seed)).filter(input => input.length <= 1000).map(input => parsePy(input) as [number[], number, number]);
 		expect(small.some(([costs, k, candidates]) => wrong(costs, k, candidates) !== reference.solve(costs, k, candidates)), `seed ${seed}`).toBe(true);

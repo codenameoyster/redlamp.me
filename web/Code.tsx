@@ -1,13 +1,14 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { acceptCompletion, autocompletion, closeCompletion, completeFromList, ifNotIn, selectedCompletion, type CompletionContext, type CompletionSource } from '@codemirror/autocomplete';
 import { Compartment, countColumn, EditorSelection, EditorState, Prec, Transaction } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap, indentLess, indentMore, temporarilySetTabFocusMode } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, indentLess, indentMore, isolateHistory, temporarilySetTabFocusMode } from '@codemirror/commands';
 import { getIndentUnit, indentUnit, syntaxHighlighting } from '@codemirror/language';
 import { localCompletionSource, python } from '@codemirror/lang-python';
 import { classHighlighter } from '@lezer/highlight';
 import { highlight } from './highlight';
-import { completeCode, pythonWords } from './python';
+import { completeCode, formatCode, pythonWords } from './python';
+import { message } from './api';
 
 // highlight.js escapes the code and emits only span elements, so its output is safe to insert as HTML.
 export function Code({ language, text, blank }: { language: string; text: string; blank?: boolean }) {
@@ -58,10 +59,22 @@ const tab = ({ state, dispatch }: EditorView) => {
 const access = (readOnly: boolean, locked: boolean) => [EditorState.readOnly.of(readOnly || locked), EditorView.editable.of(!readOnly && !locked), EditorView.contentAttributes.of(readOnly ? { tabindex: '0' } : { 'aria-describedby': hint }), readOnly || locked ? [] : completion];
 
 // Python 3.14 raises TabError for a tab under a block with 4 spaces, so Tab inserts spaces up to the next stop of 4 columns and Shift+Tab removes 4 spaces. Escape and then Tab moves the focus out: https://codemirror.net/examples/tab/
-// A change through the view ref goes to onChange and to the undo history, as a change of the student.
-export function CodeField({ value, readOnly, locked = false, onChange, view }: { value: string; readOnly: boolean; locked?: boolean; onChange: (value: string) => void; view: RefObject<EditorView | null> }) {
-	const parent = useRef<HTMLDivElement>(null), change = useRef(onChange);
+export function CodeField({ value, readOnly, locked = false, onChange }: { value: string; readOnly: boolean; locked?: boolean; onChange: (value: string) => void }) {
+	const parent = useRef<HTMLDivElement>(null), change = useRef(onChange), view = useRef<EditorView>(null);
+	const [pending, setPending] = useState(false), [error, setError] = useState('');
 	change.current = onChange;
+	async function format() {
+		const editor = view.current;
+		if (!editor || editor.state.readOnly || pending) return;
+		const code = editor.state.doc.toString(), current = () => view.current === editor && !editor.state.readOnly && editor.state.doc.toString() === code;
+		setPending(true); setError('');
+		try {
+			const formatted = await formatCode(code);
+			// Formatting is one undo step: https://codemirror.net/docs/ref/#commands.isolateHistory
+			if (current() && formatted !== code) editor.dispatch({ changes: { from: 0, to: code.length, insert: formatted }, annotations: isolateHistory.of('full') });
+		} catch (error) { if (current()) setError(message(error)); }
+		finally { if (view.current === editor) setPending(false); }
+	}
 	useEffect(() => {
 		const editor = new EditorView({ parent: parent.current!, state: EditorState.create({ doc: value, extensions: [
 			lineNumbers(), past.of(history()), EditorView.lineWrapping, indentUnit.of('    '), python(), syntaxHighlighting(classHighlighter),
@@ -71,11 +84,14 @@ export function CodeField({ value, readOnly, locked = false, onChange, view }: {
 			// The browser hides the nonce attribute, and the nonce property keeps the value: https://html.spec.whatwg.org/multipage/urls-and-fetching.html#nonce-attributes
 			EditorView.cspNonce.of(document.querySelector<HTMLMetaElement>('meta[name="csp-nonce"]')!.nonce!),
 			// A value from the props comes in as a remote change, so it does not go back to onChange: https://codemirror.net/docs/ref/#state.Transaction^remote
-			EditorView.updateListener.of(update => { if (update.transactions.some(tr => tr.docChanged && !tr.annotation(Transaction.remote))) change.current(update.state.doc.toString()); }),
+			EditorView.updateListener.of(update => {
+				if (update.docChanged) setError('');
+				if (update.transactions.some(tr => tr.docChanged && !tr.annotation(Transaction.remote))) change.current(update.state.doc.toString());
+			}),
 			lock.of(access(readOnly, locked)),
 		] }) });
 		view.current = editor;
-		return () => editor.destroy();
+		return () => { view.current = null; editor.destroy(); };
 	}, []);
 	// A value from outside starts a new undo history, so Ctrl+Z does not undo it. A history field that a transaction adds also records the changes of that transaction, so the field comes back in a second transaction.
 	useEffect(() => {
@@ -85,5 +101,5 @@ export function CodeField({ value, readOnly, locked = false, onChange, view }: {
 		editor.dispatch({ effects: past.reconfigure(history()) });
 	}, [value]);
 	useEffect(() => { view.current!.dispatch({ effects: lock.reconfigure(access(readOnly, locked)) }); }, [readOnly, locked]);
-	return <><div ref={parent} className="code-field" />{!readOnly && <small id={hint}>Tab или Enter при открытом списке: вставить выбранное имя. Tab: вставить пробелы. Tab при нескольких выделенных строках: сдвинуть их вправо. Shift+Tab: сдвинуть влево. Esc и сразу Tab: выйти из поля.</small>}</>;
+	return <><div className="row">Код решения{!readOnly && <button type="button" disabled={locked || pending} onClick={() => void format()} data-tip="Расставить пробелы и переносы строк в коде по единым правилам.">Форматировать</button>}{(pending || error) && <p role="status">{pending ? 'Форматируем...' : error}</p>}</div><div ref={parent} className="code-field" />{!readOnly && <small id={hint}>Tab или Enter при открытом списке: вставить выбранное имя. Tab: вставить пробелы. Tab при нескольких выделенных строках: сдвинуть их вправо. Shift+Tab: сдвинуть влево. Esc и сразу Tab: выйти из поля.</small>}</>;
 }
