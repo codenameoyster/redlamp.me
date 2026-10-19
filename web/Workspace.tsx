@@ -8,12 +8,10 @@ import { homeworkLabels } from './Homework';
 import { Materials } from './Materials';
 import { Lesson } from './Sets';
 import { CodeField } from './Code';
-import type { EditorView } from '@codemirror/view';
-import { isolateHistory } from '@codemirror/commands';
 import { Tutor } from './Tutor';
 import { Dictation } from './Dictation';
 import { Failure, OwnTests, Runner } from './Runner';
-import { formatCode, runTests } from './python';
+import { runTests } from './python';
 import { localDate } from '../shared/dates';
 
 export const understandingLabels = { needs_practice: 'Нужно потренироваться', with_help: 'Решил с подсказкой', independent: 'Решил сам' };
@@ -40,27 +38,17 @@ function Panes({ left, right }: { left: ReactNode; right: ReactNode }) {
 // Only the first approach is shown. Attempts from before the work window can hold more.
 // The verdict is above the row of the code buttons, the actions are in the row, and the children are below it.
 export function AttemptContent({ value, change, locked, chapter, problemId, tests, skeleton, runs, record, verdict, actions, children }: { value: DraftValue; change?: (next: DraftValue) => void; locked?: boolean; chapter?: ReactNode; problemId?: string; tests?: ProblemTests; skeleton?: string; runs?: TestRun[]; record?: (approachId: string, run: Pick<TestRun, 'passed' | 'total' | 'codeHash'>) => Promise<void>; verdict?: ReactNode; actions?: ReactNode; children?: ReactNode }) {
-	const [copyState, setCopyState] = useState(''), [formatState, setFormatState] = useState(''), editor = useRef<EditorView>(null);
+	const [copyState, setCopyState] = useState('');
 	const approach = value.document.approaches[0];
 	function update(patch: Partial<Approach>) { change?.({ ...value, document: { ...value.document, approaches: value.document.approaches.map((a, index) => index ? a : { ...a, ...patch }) } }); }
 	useEffect(() => { if (skeleton && !approach.code.trim()) update({ code: skeleton, language: 'python3' }); }, [skeleton]);
-	async function format() {
-		const view = editor.current!, code = view.state.doc.toString();
-		try {
-			const formatted = await formatCode(code);
-			setFormatState('');
-			// The student can type, or a save can lock the field, while the worker formats. Then the code stays. The format is one step of the undo history: https://codemirror.net/docs/ref/#commands.isolateHistory
-			if (formatted !== code && !view.state.readOnly && view.state.doc.toString() === code) view.dispatch({ changes: { from: 0, to: code.length, insert: formatted }, annotations: isolateHistory.of('full') });
-		} catch (error) { setFormatState(message(error)); }
-	}
 	const notes = <div className="stack">
 		<label>Общие заметки<textarea aria-label="Общие заметки" value={value.document.notes} readOnly={!change} onChange={event => change?.({ ...value, document: { ...value.document, notes: event.target.value } })} />{change && <Dictation />}</label>
 		{fields.map(field => <label key={field.key}>{field.label}<textarea aria-label={field.label} value={approach[field.key]} readOnly={!change} onChange={event => update({ [field.key]: event.target.value })} />{change && <Dictation />}</label>)}
 		<div className="editor-grid"><label>Время<input value={approach.timeComplexity} readOnly={!change} onChange={event => update({ timeComplexity: event.target.value })} /></label><label>Память<input value={approach.spaceComplexity} readOnly={!change} onChange={event => update({ spaceComplexity: event.target.value })} /></label></div>
 	</div>;
 	const copy = <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(approach.code); setCopyState('Код скопирован.'); } catch { setCopyState('Выделите и скопируйте код вручную.'); } }} data-tip="Скопировать код решения в буфер обмена.">Скопировать код</button>, after = <>{actions}{copyState && <p role="status">{copyState}</p>}</>;
-	// The fieldset of the work window disables the button while the field is locked.
-	const code = <div className="stack"><div className="row">Код решения{change && <button type="button" onClick={() => void format()} data-tip="Расставить пробелы и переносы строк в коде по единым правилам.">Форматировать</button>}{formatState && <p role="status">{formatState}</p>}</div><CodeField view={editor} value={approach.code} readOnly={!change} locked={locked} onChange={code => { setFormatState(''); update({ code, language: 'python3' }); }} />{verdict}
+	const code = <div className="stack"><CodeField value={approach.code} readOnly={!change} locked={locked} onChange={code => update({ code, language: 'python3' })} />{verdict}
 		{problemId ? <Runner problemId={problemId} code={approach.code} tests={tests} live={Boolean(change)} latest={runs?.find(run => run.approachId === approach.id)} record={record && (run => record(approach.id, run))} before={copy} after={after} /> : <div className="row">{copy}{after}</div>}{children}</div>;
 	return <div className="stack"><Panes left={chapter ?? notes} right={code} />{chapter && notes}</div>;
 }
