@@ -1,6 +1,6 @@
-import { test, expect, signIn } from './fixtures';
+import { test, expect, signIn, addTask, type TestEnv } from './fixtures';
 import type { Locator, Page } from '@playwright/test';
-import type { Figure, Homework, Problem } from '../shared/leetcode';
+import type { Figure, Homework, LearningSetDetails, Problem } from '../shared/leetcode';
 import twoPointers1 from '../src/leetcode/sets/two-pointers/chapter1';
 import twoPointers2 from '../src/leetcode/sets/two-pointers/chapter2';
 
@@ -23,6 +23,95 @@ const wideHeap: Figure = { id: 'test-wide-heap', title: 'Куча кортеже
 const lessonWith = (page: Page, figures: Figure[]) => page.route('**/leetcode/api/sets/permutations-and-combinations/lesson/2', route => route.fulfill({ json: { html: `<p class="lead">Урок с рисунками.</p>\n${figures.map(figure => `<figure data-figure="${figure.id}"></figure>`).join('\n')}\n<p>Текст после рисунков.</p>`, figures } }));
 // Gives chapter 2 a lesson with these <pre> blocks.
 const lessonCode = (page: Page, blocks: string[]) => page.route('**/leetcode/api/sets/permutations-and-combinations/lesson/2', route => route.fulfill({ json: { html: `<p class="lead">Урок с кодом.</p>\n${blocks.join('\n')}`, figures: [] } }));
+
+const chapters = [
+	{ name: 'combinatorics 1', slug: 'permutations-and-combinations', number: 1, count: 5 },
+	{ name: 'combinatorics 2', slug: 'permutations-and-combinations', number: 2, count: 5 },
+	{ name: 'combinatorics 3', slug: 'permutations-and-combinations', number: 3, count: 5 },
+	{ name: 'combinatorics 4', slug: 'permutations-and-combinations', number: 4, count: 4 },
+	{ name: 'two pointers 1', slug: 'two-pointers', number: 1, count: 5 },
+	{ name: 'two pointers 2', slug: 'two-pointers', number: 2, count: 5 },
+	{ name: 'two pointers 3', slug: 'two-pointers', number: 3, count: 4 },
+	{ name: 'two pointers 4', slug: 'two-pointers', number: 4, count: 3 },
+	{ name: 'heaps and queues 1', slug: 'heaps-and-queues', number: 1, count: 5 },
+	{ name: 'heaps and queues 2', slug: 'heaps-and-queues', number: 2, count: 5 },
+	{ name: 'heaps and queues 3', slug: 'heaps-and-queues', number: 3, count: 4 },
+	{ name: 'heaps and queues 4', slug: 'heaps-and-queues', number: 4, count: 5 },
+];
+for (const item of chapters) {
+	test(`opens every problem internally from ${item.name}`, async ({ page, server }) => {
+		test.slow();
+		await signIn(page);
+		const set = await (await page.request.get(`/leetcode/api/sets/${item.slug}`)).json() as LearningSetDetails;
+		const chapter = set.chapters[item.number - 1], path = `/leetcode/sets/${item.slug}/${item.number}`;
+		expect(chapter.tasks).toHaveLength(item.count);
+		await page.goto(path);
+		for (const task of chapter.tasks) {
+			const problemRow = row(page, task.title), title = problemRow.getByRole('link', { name: task.title, exact: true });
+			await expect(title).toHaveAttribute('href', /^\/leetcode\//);
+			await expect(problemRow.getByRole('link', { name: `${task.label} ↗`, exact: true })).toHaveAttribute('href', task.url);
+			await title.click();
+			await expect(page).toHaveURL(/\/leetcode\/problems\/[a-f0-9-]{36}$/);
+			const workspace = new URL(page.url()).pathname;
+			await expect(page.getByRole('heading', { name: task.title, level: 1, exact: true })).toBeVisible();
+			await expect(page.getByRole('heading', { name: 'Пример 1', exact: true })).toBeVisible();
+			await expect(page.getByLabel('Основная идея', { exact: true })).toBeVisible();
+			await expect(page.locator('article.lesson')).toHaveCount(2);
+			await expect(page.getByRole('link', { name: task.slug.startsWith('cf-') ? 'Codeforces ↗' : 'LeetCode ↗', exact: true })).toHaveAttribute('href', task.url);
+			await page.locator('h2').getByRole('link', { name: `Глава ${item.number}. ${chapter.title}`, exact: true }).click();
+			await expect(page).toHaveURL(path);
+			await expect(title).toHaveAttribute('href', workspace);
+		}
+		const { DB } = await server.getWorker<TestEnv>().getEnv();
+		expect(await DB.prepare('SELECT count(*) AS count FROM problems').first()).toEqual({ count: item.count });
+		expect(await DB.prepare('SELECT count(*) AS count FROM homework_tasks').first()).toEqual({ count: 0 });
+	});
+}
+
+test('shows the chapter lesson to a parent before student work exists', async ({ page, baseURL }) => {
+	await signIn(page, 'parent');
+	const problem = await (await page.request.post('/leetcode/api/problems', { headers: { Origin: new URL(baseURL!).origin }, data: { url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
+	await page.goto(`/leetcode/problems/${problem.id}`);
+	await expect(page.getByText('Ученик ещё не начал работу.', { exact: true })).toBeVisible();
+	await expect(page.locator('h2').getByRole('link', { name: 'Глава 2. Перебор: подмножества, перестановки, сочетания', exact: true })).toBeVisible();
+	await expect(page.locator('article.lesson')).toHaveCount(2);
+});
+
+test('opens a direct catalog link and keeps its source separate', async ({ page, context, server }) => {
+	await signIn(page, 'parent');
+	const path = '/leetcode/sets/permutations-and-combinations/problems/cf-1821-a';
+	await page.goto(path);
+	await expect(page.getByRole('heading', { name: 'Matching', level: 1, exact: true })).toBeVisible();
+	await expect(page).toHaveURL(/\/leetcode\/problems\/[a-f0-9-]{36}$/);
+	const workspace = page.url();
+	await page.goto(path);
+	await expect(page).toHaveURL(workspace);
+	await context.route('https://codeforces.com/problemset/problem/1821/A', route => route.fulfill({ contentType: 'text/html', body: '<p>Source</p>' }));
+	const source = page.getByRole('link', { name: 'Codeforces ↗', exact: true });
+	await expect(source).toHaveAttribute('rel', 'noopener noreferrer');
+	const [tab] = await Promise.all([context.waitForEvent('page'), source.click()]);
+	await expect(tab).toHaveURL('https://codeforces.com/problemset/problem/1821/A');
+	await tab.close();
+	await expect(page).toHaveURL(workspace);
+	const { DB } = await server.getWorker<TestEnv>().getEnv();
+	expect(await DB.prepare('SELECT count(*) AS count FROM problems').first()).toEqual({ count: 1 });
+	expect(await DB.prepare('SELECT count(*) AS count FROM attempts').first()).toEqual({ count: 0 });
+});
+
+const openFailures = [
+	{ name: 'unknown catalog problem', slug: 'missing-problem', fail: false, message: 'Такой задачи в наборе нет.' },
+	{ name: 'failed library insert', slug: 'subsets', fail: true, message: 'Тетрадь недоступна.' },
+];
+for (const item of openFailures) {
+	test(`shows an error for ${item.name}`, async ({ page, server }) => {
+		await signIn(page);
+		if (item.fail) await page.route('**/leetcode/api/problems', route => route.fulfill({ status: 503, json: { error: { code: 'unavailable', message: item.message } } }));
+		await page.goto(`/leetcode/sets/permutations-and-combinations/problems/${item.slug}`);
+		await expect(page.getByRole('alert')).toHaveText(item.message);
+		const { DB } = await server.getWorker<TestEnv>().getEnv();
+		expect(await DB.prepare('SELECT count(*) AS count FROM problems').first()).toEqual({ count: 0 });
+	});
+}
 
 test('assigns set tasks to new and existing homework', async ({ page, context }) => {
 	await signIn(page, 'parent');
@@ -65,7 +154,7 @@ test('assigns set tasks to new and existing homework', async ({ page, context })
 	await expect(subsets.getByRole('link', { name: 'Subsets', exact: true })).toHaveAttribute('href', /^\/leetcode\/problems\/[a-f0-9-]{36}$/);
 	await expect(subsets.getByRole('button', { name: 'Добавить в домашнюю работу' })).toHaveCount(0);
 	const permutations = row(page, 'Permutations'), add = permutations.getByRole('button', { name: 'Добавить в домашнюю работу', exact: true });
-	await expect(permutations.getByRole('link', { name: 'Permutations', exact: true })).toHaveAttribute('href', 'https://leetcode.com/problems/permutations/');
+	await expect(permutations.getByRole('link', { name: 'Permutations', exact: true })).toHaveAttribute('href', '/leetcode/sets/permutations-and-combinations/problems/permutations');
 	await add.click();
 	await page.keyboard.press('Escape');
 	await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -115,20 +204,44 @@ test('shows a task conflict in the dialog', async ({ page, baseURL }) => {
 	await add.click();
 	const dialog = page.getByRole('dialog', { name: 'Добавить «Subsets» в домашнюю работу' });
 	await dialog.getByRole('article').filter({ hasText: 'Week 41' }).getByRole('button', { name: 'Назначить', exact: true }).click();
-	await expect(dialog.getByRole('alert')).toHaveText('У этой задачи уже есть активное задание. Сначала завершите или отмените его.');
+	await expect(dialog.getByRole('alert')).toHaveText('У этой задачи уже есть активное задание. Откройте его, чтобы продолжить работу.');
 	await dialog.getByLabel('Название', { exact: true }).fill('Week 42');
 	await dialog.getByRole('button', { name: 'Создать и назначить', exact: true }).click();
 	await expect(dialog.getByRole('article').filter({ hasText: 'Week 42' })).toContainText('0 заданий');
-	await expect(dialog.getByRole('alert')).toHaveText('У этой задачи уже есть активное задание. Сначала завершите или отмените его.');
+	await expect(dialog.getByRole('alert')).toHaveText('У этой задачи уже есть активное задание. Откройте его, чтобы продолжить работу.');
 });
+
+const availability = [
+	{ name: 'active homework', state: 'assigned', accepted: false, available: false },
+	{ name: 'completed homework without acceptance', state: 'completed', accepted: false, available: false },
+	{ name: 'accepted work without homework', state: null, accepted: true, available: false },
+	{ name: 'cancelled unsolved homework', state: 'cancelled', accepted: false, available: true },
+];
+for (const item of availability) {
+	test(`keeps ${item.name} availability consistent`, async ({ page, baseURL, server }) => {
+		await signIn(page, 'parent');
+		const headers = { Origin: new URL(baseURL!).origin }, { DB } = await server.getWorker<TestEnv>().getEnv();
+		const problem = await (await page.request.post('/leetcode/api/problems', { headers, data: { url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
+		if (item.state) await addTask(DB, problem.id, item.state);
+		if (item.accepted) await DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'saved','{}','','accepted','independent','now','now')").bind(crypto.randomUUID(), problem.id).run();
+		await page.goto(chapterPath);
+		await expect(row(page, 'Subsets')).toBeVisible();
+		await expect(row(page, 'Subsets').getByRole('button', { name: 'Добавить в домашнюю работу', exact: true })).toHaveCount(item.available ? 1 : 0);
+		const homework = await (await page.request.post('/leetcode/api/homework', { headers, data: { title: 'Next chapter', instructions: '', dueDate: null } })).json() as Homework;
+		await page.goto(`/leetcode/homework/${homework.id}`);
+		await expect(page.getByRole('heading', { name: 'Новое задание', exact: true })).toBeVisible();
+		if (!item.available) await expect(page.getByText('Нет подходящих задач.', { exact: true })).toBeVisible();
+		await expect(page.getByRole('radio')).toHaveCount(item.available ? 1 : 0);
+	});
+}
 
 test('does not create homework for an archived problem', async ({ page, baseURL }) => {
 	const headers = { Origin: new URL(baseURL!).origin };
 	await signIn(page, 'parent');
 	const problem = await (await page.request.post('/leetcode/api/problems', { headers, data: { url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
-	expect((await page.request.post(`/leetcode/api/problems/${problem.id}/archive`, { headers, data: { version: problem.version } })).status()).toBe(200);
 	await page.goto(chapterPath);
 	await row(page, 'Subsets').getByRole('button', { name: 'Добавить в домашнюю работу', exact: true }).click();
+	expect((await page.request.post(`/leetcode/api/problems/${problem.id}/archive`, { headers, data: { version: problem.version } })).status()).toBe(200);
 	const dialog = page.getByRole('dialog', { name: 'Добавить «Subsets» в домашнюю работу' });
 	await dialog.getByRole('button', { name: 'Создать и назначить', exact: true }).click();
 	await expect(dialog.getByRole('alert')).toHaveText('Верните задачу из архива, прежде чем назначать её.');

@@ -83,11 +83,11 @@ function BundleDetail({ id, user }: { id: string; user: SessionUser }) {
 
 function AddTask({ homeworkId, added }: { homeworkId: string; added: () => void }) {
 	const [search, setSearch] = useState(''), [chosen, setChosen] = useState<Problem>();
-	const problems = useResource<Page<Problem>>(`/problems?q=${encodeURIComponent(search)}`);
+	const problems = useResource<Page<Problem>>(`/problems?assignable=1&q=${encodeURIComponent(search)}`);
 	const [error, setError] = useState(''), [busy, setBusy] = useState(false);
 	async function add(event: SubmitEvent<HTMLFormElement>) {
 		event.preventDefault(); setBusy(true); setError('');
-		try { await api('/tasks', { method: 'POST', body: JSON.stringify({ homeworkId, problemId: new FormData(event.currentTarget).get('problemId') }) }); setChosen(undefined); added(); }
+		try { await api('/tasks', { method: 'POST', body: JSON.stringify({ homeworkId, problemId: new FormData(event.currentTarget).get('problemId') }) }); setChosen(undefined); problems.reload(); added(); }
 		catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
 	return <form className="card card-pad stack" onSubmit={add}><h2>Новое задание</h2>{error && <p className="error" role="alert">{error}</p>}<label>Найти задачу<input type="search" value={search} onChange={event => setSearch(event.target.value)} maxLength={100} /></label><fieldset><legend>Задача</legend><div className="picker">{[...(chosen && !problems.data?.items.some(p => p.id === chosen.id) ? [chosen] : []), ...problems.data?.items ?? []].map(p => <label className="list-row" key={p.id}><input type="radio" name="problemId" value={p.id} required checked={chosen?.id === p.id} onChange={() => setChosen(p)} /><span className="grow">{p.title}</span><span className="row"><span className="small">{p.topics.join(', ')}</span><span className={`tag ${p.difficulty}`}>{difficultyLabels[p.difficulty]}</span></span></label>)}{problems.data?.items.length === 0 && !chosen && <p className="empty">Нет подходящих задач.</p>}</div></fieldset><button className="primary" disabled={busy} data-tip="Добавить выбранную задачу в эту домашнюю работу.">Добавить задание</button></form>;

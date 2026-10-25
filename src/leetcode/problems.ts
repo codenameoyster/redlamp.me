@@ -3,6 +3,7 @@ import type { Difficulty, Problem, ProblemDetails, ProblemInput } from '../../sh
 import { calendarDate, changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, topics, uuid } from './http';
 
 export const solvedSQL = "EXISTS(SELECT 1 FROM attempts a WHERE a.problem_id=p.id AND a.state='saved' AND a.acceptance='accepted')";
+export const assignableSQL = `p.archived_at IS NULL AND NOT ${solvedSQL} AND NOT EXISTS(SELECT 1 FROM homework_tasks t WHERE t.problem_id=p.id AND t.state<>'cancelled')`;
 export const problemColumns = `p.id,p.slug,p.number,p.title,p.difficulty,p.topics,p.summary,p.version,p.progress_version AS progressVersion,p.understanding,
 p.next_review_date AS nextReviewDate,p.archived_at AS archivedAt,p.created_at AS createdAt,p.updated_at AS updatedAt,${solvedSQL} AS solved`;
 type ProblemRow = Omit<Problem, 'topics' | 'url' | 'solved'> & { topics: string; solved: number };
@@ -72,6 +73,7 @@ export async function handleProblems(request: Request, env: Env): Promise<Respon
 		if (url.searchParams.has('topic')) { where.push('EXISTS(SELECT 1 FROM json_each(p.topics) WHERE value=?)'); args.push(text(url.searchParams.get('topic'), 40, true)); }
 		if (url.searchParams.has('solved')) { where.push(`${solvedSQL}=?`); args.push(Number(choice(url.searchParams.get('solved'), ['0', '1']))); }
 		if (url.searchParams.has('homework')) { where.push("EXISTS(SELECT 1 FROM homework_tasks t WHERE t.problem_id=p.id AND t.state NOT IN ('completed','cancelled'))=?"); args.push(Number(choice(url.searchParams.get('homework'), ['0', '1']))); }
+		if (url.searchParams.get('assignable') === '1') where.push(assignableSQL);
 		if (url.searchParams.has('due')) { where.push('p.next_review_date<=?'); args.push(calendarDate(url.searchParams.get('due'))); }
 		const rows = await env.DB.prepare(`SELECT ${problemColumns} FROM problems p WHERE ${where.join(' AND ')} ORDER BY p.updated_at DESC,p.id LIMIT ? OFFSET ?`).bind(...args, limit + 1, offset).all<ProblemRow>();
 		return Response.json(page(rows.results.map(problemValue), limit, offset));

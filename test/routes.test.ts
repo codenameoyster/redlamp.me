@@ -16,6 +16,8 @@ const cases = [
 	{ name: 'signed-in sets page', path: '/leetcode/sets', signedIn: true, status: 200, type: 'text/html' },
 	{ name: 'signed-in set page', path: '/leetcode/sets/permutations-and-combinations', signedIn: true, status: 200, type: 'text/html' },
 	{ name: 'signed-in chapter page', path: '/leetcode/sets/permutations-and-combinations/2', signedIn: true, status: 200, type: 'text/html' },
+	{ name: 'signed-in catalog problem page', path: '/leetcode/sets/permutations-and-combinations/problems/subsets', signedIn: true, status: 200, type: 'text/html' },
+	{ name: 'private catalog problem page', path: '/leetcode/sets/two-pointers/problems/merge-sorted-array', status: 302, location: '/leetcode/login?return=%2Fleetcode%2Fsets%2Ftwo-pointers%2Fproblems%2Fmerge-sorted-array' },
 	{ name: 'signed-in chapter page with number zero', path: '/leetcode/sets/permutations-and-combinations/0', signedIn: true, status: 404, type: 'application/json' },
 	{ name: 'signed-in lessons page', path: '/leetcode/lessons', signedIn: true, status: 404, type: 'application/json' },
 	{ name: 'signed-in tutor page', path: '/leetcode/tutor', signedIn: true, status: 200, type: 'text/html' },
