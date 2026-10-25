@@ -18,6 +18,8 @@ test('opens, submits, returns, and completes a task in one window', async ({ pag
 	await page.getByRole('group', { name: 'Задача', exact: true }).getByRole('radio', { name: new RegExp(`^${notebook.problem.title}`) }).check();
 	await page.getByRole('button', { name: 'Добавить задание', exact: true }).click();
 	await expect(page.getByText('Назначено', { exact: true })).toBeVisible();
+	await expect(page.getByText('Нет подходящих задач.', { exact: true })).toBeVisible();
+	await expect(page.getByRole('group', { name: 'Задача', exact: true }).getByRole('radio')).toHaveCount(0);
 	await page.getByRole('link', { name: notebook.problem.title, exact: true }).click();
 	await expect(page).toHaveURL(taskURL);
 	await expect(page.getByText('Explain the invariant.', { exact: true })).toBeVisible();

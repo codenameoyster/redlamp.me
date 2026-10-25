@@ -64,6 +64,27 @@ it.each([
 const moveZeroes = 'https://leetcode.com/problems/move-zeroes/';
 const insertAttempt = env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,?,'{}','',?,'independent','now','now')");
 it.each([
+	{ name: 'unassigned problem', task: null, attempt: null, available: true },
+	{ name: 'assigned problem', task: 'assigned', attempt: null, available: false },
+	{ name: 'problem in progress', task: 'in_progress', attempt: null, available: false },
+	{ name: 'submitted problem', task: 'submitted', attempt: null, available: false },
+	{ name: 'problem returned for changes', task: 'changes_requested', attempt: null, available: false },
+	{ name: 'completed problem without acceptance', task: 'completed', attempt: null, available: false },
+	{ name: 'cancelled unsolved problem', task: 'cancelled', attempt: null, available: true },
+	{ name: 'accepted problem without homework', task: null, attempt: 'saved', available: false },
+	{ name: 'accepted problem with cancelled homework', task: 'cancelled', attempt: 'saved', available: false },
+	{ name: 'draft acceptance is not a solved problem', task: null, attempt: 'draft', available: true },
+])('homework picker filters $name', async ({ task, attempt, available }) => {
+	const problem = await (await request('/problems', 'POST', input, cookie)).json() as { id: string };
+	if (task) await addTask(problem.id, task);
+	if (attempt) await insertAttempt.bind(crypto.randomUUID(), problem.id, attempt, 'accepted').run();
+	const response = await request('/problems?assignable=1&q=Two', 'GET', undefined, cookie);
+	expect(response.status).toBe(200);
+	expect((await response.json() as { items: { id: string }[] }).items.map(item => item.id)).toEqual(available ? [problem.id] : []);
+	expect((await (await request('/problems', 'GET', undefined, cookie)).json() as { items: unknown[] }).items).toHaveLength(1);
+});
+
+it.each([
 	{ name: 'URL change of a problem without work', attempt: null, task: null, url: moveZeroes, status: 200, slug: 'move-zeroes' },
 	{ name: 'URL change of a problem with a draft', attempt: 'draft', task: null, url: moveZeroes, status: 200, slug: 'move-zeroes' },
 	{ name: 'URL change of a problem with an accepted attempt', attempt: 'accepted', task: null, url: moveZeroes, status: 409, slug: 'two-sum' },

@@ -27,6 +27,11 @@ it('returns no learning material for a problem outside the sets', () => {
 	expect(contentOf('two-sum')).toBeUndefined();
 });
 
+it('uses each canonical problem in only one chapter across all sets', () => {
+	const entries = sets.flatMap(item => item.chapters.flatMap((chapter, index) => chapter.tasks.map(task => ({ slug: taskSlug(task), chapter: `${item.slug}/${index + 1}` }))));
+	expect(entries.filter((entry, index) => entries.findIndex(other => other.slug === entry.slug) !== index)).toEqual([]);
+});
+
 const insertProblem = env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,?,'Problem','medium','[]','','','now','now')");
 const insertAttempt = env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,?,'{}','',?,'with_help','now','now')");
 const insertBundle = env.DB.prepare("INSERT INTO homework (id,title,instructions,created_at,updated_at) VALUES (?,?,'','now','now')");
@@ -57,12 +62,14 @@ it.each([
 });
 
 it.each([
-	{ name: 'task outside the library', inLibrary: false, acceptance: null, taskState: null, accepted: false, active: false },
-	{ name: 'library task without an accepted attempt', inLibrary: true, acceptance: 'not_accepted', taskState: null, accepted: false, active: false },
-	{ name: 'accepted library task', inLibrary: true, acceptance: 'accepted', taskState: null, accepted: true, active: false },
-	{ name: 'task with an active homework task', inLibrary: true, acceptance: null, taskState: 'changes_requested', accepted: false, active: true },
-	{ name: 'completed homework task is not active', inLibrary: true, acceptance: 'accepted', taskState: 'completed', accepted: true, active: false },
-])('$name', async ({ inLibrary, acceptance, taskState, accepted, active }) => {
+	{ name: 'task outside the library', inLibrary: false, acceptance: null, taskState: null, accepted: false, active: false, assignable: true },
+	{ name: 'library task without an accepted attempt', inLibrary: true, acceptance: 'not_accepted', taskState: null, accepted: false, active: false, assignable: true },
+	{ name: 'accepted library task', inLibrary: true, acceptance: 'accepted', taskState: null, accepted: true, active: false, assignable: false },
+	{ name: 'task with an active homework task', inLibrary: true, acceptance: null, taskState: 'changes_requested', accepted: false, active: true, assignable: false },
+	{ name: 'completed homework task is not active', inLibrary: true, acceptance: 'accepted', taskState: 'completed', accepted: true, active: false, assignable: false },
+	{ name: 'completed homework without acceptance', inLibrary: true, acceptance: null, taskState: 'completed', accepted: false, active: false, assignable: false },
+	{ name: 'cancelled unsolved homework', inLibrary: true, acceptance: null, taskState: 'cancelled', accepted: false, active: false, assignable: true },
+])('$name', async ({ inLibrary, acceptance, taskState, accepted, active, assignable }) => {
 	const other = await addProblem('two-sum', 'saved'), homeworkId = crypto.randomUUID(), taskId = crypto.randomUUID();
 	await env.DB.batch([insertBundle.bind(homeworkId, 'Week 41: backtracking'), insertTask.bind(crypto.randomUUID(), homeworkId, other, 'assigned')]);
 	const problemId = inLibrary ? await addProblem('subsets', acceptance ? 'saved' : null, acceptance ?? undefined) : null;
@@ -79,7 +86,7 @@ it.each([
 		{ number: 4, title: 'Порядок и номер', summary: 'Следующая перестановка, пути в сетке, k-я перестановка и ферзи. Вы находите один вариант или число вариантов без списка всех.', tasks: ['next-permutation', 'unique-paths', 'permutation-sequence', 'n-queens'] },
 	]);
 	const rows = details.chapters.flatMap(chapter => chapter.tasks);
-	expect(rows.find(task => task.slug === 'subsets')).toEqual({ ...set.chapters[1].tasks.find(task => taskSlug(task) === 'subsets'), slug: 'subsets', label: 'LeetCode 78', problemId, accepted, activeTask: active ? { state: taskState } : null });
+	expect(rows.find(task => task.slug === 'subsets')).toEqual({ ...set.chapters[1].tasks.find(task => taskSlug(task) === 'subsets'), slug: 'subsets', label: 'LeetCode 78', problemId, accepted, assignable, activeTask: active ? { state: taskState } : null });
 	expect(rows.filter(task => task.problemId || task.accepted || task.activeTask).map(task => task.slug)).toEqual(inLibrary ? ['subsets'] : []);
 });
 

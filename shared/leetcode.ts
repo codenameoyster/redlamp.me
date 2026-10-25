@@ -1,7 +1,7 @@
 export type Role = 'parent' | 'student';
 export interface SessionUser { role: Role; username: string }
 export interface Page<T> { items: T[]; nextOffset: number | null }
-export const NOTEBOOK_PAGE = /^\/leetcode(?:\/(?:problems|homework)(?:\/[a-f0-9-]{36}(?:\/review)?)?|\/sets(?:\/[a-z0-9-]+(?:\/[1-9][0-9]?)?)?|\/quiz(?:\/[a-z0-9-]+)?|\/tutor)?$/;
+export const NOTEBOOK_PAGE = /^\/leetcode(?:\/(?:problems|homework)(?:\/[a-f0-9-]{36}(?:\/review)?)?|\/sets(?:\/[a-z0-9-]+(?:\/(?:[1-9][0-9]?|problems\/[a-z0-9-]+))?)?|\/quiz(?:\/[a-z0-9-]+)?|\/tutor)?$/;
 export type Acceptance = 'not_submitted' | 'not_accepted' | 'accepted';
 export type Understanding = 'needs_practice' | 'with_help' | 'independent';
 export type Difficulty = 'easy' | 'medium' | 'hard';
@@ -87,7 +87,7 @@ export interface Chapter { title: string; summary: string; tasks: SetTask[]; car
 export interface LearningSet { slug: string; title: string; summary: string; topics: string[]; chapters: Chapter[] }
 export interface ChapterRef { set: string; setTitle: string; number: number; title: string }
 export interface LearningSetSummary extends Omit<LearningSet, 'chapters'> { chapterCount: number; taskCount: number; acceptedCount: number }
-export type SetTaskRow = SetTask & { slug: string; label: string; problemId: string | null; accepted: boolean; activeTask: Pick<HomeworkTask, 'state'> | null };
+export type SetTaskRow = SetTask & { slug: string; label: string; problemId: string | null; accepted: boolean; assignable: boolean; activeTask: Pick<HomeworkTask, 'state'> | null };
 export interface LearningSetDetails extends Omit<LearningSet, 'chapters'> { chapters: { number: number; title: string; summary: string; links: Chapter['links']; tasks: SetTaskRow[] }[] }
 export type Card = { id: string; prompt: string; explain: string } & (
 	{ type: 'choice'; options: string[]; answer: number }
@@ -109,7 +109,7 @@ export interface Dashboard {
 	homework: HomeworkTask[];
 	drafts: (Omit<Attempt, 'document'> & { problemTitle: string })[];
 	dueReviews: (Problem & { fromHomework: boolean })[];
-	recallPicks: Omit<SetTaskRow, 'accepted' | 'activeTask'>[];
+	recallPicks: Omit<SetTaskRow, 'accepted' | 'assignable' | 'activeTask'>[];
 }
 export type TutorKind = 'problem' | 'set';
 export interface TutorMessage { id: string; author: 'student' | 'assistant'; body: string; quote: string | null; createdAt: string }

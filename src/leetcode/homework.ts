@@ -1,7 +1,7 @@
 import type { Env } from '../index';
 import type { Feedback, Homework, HomeworkBoard, HomeworkSummary, HomeworkTask, Role, SessionUser } from '../../shared/leetcode';
 import { requireRole } from './auth';
-import { getProblem } from './problems';
+import { assignableSQL, getProblem } from './problems';
 import { calendarDate, changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
 
 const postponedSQL = '(SELECT to_date FROM postponements WHERE homework_id=h.id) AS postponedTo';
@@ -105,8 +105,13 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		const data = object(await readJson(request), ['homeworkId', 'problemId']);
 		const homeworkId = uuid(data.homeworkId), problemId = uuid(data.problemId), newId = crypto.randomUUID();
 		await getHomework(env, homeworkId);
-		const result = await env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) SELECT ?,?,id,'assigned',?,? FROM problems WHERE id=? AND archived_at IS NULL ON CONFLICT DO NOTHING").bind(newId, homeworkId, now, now, problemId).run();
-		if (!result.meta.changes) throw (await getProblem(env, problemId)).archivedAt ? new HttpError(409, 'archived', 'Верните задачу из архива, прежде чем назначать домашнюю работу.') : new HttpError(409, 'active_homework', 'У этой задачи уже есть активное задание. Сначала завершите или отмените его.');
+		const result = await env.DB.prepare(`INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) SELECT ?,?,p.id,'assigned',?,? FROM problems p WHERE p.id=? AND ${assignableSQL} ON CONFLICT DO NOTHING`).bind(newId, homeworkId, now, now, problemId).run();
+		if (!result.meta.changes) {
+			const problem = await getProblem(env, problemId);
+			if (problem.archivedAt) throw new HttpError(409, 'archived', 'Верните задачу из архива, прежде чем назначать домашнюю работу.');
+			if (problem.solved || await env.DB.prepare("SELECT 1 FROM homework_tasks WHERE problem_id=? AND state='completed'").bind(problemId).first()) throw new HttpError(409, 'completed_homework', 'Эта задача уже выполнена. Для повторения откройте задачу.');
+			throw new HttpError(409, 'active_homework', 'У этой задачи уже есть активное задание. Откройте его, чтобы продолжить работу.');
+		}
 		return Response.json(await getTask(env, newId, user.role), { status: 201 });
 	}
 	await getTask(env, id, user.role);

@@ -113,17 +113,21 @@ it('counts the tasks of each bundle without cancelled tasks', async () => {
 
 it.each([
 	{ name: 'parent adds a task', role: 'parent', problem: 'other', bundle: 'other', archived: false, expected: 201, error: null },
-	{ name: 'task after the earlier task completes', role: 'parent', problem: 'first', bundle: 'other', completeFirst: true, archived: false, expected: 201, error: null },
+	{ name: 'completed problem in another homework', role: 'parent', problem: 'first', bundle: 'other', firstState: 'completed', archived: false, expected: 409, error: { code: 'completed_homework' } },
+	{ name: 'completed problem in the same homework', role: 'parent', problem: 'first', bundle: 'first', firstState: 'completed', archived: false, expected: 409, error: { code: 'completed_homework' } },
+	{ name: 'cancelled unsolved problem can be assigned again', role: 'parent', problem: 'first', bundle: 'other', firstState: 'cancelled', archived: false, expected: 201, error: null },
+	{ name: 'accepted problem without homework', role: 'parent', problem: 'other', bundle: 'other', accepted: true, archived: false, expected: 409, error: { code: 'completed_homework' } },
 	{ name: 'student cannot add a task', role: 'student', problem: 'other', bundle: 'other', archived: false, expected: 403, error: { code: 'forbidden' } },
-	{ name: 'problem with an active task in another bundle', role: 'parent', problem: 'first', bundle: 'other', archived: false, expected: 409, error: { code: 'active_homework', message: 'У этой задачи уже есть активное задание. Сначала завершите или отмените его.' } },
+	{ name: 'problem with an active task in another bundle', role: 'parent', problem: 'first', bundle: 'other', archived: false, expected: 409, error: { code: 'active_homework', message: 'У этой задачи уже есть активное задание. Откройте его, чтобы продолжить работу.' } },
 	{ name: 'problem with an active task in the same bundle', role: 'parent', problem: 'first', bundle: 'first', archived: false, expected: 409, error: { code: 'active_homework' } },
 	{ name: 'task for an archived problem', role: 'parent', problem: 'other', bundle: 'other', archived: true, expected: 409, error: { code: 'archived', message: 'Верните задачу из архива, прежде чем назначать домашнюю работу.' } },
 	{ name: 'task for an unknown problem', role: 'parent', problem: 'unknown', bundle: 'other', archived: false, expected: 404, error: { code: 'not_found' } },
 	{ name: 'task in an unknown bundle', role: 'parent', problem: 'other', bundle: 'unknown', archived: false, expected: 404, error: { code: 'not_found' } },
-])('$name', async ({ role, problem, bundle, completeFirst, archived, expected, error }) => {
+])('$name', async ({ role, problem, bundle, firstState, accepted, archived, expected, error }) => {
 	const other = crypto.randomUUID(), otherBundle = crypto.randomUUID();
 	await env.DB.batch([insertProblem.bind(other, 'subsets', 'Subsets'), insertBundle.bind(otherBundle, 'Week 41: backtracking', '2026-10-12', '2026-10-05', '2026-10-05'), env.DB.prepare('UPDATE problems SET archived_at=? WHERE id=?').bind(archived ? 'now' : null, other)]);
-	if (completeFirst) await env.DB.prepare("UPDATE homework_tasks SET state='completed'").run();
+	if (firstState) await env.DB.prepare('UPDATE homework_tasks SET state=?').bind(firstState).run();
+	if (accepted) await env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'saved','{}','','accepted','independent','now','now')").bind(crypto.randomUUID(), other).run();
 	const chosen = { first: problemId, other, unknown: crypto.randomUUID() }[problem], target = { first: homeworkId, other: otherBundle, unknown: crypto.randomUUID() }[bundle];
 	const response = await request('/tasks', 'POST', { homeworkId: target, problemId: chosen }, role === 'parent' ? parent : student);
 	expect(response.status).toBe(expected);
