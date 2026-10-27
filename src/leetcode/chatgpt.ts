@@ -25,6 +25,7 @@ export const disconnected = () => new HttpError(409, 'ai_disconnected', 'ИИ-р
 export const unavailable = () => new HttpError(503, 'ai_unavailable', 'ChatGPT сейчас недоступен. Попробуйте снова через несколько минут.');
 const notEligible = () => new HttpError(403, 'ai_not_eligible', 'Этот аккаунт ChatGPT не разрешает использовать подписку в этом приложении.');
 const signInFailed = () => new HttpError(400, 'sign_in_failed', 'Вход в ChatGPT не удался. Начните заново.');
+const signInExpired = () => new HttpError(400, 'sign_in_expired', 'Этот вход устарел. Начните заново.');
 const readAccount = (env: Env) => env.DB.prepare('SELECT * FROM tutor_account WHERE id=1').first<AccountRow>();
 const bytes = (value: string) => Uint8Array.from(atob(value), c => c.charCodeAt(0));
 const base64 = (value: Uint8Array) => btoa(String.fromCharCode(...value));
@@ -52,6 +53,12 @@ async function tokenRequest(form: Record<string, string>): Promise<{ status: num
 		const response = await fetch(`${AUTH}/oauth/token`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' }, body: new URLSearchParams(form), signal: AbortSignal.timeout(20_000) });
 		return { status: response.status, body: await response.json<TokenBody>().catch(() => ({})) };
 	} catch { return { status: 0, body: {} }; }
+}
+async function revoke(clientId: string, token: string): Promise<boolean> {
+	try {
+		const response = await fetch(`${AUTH}/oauth/revoke`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token, token_type_hint: 'refresh_token', client_id: clientId }), signal: AbortSignal.timeout(10_000) });
+		return response.status === 200;
+	} catch { return false; }
 }
 function validTokens(body: TokenBody): body is Required<Pick<TokenBody, 'access_token' | 'refresh_token' | 'expires_in'>> & TokenBody {
 	return typeof body.access_token === 'string' && typeof body.refresh_token === 'string' && /^bearer$/i.test(String(body.token_type)) && typeof body.expires_in === 'number' && body.expires_in > 0;
@@ -123,13 +130,14 @@ async function finish(request: Request, env: Env): Promise<Response> {
 	const callback = URL.parse(address);
 	if (!callback || callback.origin + callback.pathname !== REDIRECT_URI) throw new HttpError(400, 'invalid_address', 'Вставьте полный адрес, который начинается с http://127.0.0.1:47319/auth/callback.');
 	const params = callback.searchParams, states = params.getAll('state'), row = await readAccount(env);
-	if (!row?.pending_state || row.pending_expires_at! <= Date.now() || states.length !== 1 || states[0] !== row.pending_state) throw new HttpError(400, 'sign_in_expired', 'Этот вход устарел. Начните заново.');
-	const clear = env.DB.prepare('UPDATE tutor_account SET client_id=?,pending_state=NULL,pending_verifier=NULL,pending_expires_at=NULL WHERE id=1');
-	if (params.has('error')) { await clear.bind(row.client_id).run(); throw new HttpError(400, 'not_approved', 'Доступ к ChatGPT не подтверждён.'); }
+	if (!row?.pending_state || row.pending_expires_at! <= Date.now() || states.length !== 1 || states[0] !== row.pending_state) throw signInExpired();
+	const clear = env.DB.prepare('UPDATE tutor_account SET client_id=?,pending_verifier=NULL,pending_expires_at=NULL WHERE id=1 AND version=? AND pending_state=? AND pending_verifier IS NOT NULL');
+	if (params.has('error')) { await clear.bind(row.client_id, row.version, row.pending_state).run(); throw new HttpError(400, 'not_approved', 'Доступ к ChatGPT не подтверждён.'); }
 	const ids = params.getAll('client_id'), codes = params.getAll('code');
 	if (row.client_id ? ids.some(id => id !== row.client_id) : ids.length !== 1 || !/^[A-Za-z0-9_-]{1,200}$/.test(ids[0]) || ids[0] === 'dynamic_agent_client') throw signInFailed();
 	const clientId = row.client_id ?? ids[0];
-	await clear.bind(clientId).run(); // Store the issued client ID before the exchange, so a retry does not register a second app. The code is single use.
+	const claimed = await clear.bind(clientId, row.version, row.pending_state).run(); // Keep the state until the exchange ends, so a newer sign-in invalidates this one.
+	if (!claimed.meta.changes) throw signInExpired();
 	if (codes.length !== 1) throw signInFailed();
 	const { status, body } = await tokenRequest({ grant_type: 'authorization_code', client_id: clientId, code: codes[0], code_verifier: row.pending_verifier!, redirect_uri: REDIRECT_URI, resource: API });
 	if (!status || status >= 500) throw unavailable();
@@ -141,8 +149,12 @@ async function finish(request: Request, env: Env): Promise<Response> {
 	const models = (response.ok && Array.isArray(listing.models) ? listing.models : []).filter(m => m.visibility === 'list' && typeof m.slug === 'string').map(m => ({ slug: String(m.slug), name: String(m.display_name ?? m.slug) }));
 	if (!models.length) throw notEligible();
 	const now = Date.now(), iso = new Date(now).toISOString();
-	await env.DB.prepare('UPDATE tutor_account SET model=?,models=?,access_token=?,refresh_token=?,expires_at=?,refresh_after=?,refreshing_until=NULL,version=version+1,connected_at=?,updated_at=? WHERE id=1')
-		.bind(models.some(m => m.slug === row.model) ? row.model : models[0].slug, JSON.stringify(models), await seal(secret, body.access_token), await seal(secret, body.refresh_token), now + body.expires_in * 1000, refreshAfter(body.earliest_refresh_at), iso, iso).run();
+	const saved = await env.DB.prepare('UPDATE tutor_account SET model=?,models=?,access_token=?,refresh_token=?,expires_at=?,refresh_after=?,refreshing_until=NULL,pending_state=NULL,version=version+1,connected_at=?,updated_at=? WHERE id=1 AND version=? AND pending_state=?')
+		.bind(models.some(m => m.slug === row.model) ? row.model : models[0].slug, JSON.stringify(models), await seal(secret, body.access_token), await seal(secret, body.refresh_token), now + body.expires_in * 1000, refreshAfter(body.earliest_refresh_at), iso, iso, row.version, row.pending_state).run();
+	if (!saved.meta.changes) {
+		if (!await revoke(clientId, body.refresh_token)) throw new HttpError(400, 'sign_in_expired', 'Этот вход устарел. ChatGPT не подтвердил отключение. Удалите приложение в настройках ChatGPT.');
+		throw signInExpired();
+	}
 	return Response.json(await account(env));
 }
 
@@ -151,8 +163,7 @@ async function disconnect(env: Env): Promise<Response> {
 	let revoked = !row?.refresh_token;
 	if (!revoked) {
 		try {
-			const response = await fetch(`${AUTH}/oauth/revoke`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token: await unseal(await key(env), row!.refresh_token!), token_type_hint: 'refresh_token', client_id: row!.client_id! }), signal: AbortSignal.timeout(10_000) });
-			revoked = response.status === 200;
+			revoked = await revoke(row!.client_id!, await unseal(await key(env), row!.refresh_token!));
 		} catch { /* The parent removes the app in ChatGPT settings. */ }
 	}
 	await env.DB.prepare(`UPDATE tutor_account SET ${CLEAR},pending_state=NULL,pending_verifier=NULL,pending_expires_at=NULL,updated_at=? WHERE id=1`).bind(new Date().toISOString()).run();

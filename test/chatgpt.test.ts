@@ -125,6 +125,56 @@ it.each([
 	if (pending === false) expect(await (await request('/tutor/account', 'GET', undefined, cookie)).json()).toMatchObject({ pending: false });
 });
 
+it.each(['disconnect', 'new sign-in', 'new connection'])('rejects an old exchange after %s', async action => {
+	await connect();
+	const state = (await start()).searchParams.get('state');
+	let interrupted = false, exchanges = 0, nextState: string | null = null;
+	const spy = upstream({
+		[TOKEN]: () => Response.json({ ...tokens, access_token: `access-${++exchanges + 1}`, refresh_token: `refresh-${exchanges + 1}` }),
+		[MODELS]: async () => {
+			if (!interrupted) {
+				interrupted = true;
+				if (action === 'disconnect') expect((await request('/tutor/account', 'DELETE', undefined, cookie)).status).toBe(200);
+				else {
+					nextState = (await start()).searchParams.get('state');
+					if (action === 'new connection') expect((await request('/tutor/account/finish', 'POST', { address: `${CALLBACK}?code=new&state=${nextState}` }, cookie)).status).toBe(200);
+				}
+			}
+			return Response.json(models);
+		},
+		[REVOKE]: () => new Response(null, { status: 200 }),
+	});
+	const response = await request('/tutor/account/finish', 'POST', { address: `${CALLBACK}?code=old&state=${state}` }, cookie);
+	expect(response.status).toBe(400);
+	expect(await response.json()).toMatchObject({ error: { code: 'sign_in_expired' } });
+	const row = (await account())!;
+	expect(row.pending_state).toBe(action === 'new sign-in' ? nextState : null);
+	if (action === 'disconnect') expect([row.access_token, row.refresh_token]).toEqual([null, null]);
+	else expect([await open(row.access_token), await open(row.refresh_token)]).toEqual(action === 'new connection' ? ['access-3', 'refresh-3'] : ['access-1', 'refresh-1']);
+	expect(spy.mock.calls.filter(([target]) => String(target) === REVOKE).map(([, init]) => form(init))).toEqual((action === 'disconnect' ? ['refresh-1', 'refresh-2'] : ['refresh-2']).map(token => ({ token, token_type_hint: 'refresh_token', client_id: 'oaiapp_x' })));
+});
+
+it('reports when revocation of a stale exchange fails', async () => {
+	const state = (await start()).searchParams.get('state');
+	upstream({
+		[TOKEN]: () => Response.json(tokens),
+		[MODELS]: async () => { await request('/tutor/account', 'DELETE', undefined, cookie); return Response.json(models); },
+		[REVOKE]: () => new Response(null, { status: 503 }),
+	});
+	const response = await request('/tutor/account/finish', 'POST', { address: `${CALLBACK}?code=c&state=${state}&client_id=oaiapp_x` }, cookie);
+	expect(response.status).toBe(400);
+	expect(await response.json()).toMatchObject({ error: { code: 'sign_in_expired', message: expect.stringContaining('Удалите приложение в настройках ChatGPT.') } });
+	expect(await account()).toMatchObject({ access_token: null, refresh_token: null });
+});
+
+it('consumes a pending sign-in once for parallel finish requests', async () => {
+	const state = (await start()).searchParams.get('state');
+	const spy = upstream({ [TOKEN]: () => Response.json(tokens), [MODELS]: () => Response.json(models) });
+	const responses = await Promise.all(Array.from({ length: 2 }, () => request('/tutor/account/finish', 'POST', { address: `${CALLBACK}?code=c&state=${state}&client_id=oaiapp_x` }, cookie)));
+	expect(responses.map(response => response.status).sort()).toEqual([200, 400]);
+	expect(spy.mock.calls.filter(([target]) => String(target) === TOKEN)).toHaveLength(1);
+});
+
 it.each([
 	{ name: 'fresh token', expiresIn: 1_800_000, refreshAfter: null, calls: 0, result: 'access-1', after: 'kept' },
 	{ name: 'near expiry', expiresIn: 240_000, refreshAfter: -60_000, reply: () => Response.json(rotated), calls: 1, result: 'access-2', after: 'rotated' },

@@ -65,11 +65,12 @@ export async function handleJudge(request: Request, env: Env, user: SessionUser)
 		return Response.json({ expected: inputs.map(input => { text(input, 10_000, true); return reference ? expectedOf(reference, input) : null; }) });
 	}
 	const content = contentOf(problem.slug), generate = content?.generate, solved = match[2] === 'solved';
-	let attemptId: string, result: Judgement = { verdict: 'accepted', failed: null };
+	let attemptId: string, version: number, result: Judgement = { verdict: 'accepted', failed: null };
 	if (solved) {
 		if (generate) throw new HttpError(409, 'judged', 'Эту задачу проверяют скрытые тесты. Нажмите «Отправить».');
 		attemptId = uuid(object(await readJson(request), ['attemptId']).attemptId);
-		const { document } = await getAttempt(env, problem.id, attemptId);
+		const attempt = await getAttempt(env, problem.id, attemptId), { document } = attempt;
+		version = attempt.version;
 		if (!hasWork(document)) throw new HttpError(400, 'empty_attempt', 'Добавьте объяснение, заметки или код перед отправкой.');
 	} else {
 		if (!generate) throw new HttpError(404, 'no_judge', 'У этой задачи нет скрытых тестов.');
@@ -79,8 +80,9 @@ export async function handleJudge(request: Request, env: Env, user: SessionUser)
 			return Response.json({ seed, inputs: generate(mulberry32(seed)) });
 		}
 		// 16 outputs of 1,000,000 ASCII characters fit in 16 MiB.
-		const data = object(await readJson(request, 16_777_216), ['seed', 'attemptId', 'outputs']), seed = integer(data.seed, 0, 2 ** 32 - 1), inputs = generate(mulberry32(seed));
+		const data = object(await readJson(request, 16_777_216), ['seed', 'attemptId', 'version', 'outputs']), seed = integer(data.seed, 0, 2 ** 32 - 1), inputs = generate(mulberry32(seed));
 		attemptId = uuid(data.attemptId);
+		version = integer(data.version);
 		if (!Array.isArray(data.outputs) || data.outputs.length !== inputs.length) throw new HttpError(400, 'invalid_input', 'Проверьте поля запроса.');
 		// A wrong verdict shows the answer of the failed test, so each seed gives one verdict.
 		if (!await env.DB.prepare('DELETE FROM judge_runs WHERE problem_id=? AND seed=? RETURNING seed').bind(problem.id, seed).first()) throw new HttpError(409, 'stale_seed', 'Эта проверка устарела. Нажмите «Отправить» ещё раз.');
@@ -90,7 +92,7 @@ export async function handleJudge(request: Request, env: Env, user: SessionUser)
 	// The draft becomes the accepted attempt. The judge completes the active homework task of the problem. The solved route submits the task for the parent review. The later statements change rows only when the attempt was a draft.
 	const now = new Date().toISOString(), submissionId = crypto.randomUUID();
 	const results = await env.DB.batch([
-		env.DB.prepare("UPDATE attempts SET state='saved',acceptance='accepted',understanding=CASE WHEN EXISTS(SELECT 1 FROM tutor_messages WHERE context_kind='problem' AND context_ref=?2 AND author='student') THEN 'with_help' ELSE 'independent' END,version=version+1,saved_at=?3,updated_at=?3 WHERE id=?1 AND problem_id=?2 AND state='draft'").bind(attemptId, problem.id, now),
+		env.DB.prepare("UPDATE attempts SET state='saved',acceptance='accepted',understanding=CASE WHEN EXISTS(SELECT 1 FROM tutor_messages WHERE context_kind='problem' AND context_ref=?2 AND author='student') THEN 'with_help' ELSE 'independent' END,version=version+1,saved_at=?3,updated_at=?3 WHERE id=?1 AND problem_id=?2 AND state='draft' AND version=?4").bind(attemptId, problem.id, now, version),
 		saveProgress(env, problem.id, attemptId, now),
 		env.DB.prepare(`INSERT INTO submissions (id,task_id,attempt_id,task_version,created_at) SELECT ?,id,?,version+1,? FROM homework_tasks WHERE problem_id=? AND state IN ('assigned','in_progress','changes_requested'${solved ? '' : ",'submitted'"}) AND changes()=1`).bind(submissionId, attemptId, now, problem.id),
 		...solved ? [] : [env.DB.prepare("INSERT INTO feedback (id,problem_id,task_id,submission_id,author,kind,body,created_at) SELECT ?,?,task_id,id,'student','completed','Принято проверкой.',? FROM submissions WHERE id=?").bind(crypto.randomUUID(), problem.id, now, submissionId)],

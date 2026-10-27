@@ -1,5 +1,5 @@
 import { useState, type SubmitEvent } from 'react';
-import type { Homework as Bundle, Distribution, HomeworkBoard, HomeworkDetails, Page, Problem, SessionUser } from '../shared/leetcode';
+import type { Homework as Bundle, Distribution, HomeworkBoard, HomeworkDetails, HomeworkSummary, Page, Problem, SessionUser } from '../shared/leetcode';
 import { localDate } from '../shared/dates';
 import { api, message } from './api';
 import { useResource } from './useResource';
@@ -17,6 +17,8 @@ const sections = [{ key: 'progress', title: 'В процессе' }, { key: 'fut
 const dayMonth = (date: string) => `${date.slice(8)}.${date.slice(5, 7)}`;
 function HomeworkList({ user }: { user: SessionUser }) {
 	const board = useResource<HomeworkBoard>('/tasks?view=board');
+	const [offset, setOffset] = useState(0);
+	const bundles = useResource<Page<HomeworkSummary>>(user.role === 'parent' ? `/homework?offset=${offset}` : null);
 	const [error, setError] = useState(''), [busy, setBusy] = useState(false), [spread, setSpread] = useState('');
 	async function create(event: SubmitEvent<HTMLFormElement>) {
 		event.preventDefault(); setBusy(true); setError('');
@@ -30,13 +32,19 @@ function HomeworkList({ user }: { user: SessionUser }) {
 		setBusy(true); setError(''); setSpread('');
 		try {
 			const { count, from, to } = await api<Distribution>('/reviews/distribute', { method: 'POST', body: JSON.stringify({ today: localDate() }) });
-			setSpread(count ? `${plural(count, ['задача распределена', 'задачи распределены', 'задач распределены'])} с ${dayMonth(from!)} по ${dayMonth(to!)}.` : 'Все принятые задачи уже распределены.');
+			setSpread(count ? `${plural(count, ['задача распределена', 'задачи распределены', 'задач распределены'])} с ${dayMonth(from!)} по ${dayMonth(to!)}.` : 'Новые даты повторения не назначены.');
 		} catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
 	const parent = user.role === 'parent';
 	return <div className="stack"><div className="heading"><div><h1>Домашняя работа</h1><p>{parent ? 'Соберите задачи в домашнюю работу. Проверяйте ход решения.' : 'Выполните каждое задание, затем отправьте решение на проверку.'}</p></div></div>
 		{(error || board.error) && <p className="error" role="alert">{error || board.error}</p>}
 		{parent && <form className="card card-pad stack" onSubmit={create}><h2>Новая домашняя работа</h2><label>Название<input name="title" required maxLength={200} /></label><label>Задание<textarea aria-label="Задание" name="instructions" maxLength={8000} /></label><label>Срок<input type="date" name="dueDate" /></label><button className="primary" disabled={busy} data-tip="Создать домашнюю работу с этим названием и сроком.">Создать домашнюю работу</button></form>}
+		{parent && <details className="card card-pad"><summary>Все домашние работы</summary>
+			{bundles.error && <p className="error" role="alert">{bundles.error}</p>}
+			{bundles.data?.items.map(h => <article className="list-row" key={h.id}><div className="grow"><h3><a href={`/leetcode/homework/${h.id}`}>{h.title}</a></h3><p className="small">{plural(h.taskCount, ['задание', 'задания', 'заданий'])}</p></div><span className="small">{h.dueDate ? `Срок: ${h.dueDate}` : 'Без срока'}</span></article>)}
+			{bundles.data?.items.length === 0 && <p>Домашних работ пока нет.</p>}
+			<div className="row">{offset > 0 && <button onClick={() => setOffset(offset - 50)} data-tip="Показать предыдущую страницу домашних работ.">Назад</button>}{bundles.data?.nextOffset != null && <button onClick={() => setOffset(bundles.data!.nextOffset!)} data-tip="Показать следующую страницу домашних работ.">Ещё домашние работы</button>}</div>
+		</details>}
 		{sections.map(({ key, title }) => <section className="card" aria-label={title} key={key}><header className="card-head"><h2>{title}</h2></header>
 			{key === 'accepted' && <div className="card-pad row"><button disabled={busy} onClick={distribute} data-tip="Назначить повторения принятых задач на разные дни следующих 30 дней.">Распределить повторения на 30 дней</button>{spread && <p role="status">{spread}</p>}</div>}
 			{board.data?.[key].map(t => <article key={t.id} className="list-row"><div className="grow"><h3>{t.unread && <span className="unread" role="img" aria-label="Новое сообщение" />}<a href={`/leetcode/problems/${t.problemId}`}>{t.problemTitle}</a></h3><p className="small"><a href={`/leetcode/homework/${t.homeworkId}`}>{t.homeworkTitle}</a></p></div><span className="small">{t.dueDate ? `Срок: ${t.dueDate}` : 'Без срока'}</span><span className="tag">{homeworkLabels[t.state]}</span></article>)}

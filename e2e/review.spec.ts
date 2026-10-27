@@ -1,4 +1,28 @@
-import { test, expect } from './fixtures';
+import { test, expect, type TestEnv } from './fixtures';
+
+test('reads saved attempts beyond the first page and returns to newer work', async ({ page, notebook, server }) => {
+	const { DB } = await server.getWorker<TestEnv>().getEnv(), ids = Array.from({ length: 51 }, () => crypto.randomUUID());
+	const insert = DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at,saved_at) VALUES (?,?,'saved',?,'','not_submitted','needs_practice',?,?,?)");
+	await DB.batch(ids.map((id, i) => {
+		const at = new Date(Date.UTC(2026, 0, 1) + i * 60_000).toISOString();
+		const document = { ...notebook.attempt.document, approaches: [{ ...notebook.attempt.document.approaches[0], code: `print('saved_${i}')` }] };
+		return insert.bind(id, notebook.problem.id, JSON.stringify(document), at, at, at);
+	}));
+	await page.getByRole('link', { name: 'Повторить задачу', exact: true }).click();
+	await page.getByRole('button', { name: 'Показать сохранённую работу', exact: true }).click();
+	const attempts = page.getByRole('combobox', { name: 'Сохранённая попытка', exact: true }), code = page.getByLabel('Код решения', { exact: true });
+	await expect(attempts.locator('option')).toHaveCount(49);
+	await attempts.selectOption(ids[49]);
+	await expect(code).toHaveText("print('saved_49')");
+	await page.getByRole('button', { name: 'Старые попытки', exact: true }).click();
+	await expect(attempts.locator('option')).toHaveCount(2);
+	await expect(code).toHaveText("print('saved_1')");
+	await attempts.selectOption(ids[0]);
+	await expect(code).toHaveText("print('saved_0')");
+	await page.getByRole('button', { name: 'Новые попытки', exact: true }).click();
+	await expect(code).toHaveText("print('saved_50')");
+	await expect(attempts.locator('option')).toHaveCount(49);
+});
 
 test('reveals saved work on request and keeps acceptance after a failed review', async ({ page, notebook }) => {
 	await page.getByLabel('Код решения', { exact: true }).fill('return saved_solution');

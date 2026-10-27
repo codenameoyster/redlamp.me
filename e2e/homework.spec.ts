@@ -2,6 +2,33 @@ import { test, expect, signIn, addTask, type TestEnv } from './fixtures';
 import type { Homework, Problem } from '../shared/leetcode';
 import { addCalendarDays, localDate } from '../shared/dates';
 
+test('reopens empty homework from a later page and adds its first task', async ({ page, notebook, server }) => {
+	await signIn(page, 'parent');
+	await page.getByRole('link', { name: 'Домашняя работа', exact: true }).click();
+	await page.getByLabel('Название', { exact: true }).fill('Continue later');
+	await page.getByLabel('Задание', { exact: true }).fill('Choose a problem after reading.');
+	await page.getByLabel('Срок', { exact: true }).fill('2026-12-31');
+	await page.getByRole('button', { name: 'Создать домашнюю работу', exact: true }).click();
+	await expect(page.getByRole('heading', { name: 'Continue later', level: 1 })).toBeVisible();
+	const homeworkPath = new URL(page.url()).pathname, { DB } = await server.getWorker<TestEnv>().getEnv();
+	const insert = DB.prepare("INSERT INTO homework (id,title,instructions,created_at,updated_at) VALUES (?,?,'',?,?)");
+	await DB.batch(Array.from({ length: 50 }, (_, i) => {
+		const at = new Date(Date.now() + 1000 + i).toISOString();
+		return insert.bind(crypto.randomUUID(), `Newer homework ${i}`, at, at);
+	}));
+	await page.getByRole('link', { name: 'Задачи', exact: true }).click();
+	await page.getByRole('link', { name: 'Домашняя работа', exact: true }).click();
+	await page.getByText('Все домашние работы', { exact: true }).click();
+	await page.getByRole('button', { name: 'Ещё домашние работы', exact: true }).click();
+	await page.getByRole('link', { name: 'Continue later', exact: true }).click();
+	await expect(page).toHaveURL(homeworkPath);
+	await expect(page.getByText('Choose a problem after reading.', { exact: true })).toBeVisible();
+	await expect(page.getByText('Срок: 2026-12-31', { exact: true })).toBeVisible();
+	await page.getByRole('radio', { name: new RegExp(`^${notebook.problem.title}`) }).check();
+	await page.getByRole('button', { name: 'Добавить задание', exact: true }).click();
+	await expect(page.getByText('Назначено', { exact: true })).toBeVisible();
+});
+
 test('opens, submits, returns, and completes a task in one window', async ({ page, notebook }) => {
 	test.slow();
 	await signIn(page, 'parent');
@@ -103,7 +130,7 @@ test('shows the tasks in three sections and spreads the accepted tasks over 30 d
 	await spread.click();
 	await expect(accepted.getByRole('status')).toHaveText(/^1 задача распределена с (\d\d\.\d\d) по \1\.$/);
 	await spread.click();
-	await expect(accepted.getByRole('status')).toHaveText('Все принятые задачи уже распределены.');
+	await expect(accepted.getByRole('status')).toHaveText('Новые даты повторения не назначены.');
 	await DB.prepare('UPDATE problems SET next_review_date=? WHERE id=?').bind(localDate(), notebook.problem.id).run();
 	await page.getByRole('link', { name: 'Сегодня', exact: true }).click();
 	await expect(page.getByRole('heading', { level: 3, name: notebook.problem.title }).getByRole('link')).toHaveAttribute('href', `/leetcode/problems/${notebook.problem.id}/review?pick=1`);

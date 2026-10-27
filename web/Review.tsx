@@ -42,10 +42,13 @@ export function Review({ id, user }: { id: string; user: SessionUser }) {
 	</div>;
 }
 function SavedWork({ problemId }: { problemId: string }) {
-	const attempts = useResource<Page<AttemptSummary>>(`/problems/${problemId}/attempts`);
+	const [offset, setOffset] = useState(0);
+	const attempts = useResource<Page<AttemptSummary>>(`/problems/${problemId}/attempts?offset=${offset}`);
 	const [selected, setSelected] = useState('');
 	const saved = attempts.data?.items.filter(a => a.state === 'saved');
-	const id = selected || saved?.[0]?.id;
+	const id = saved?.find(a => a.id === selected)?.id ?? saved?.[0]?.id;
 	const work = useResource<Attempt>(id ? `/problems/${problemId}/attempts/${id}` : null);
-	return <div className="stack">{(attempts.error || work.error) && <p className="error" role="alert">{attempts.error || work.error}</p>}{saved?.length === 0 ? <p>Сохранённой работы пока нет. Нажмите «Отправить» или «Решено» в тетради.</p> : <><label>Сохранённая попытка<select aria-label="Сохранённая попытка" value={id ?? ''} onChange={event => setSelected(event.target.value)}>{saved?.map((a, i) => <option key={a.id} value={a.id}>Попытка {saved.length - i} - {new Date(a.savedAt!).toLocaleString('ru-RU')}</option>)}</select></label>{work.data && <AttemptContent value={work.data} />}</>}</div>;
+	return <div className="stack">{(attempts.error || work.error) && <p className="error" role="alert">{attempts.error || work.error}</p>}{saved?.length === 0 ? <p>Сохранённой работы пока нет. Нажмите «Отправить» или «Решено» в тетради.</p> : <><label>Сохранённая попытка<select aria-label="Сохранённая попытка" value={id ?? ''} onChange={event => setSelected(event.target.value)}>{saved?.map(a => <option key={a.id} value={a.id}>{new Date(a.savedAt!).toLocaleString('ru-RU')}</option>)}</select></label>{work.data && <AttemptContent value={work.data} />}</>}
+		<div className="row">{offset > 0 && <button onClick={() => setOffset(offset - 50)} data-tip="Показать более новые сохранённые попытки.">Новые попытки</button>}{attempts.data?.nextOffset != null && <button onClick={() => setOffset(attempts.data!.nextOffset!)} data-tip="Показать более старые сохранённые попытки.">Старые попытки</button>}</div>
+	</div>;
 }
