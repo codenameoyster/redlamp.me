@@ -1,5 +1,5 @@
 import { test, expect, addTask, signIn, type TestEnv } from './fixtures';
-import type { JudgeOutput, Judgement, Problem } from '../shared/leetcode';
+import type { Attempt, JudgeOutput, Judgement, Problem } from '../shared/leetcode';
 
 const code = "class Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n        if target == 0:\n            raise ValueError('bad')\n        if target == 7:\n            return [0] * 400000\n        while target == 10:\n            pass\n        return [1, 2]\n";
 const rows: { name: string; inputs: string[]; outputs: JudgeOutput[]; progress: string | null; judgement: Judgement; verdict: string }[] = [
@@ -22,7 +22,8 @@ for (const row of rows) {
 		await send.click();
 		if (row.progress) await expect(page.getByText(row.progress, { exact: true })).toBeVisible({ timeout: 30_000 });
 		await expect(alert).toHaveText(row.verdict, { useInnerText: true, timeout: 30_000 });
-		expect(sent).toEqual({ seed: 7, attemptId: notebook.attempt.id, outputs: row.outputs });
+		const persisted = await (await page.request.get(`/leetcode/api/problems/${notebook.problem.id}/attempts/${notebook.attempt.id}`)).json() as Attempt;
+		expect(sent).toEqual({ seed: 7, attemptId: notebook.attempt.id, version: persisted.version, outputs: row.outputs });
 		await expect(page.getByText(/^Проверяем/)).toHaveCount(0);
 		// The tip of the button shows below it, so the verdict is above the button.
 		const [failure, button] = [await alert.boundingBox(), await send.boundingBox()];

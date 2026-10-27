@@ -185,6 +185,22 @@ it('rejects a repeated review decision', async () => {
 	expect(await env.DB.prepare('SELECT count(*) AS count FROM feedback').first()).toEqual({ count: 1 });
 });
 
+it('requires restoring an archived problem before returning its completed task', async () => {
+	const submission = await solve();
+	expect((await request(`/tasks/${taskId}/review`, 'POST', { version: 2, submissionId: submission, decision: 'completed', body: '' }, parent)).status).toBe(200);
+	expect((await request(`/problems/${problemId}/archive`, 'POST', { version: 1 }, parent)).status).toBe(200);
+	const review = () => request(`/tasks/${taskId}/review`, 'POST', { version: 3, submissionId: submission, decision: 'changes_requested', body: 'Try again.' }, parent);
+	const rejected = await review();
+	expect(rejected.status).toBe(409);
+	expect(await rejected.json()).toMatchObject({ error: { code: 'archived' } });
+	expect(await env.DB.prepare('SELECT state,version FROM homework_tasks WHERE id=?').bind(taskId).first()).toEqual({ state: 'completed', version: 3 });
+	expect(await env.DB.prepare('SELECT count(*) AS count FROM feedback').first()).toEqual({ count: 1 });
+	expect((await request(`/problems/${problemId}/restore`, 'POST', { version: 2 }, parent)).status).toBe(200);
+	expect((await review()).status).toBe(200);
+	const dashboard = await (await request('/dashboard?today=2026-10-07', 'GET', undefined, student)).json() as Dashboard;
+	expect(dashboard.homework).toMatchObject([{ id: taskId, state: 'changes_requested' }]);
+});
+
 it('lists the submitted task of the problem with its submission', async () => {
 	const submission = await solve();
 	const response = await request(`/tasks?problemId=${problemId}`, 'GET', undefined, parent);
@@ -257,6 +273,21 @@ it.each([
 	expect(response.status).toBe(200);
 	const task = { id: taskId, homeworkId, homeworkTitle: 'Two Sum practice', dueDate: '2026-10-10', problemId, problemTitle: 'Two Sum', state, unread: false };
 	expect(await response.json()).toEqual({ progress: [], future: [], accepted: [], ...section && { [section]: [expect.objectContaining(task)] } });
+});
+
+it.each([
+	{ state: 'assigned', section: 'progress' as const },
+	{ state: 'completed', section: 'accepted' as const },
+])('keeps every $state task on a board with more than 200 tasks', async ({ state, section }) => {
+	const tasks = Array.from({ length: 200 }, () => ({ id: crypto.randomUUID(), problemId: crypto.randomUUID() }));
+	await env.DB.batch([
+		env.DB.prepare('UPDATE homework_tasks SET state=? WHERE id=?').bind(state, taskId),
+		...tasks.flatMap(task => [insertProblem.bind(task.problemId, task.problemId, 'Board problem'), insertTask.bind(task.id, homeworkId, task.problemId, state, 'now')]),
+	]);
+	const response = await request('/tasks?view=board', 'GET', undefined, student);
+	expect(response.status).toBe(200);
+	const board = await response.json() as HomeworkBoard;
+	expect(board[section].map(task => task.id).sort()).toEqual([taskId, ...tasks.map(task => task.id)].sort());
 });
 
 // The active homework with the earliest due date is in progress. The other active homework is in the future, by due date with no date last.

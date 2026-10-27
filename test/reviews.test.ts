@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as dates from '../shared/dates';
 import type { Dashboard, Problem } from '../shared/leetcode';
 import { login, request } from './client';
-import { spreadDays } from '../src/leetcode/reviews';
+import { handleReviews, spreadDays } from '../src/leetcode/reviews';
 
 let cookie: string, first: string, taskId: string, homeworkId: string;
 beforeEach(async () => {
@@ -182,6 +182,32 @@ it.each([
 	expect(response.status).toBe(expected);
 	expect(await response.json()).toMatchObject(body);
 	expect(await env.DB.prepare('SELECT next_review_date,progress_version FROM problems WHERE id=?').bind(first).first()).toEqual({ next_review_date: date, progress_version: progressVersion });
+});
+
+it.each([false, true])('preserves a concurrent recall and reports only applied dates (another problem: %s)', async another => {
+	await env.DB.prepare("UPDATE homework_tasks SET state='completed'").run();
+	if (another) await env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) SELECT ?,?,id,'completed','now','now' FROM problems WHERE slug='two'").bind(crypto.randomUUID(), homeworkId).run();
+	vi.spyOn(crypto, 'getRandomValues').mockImplementation(array => array);
+	const prepare = env.DB.prepare.bind(env.DB);
+	vi.spyOn(env.DB, 'prepare').mockImplementation(sql => {
+		const statement = prepare(sql);
+		if (sql.startsWith('SELECT id,next_review_date')) {
+			const all = statement.all.bind(statement);
+			vi.spyOn(statement, 'all').mockImplementation(async <T>() => {
+				const snapshot = await all<T>();
+				const recall = await request(`/problems/${first}/reviews`, 'POST', { version: 1, result: 'with_help', note: '', reviewedOn: '2026-10-07', nextReviewDate: '2026-10-25' }, cookie);
+				expect(recall.status).toBe(201);
+				return snapshot;
+			});
+		}
+		return statement;
+	});
+	const response = await handleReviews(new Request('https://redlamp.me/leetcode/api/reviews/distribute', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ today: '2026-10-07' }) }), env, { role: 'parent', username: 'parent-test' });
+	expect(response!.status).toBe(200);
+	expect(await env.DB.prepare('SELECT next_review_date,progress_version FROM problems WHERE id=?').bind(first).first()).toEqual({ next_review_date: '2026-10-25', progress_version: 2 });
+	const date = another ? await env.DB.prepare("SELECT next_review_date FROM problems WHERE slug='two'").first<string>('next_review_date') : null;
+	if (another) expect(date).toMatch(/^2026-10-0[89]$/);
+	expect(await response!.json()).toEqual({ count: another ? 1 : 0, from: date, to: date });
 });
 
 // The window is [today + 15, today + 45]. The random value 30 gives the last day.

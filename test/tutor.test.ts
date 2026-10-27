@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import prompt from '../src/leetcode/tutor-prompt.txt';
 import evaluation from '../src/leetcode/evaluate-prompt.txt';
 import { htmlText, pump } from '../src/leetcode/tutor';
-import { sets } from '../src/leetcode/sets';
+import { contentOf, sets } from '../src/leetcode/sets';
 import { login, request } from './client';
 
 const TOKEN = 'https://auth.openai.com/api/accounts/oauth/token', MODELS = 'https://api.openai.com/v1/models', RESPONSES = 'https://api.openai.com/v1/responses', GRAPHQL = 'https://leetcode.com/graphql';
@@ -192,6 +192,8 @@ it.each([
 	{ name: 'statement fetch fails', kind: 'problem', statement: 500, includes: ['Problem: 1. Two Sum (easy)'], excludes: ['LeetCode statement'] },
 	{ name: 'paid-only statement', kind: 'problem', statement: null, includes: ['Problem: 1. Two Sum (easy)'], excludes: ['LeetCode statement'] },
 	{ name: 'Codeforces problem has no LeetCode statement', kind: 'problem', slug: 'cf-1-a', includes: ['Problem: 1. Two Sum (easy)'], excludes: ['LeetCode statement'] },
+	{ name: 'local Codeforces statement supplies constraints and input/output', kind: 'problem', slug: 'cf-1526-c2', includes: ['Codeforces statement:\n', 'В первой строке целое n.', 'Выведите наибольшее число принятых зелий.', '1 ≤ n ≤ 200000', '-10^(9) ≤ ai ≤ 10^(9)'], excludes: ['LeetCode statement'] },
+	{ name: 'local LeetCode statement wins over the remote statement', kind: 'problem', slug: 'subsets', statement: '<p>Remote statement</p>', includes: ['LeetCode statement:\nДан Array целых чисел nums.', '1 ≤ nums.length ≤ 10'], excludes: ['Remote statement'] },
 	{ name: 'chapter of the problem after the homework', kind: 'problem', slug: 'subsets', lessons: true, task: true, work: [['draft', 'return seen', null]], statement: '<p>Text</p>', includes: [/Homework instructions:\nUse a hash map\.\n\nChapter: Permutations и Combinations, глава 2\. Backtracking: Subsets, Permutations, Combinations\nLesson outline:\n## 1\. Выбор\n## 2\. Call Stack\n\nLesson text \(sections 1-3 of 3\)\.\nBacktracking\.\n## 1\. Выбор\nДобавьте элемент\.\n## 2\. Call Stack\nCall Stack хранит незавершённые вызовы\.\n\nCurrent draft:\n/], excludes: ['Просмотрите Array.', 'Learning set', 'The rest is cut'] },
 	{ name: 'quote selects a chapter section', kind: 'problem', slug: 'subsets', lessons: true, statement: '<p>Text</p>', quote: 'Call Stack  хранит\nнезавершённые вызовы.', includes: ['Lesson text (sections 3-3 of 3). The rest is cut.\n## 2. Call Stack\nCall Stack хранит незавершённые вызовы.'], excludes: ['Добавьте элемент.'] },
 	{ name: 'problem in no chapter', kind: 'problem', statement: '<p>Text</p>', includes: ['Problem: 1. Two Sum (easy)'], excludes: ['Chapter:', 'Lesson'] },
@@ -207,7 +209,7 @@ it.each([
 	]);
 	for (const [state, code, savedAt] of work ?? []) await env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at,saved_at) VALUES (?,?,?,?,'','not_submitted','needs_practice','now','now',?)")
 		.bind(crypto.randomUUID(), PROBLEM, state, JSON.stringify({ notes: 'My notes', approaches: [{ ...approach, code }] }), savedAt).run();
-	const leetcode = kind === 'problem' && !slug?.startsWith('cf-');
+	const leetcode = kind === 'problem' && !slug?.startsWith('cf-') && !contentOf(slug ?? 'two-sum')?.task.statement;
 	const spy = upstream({ [RESPONSES]: [answer], [GRAPHQL]: leetcode ? [() => typeof statement === 'number' ? new Response('Busy', { status: statement }) : Response.json({ data: { question: { content: statement } } })] : [] });
 	const response = await request('/tutor/messages', 'POST', send({ kind, id: kind === 'set' ? SET : PROBLEM, quote: quote ?? null }), student);
 	expect(response.status).toBe(200);

@@ -89,8 +89,8 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		if (url.searchParams.get('view') === 'board') {
 			// The active homework with the earliest due date is in progress. The other active homework is in the future.
 			const [active, accepted] = (await env.DB.batch<HomeworkTask>([
-				env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.state NOT IN ('completed','cancelled') ORDER BY h.due_date IS NULL,h.due_date,h.created_at,h.id,t.created_at,t.id LIMIT 200`).bind(user.role),
-				env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.state='completed' ORDER BY t.updated_at DESC,t.id LIMIT 200`).bind(user.role),
+				env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.state NOT IN ('completed','cancelled') ORDER BY h.due_date IS NULL,h.due_date,h.created_at,h.id,t.created_at,t.id`).bind(user.role),
+				env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.state='completed' ORDER BY t.updated_at DESC,t.id`).bind(user.role),
 			])).map(rows => rows.results.map(unreadValue));
 			const current = active[0]?.homeworkId;
 			return Response.json({ progress: active.filter(t => t.homeworkId === current), future: active.filter(t => t.homeworkId !== current), accepted } satisfies HomeworkBoard);
@@ -114,14 +114,15 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		}
 		return Response.json(await getTask(env, newId, user.role), { status: 201 });
 	}
-	await getTask(env, id, user.role);
+	const task = await getTask(env, id, user.role);
 	if (action === 'review') {
 		const data = object(await readJson(request), ['version', 'submissionId', 'decision', 'body']);
 		const decision = choice(data.decision, ['changes_requested', 'completed']), body = text(data.body, 8000, decision === 'changes_requested').trim(), feedbackId = crypto.randomUUID();
 		const result = await env.DB.batch([
-			env.DB.prepare(`INSERT INTO feedback (id,problem_id,task_id,submission_id,author,kind,body,created_at) SELECT ?,problem_id,id,current_submission_id,'parent',?,?,? FROM homework_tasks WHERE id=? AND version=? AND state IN ${decision === 'completed' ? "('submitted')" : "('submitted','completed')"} AND current_submission_id=?`).bind(feedbackId, decision, body, now, id, integer(data.version), uuid(data.submissionId)),
+			env.DB.prepare(`INSERT INTO feedback (id,problem_id,task_id,submission_id,author,kind,body,created_at) SELECT ?,problem_id,id,current_submission_id,'parent',?,?,? FROM homework_tasks WHERE id=? AND version=? AND state IN ${decision === 'completed' ? "('submitted')" : "('submitted','completed')"} AND current_submission_id=? AND (?='completed' OR EXISTS(SELECT 1 FROM problems WHERE id=homework_tasks.problem_id AND archived_at IS NULL))`).bind(feedbackId, decision, body, now, id, integer(data.version), uuid(data.submissionId), decision),
 			env.DB.prepare('UPDATE homework_tasks SET state=?,version=version+1,updated_at=? WHERE id=? AND EXISTS(SELECT 1 FROM feedback WHERE id=?)').bind(decision, now, id, feedbackId),
 		]);
+		if (!result[0].meta.changes && decision === 'changes_requested' && (await getProblem(env, task.problemId)).archivedAt) throw new HttpError(409, 'archived', 'Верните задачу из архива, прежде чем отправлять её на доработку.');
 		changed(result[0]);
 	} else {
 		const version = integer(object(await readJson(request), ['version']).version);

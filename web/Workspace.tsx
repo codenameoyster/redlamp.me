@@ -94,7 +94,7 @@ export function DraftEditor({ initial, user, registerGuard, saved, task, chapter
 				return Boolean(result.timeout || result.error);
 			}, 3);
 			while (outputs.length < inputs.length) outputs.push({ timeout: true });
-			const value = await api<Judgement>(`${path}/judge`, { method: 'POST', body: JSON.stringify({ seed, attemptId: persisted.id, outputs }) });
+			const value = await api<Judgement>(`${path}/judge`, { method: 'POST', body: JSON.stringify({ seed, attemptId: persisted.id, version: persisted.version, outputs }) });
 			if (value.failed) setJudgement(value); else await saved(await api<Attempt>(`${path}/attempts/${persisted.id}`), 'judge');
 		} catch (error) { setError(message(error)); } finally { setBusy(false); setProgress(''); }
 	}

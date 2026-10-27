@@ -50,9 +50,12 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 	if (url.pathname === '/leetcode/api/reviews/distribute') {
 		methods(request, ['POST']);
 		const today = calendarDate(text(object(await readJson(request), ['today']).today, 10, true))!;
-		const rows = await env.DB.prepare("SELECT id,next_review_date AS nextReviewDate FROM problems p WHERE archived_at IS NULL AND EXISTS(SELECT 1 FROM homework_tasks t WHERE t.problem_id=p.id AND t.state='completed')").all<{ id: string; nextReviewDate: string | null }>();
-		const days = spreadDays(today, rows.results, count => crypto.getRandomValues(new Uint32Array(1))[0] % count), dates = Object.values(days).sort();
-		if (dates.length) await env.DB.prepare('UPDATE problems SET next_review_date=d.value,progress_version=progress_version+1,updated_at=? FROM json_each(?) d WHERE problems.id=d.key').bind(new Date().toISOString(), JSON.stringify(days)).run();
+		const rows = await env.DB.prepare("SELECT id,next_review_date AS nextReviewDate,progress_version AS progressVersion FROM problems p WHERE archived_at IS NULL AND EXISTS(SELECT 1 FROM homework_tasks t WHERE t.problem_id=p.id AND t.state='completed')").all<{ id: string; nextReviewDate: string | null; progressVersion: number }>();
+		const days = spreadDays(today, rows.results, count => crypto.getRandomValues(new Uint32Array(1))[0] % count);
+		const updates = rows.results.flatMap(row => days[row.id] ? [{ id: row.id, date: days[row.id], version: row.progressVersion }] : []);
+		// Keep a recall recorded after the snapshot, and report only dates this request actually changed.
+		const dates = updates.length ? (await env.DB.prepare("UPDATE problems SET next_review_date=json_extract(d.value,'$.date'),progress_version=progress_version+1,updated_at=? FROM json_each(?) d WHERE problems.id=json_extract(d.value,'$.id') AND progress_version=json_extract(d.value,'$.version') AND archived_at IS NULL AND EXISTS(SELECT 1 FROM homework_tasks t WHERE t.problem_id=problems.id AND t.state='completed') RETURNING next_review_date AS date")
+			.bind(new Date().toISOString(), JSON.stringify(updates)).all<{ date: string }>()).results.map(row => row.date).sort() : [];
 		return Response.json({ count: dates.length, from: dates[0] ?? null, to: dates.at(-1) ?? null } satisfies Distribution);
 	}
 	if (url.pathname === '/leetcode/api/game') {

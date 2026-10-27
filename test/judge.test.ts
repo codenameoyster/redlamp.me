@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { login, request } from './client';
-import type { JudgeOutput } from '../shared/leetcode';
+import type { Attempt, JudgeOutput } from '../shared/leetcode';
 import { handleJudge, judge, mulberry32 } from '../src/leetcode/judge';
 import * as sets from '../src/leetcode/sets';
 
@@ -69,7 +69,7 @@ it.each([
 	{ name: 'timeout that is false', role: 'student', outputs: [{ timeout: false }, answers[1], answers[2]], status: 400, body: { error: { code: 'invalid_input' } } },
 	{ name: 'parent cannot judge', role: 'parent', outputs: answers, status: 403, body: { error: { code: 'forbidden' } } },
 ])('$name', async ({ role, outputs, status, body }) => {
-	const response = await request(`/problems/${problemId}/judge`, 'POST', { seed: 1, attemptId, outputs }, role === 'parent' ? await login('parent') : student);
+	const response = await request(`/problems/${problemId}/judge`, 'POST', { seed: 1, attemptId, version: 1, outputs }, role === 'parent' ? await login('parent') : student);
 	expect(response.status).toBe(status);
 	expect(await response.json()).toMatchObject(body);
 	expect(await env.DB.prepare('SELECT state,acceptance FROM attempts').first()).toEqual({ state: 'draft', acceptance: 'not_submitted' });
@@ -83,13 +83,13 @@ it.each([
 	{ name: 'seed invalidated by another problem without a reference', start: true, replay: false, answered: 'other', status: 409, code: 'stale_seed' },
 ])('$name', async ({ start, replay, answered, status, code }) => {
 	const seed = start ? (await (await request(`/problems/${problemId}/judge/start`, 'POST', undefined, student)).json() as { seed: number }).seed : 2, outputs = generate(mulberry32(seed)).map(() => ({ value: '[9, 9]' }));
-	if (replay) await request(`/problems/${problemId}/judge`, 'POST', { seed, attemptId, outputs }, student);
+	if (replay) await request(`/problems/${problemId}/judge`, 'POST', { seed, attemptId, version: 1, outputs }, student);
 	if (answered) {
 		const id = answered === 'same' ? problemId : crypto.randomUUID();
 		if (answered === 'other') await insertProblem.bind(id, 'two-sum').run();
 		expect((await request(`/problems/${id}/tests/expected`, 'POST', { inputs: generate(mulberry32(seed)) }, student)).status).toBe(200);
 	}
-	const response = await request(`/problems/${problemId}/judge`, 'POST', { seed, attemptId, outputs }, student);
+	const response = await request(`/problems/${problemId}/judge`, 'POST', { seed, attemptId, version: 1, outputs }, student);
 	expect(response.status).toBe(status);
 	expect(await response.json()).toMatchObject(code ? { error: { code } } : { verdict: 'wrong', failed: { index: 0 } });
 });
@@ -112,11 +112,11 @@ it.each([
 	expect(disclosure).not.toBeNull();
 	expect(await disclosure!.json()).toEqual({ expected });
 	const outputs = [{ value: '2\n' }, { value: '4\n' }];
-	await expect(post(problemId, 'judge', { seed: first.seed, attemptId, outputs })).rejects.toMatchObject({ status: 409, code: 'stale_seed' });
-	await expect(post(problemId, 'judge', { seed: second.seed, attemptId, outputs })).rejects.toMatchObject({ status: 409, code: 'stale_seed' });
+	await expect(post(problemId, 'judge', { seed: first.seed, attemptId, version: 1, outputs })).rejects.toMatchObject({ status: 409, code: 'stale_seed' });
+	await expect(post(problemId, 'judge', { seed: second.seed, attemptId, version: 1, outputs })).rejects.toMatchObject({ status: 409, code: 'stale_seed' });
 	const fresh = await (await post(problemId, 'judge/start'))!.json() as { seed: number };
-	expect(await (await post(problemId, 'judge', { seed: fresh.seed, attemptId, outputs }))!.json()).toEqual({ verdict: 'accepted', failed: null });
-	await expect(post(problemId, 'judge', { seed: fresh.seed, attemptId, outputs })).rejects.toMatchObject({ status: 409, code: 'stale_seed' });
+	expect(await (await post(problemId, 'judge', { seed: fresh.seed, attemptId, version: 1, outputs }))!.json()).toEqual({ verdict: 'accepted', failed: null });
+	await expect(post(problemId, 'judge', { seed: fresh.seed, attemptId, version: 1, outputs })).rejects.toMatchObject({ status: 409, code: 'stale_seed' });
 });
 
 it.each([
@@ -126,7 +126,7 @@ it.each([
 	{ name: 'empty disclosure invalidates open checks', body: { inputs: [] }, status: 200, stale: true },
 ])('$name', async ({ body, status, stale }) => {
 	expect((await request(`/problems/${problemId}/tests/expected`, 'POST', body, student)).status).toBe(status);
-	const response = await request(`/problems/${problemId}/judge`, 'POST', { seed: 1, attemptId, outputs: answers }, student);
+	const response = await request(`/problems/${problemId}/judge`, 'POST', { seed: 1, attemptId, version: 1, outputs: answers }, student);
 	expect(response.status).toBe(stale ? 409 : 200);
 	expect(await response.json()).toMatchObject(stale ? { error: { code: 'stale_seed' } } : { verdict: 'accepted', failed: null });
 });
@@ -139,6 +139,28 @@ it('compares hidden answers above the own-test answer limit', () => {
 const insertMessage = env.DB.prepare("INSERT INTO tutor_messages (id,context_kind,context_ref,author,body,created_at) VALUES (?,?,?,?,'Hint','now')");
 const insertBundle = env.DB.prepare("INSERT INTO homework (id,title,instructions,created_at,updated_at) VALUES (?,'Week 41','','now','now')");
 const insertTask = env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) VALUES (?,?,?,?,'now','now')");
+it('rejects passing outputs when another tab changed the tested draft', async () => {
+	const homeworkId = crypto.randomUUID();
+	await env.DB.batch([insertBundle.bind(homeworkId), insertTask.bind(crypto.randomUUID(), homeworkId, problemId, 'in_progress')]);
+	const draft = await (await request(`/problems/${problemId}/attempts/${attemptId}`, 'GET', undefined, student)).json() as Attempt;
+	draft.document.approaches[0].code = 'raise RuntimeError("new code from another tab")';
+	const edited = await request(`/problems/${problemId}/attempts/${attemptId}`, 'PUT', { version: draft.version, document: draft.document }, student);
+	expect(edited.status).toBe(200);
+	const response = await request(`/problems/${problemId}/judge`, 'POST', { seed: 1, attemptId, version: draft.version, outputs: answers }, student);
+	expect(response.status).toBe(409);
+	expect(await response.json()).toMatchObject({ error: { code: 'conflict' } });
+	const current = await (await request(`/problems/${problemId}/attempts/${attemptId}`, 'GET', undefined, student)).json() as Attempt;
+	expect(current).toMatchObject({ state: 'draft', acceptance: 'not_submitted', version: draft.version + 1, document: draft.document });
+	expect(await env.DB.prepare('SELECT understanding,progress_version FROM problems').first()).toEqual({ understanding: 'needs_practice', progress_version: 1 });
+	expect(await env.DB.prepare('SELECT state,(SELECT count(*) FROM submissions) AS submissions,(SELECT count(*) FROM feedback) AS feedback FROM homework_tasks').first()).toEqual({ state: 'in_progress', submissions: 0, feedback: 0 });
+});
+
+it.each([undefined, 0, 1.5, '1'])('rejects an invalid tested draft version: %s', async version => {
+	const response = await request(`/problems/${problemId}/judge`, 'POST', { seed: 1, attemptId, version, outputs: answers }, student);
+	expect(response.status).toBe(400);
+	expect(await response.json()).toMatchObject({ error: { code: 'invalid_input' } });
+});
+
 it.each([
 	{ name: 'accepted without tutor messages', message: null, task: null, understanding: 'independent', after: null },
 	{ name: 'accepted after a student message to the tutor', message: { kind: 'problem', author: 'student' }, task: null, understanding: 'with_help', after: null },
@@ -154,7 +176,7 @@ it.each([
 	const homeworkId = crypto.randomUUID();
 	if (message) await insertMessage.bind(crypto.randomUUID(), message.kind, message.kind === 'set' ? 'two-pointers' : problemId, message.author).run();
 	if (task) await env.DB.batch([insertBundle.bind(homeworkId), insertTask.bind(crypto.randomUUID(), homeworkId, problemId, task)]);
-	const response = await request(`/problems/${problemId}/judge`, 'POST', { seed: 1, attemptId, outputs: answers }, student);
+	const response = await request(`/problems/${problemId}/judge`, 'POST', { seed: 1, attemptId, version: 1, outputs: answers }, student);
 	expect(response.status).toBe(200);
 	expect(await response.json()).toEqual({ verdict: 'accepted', failed: null });
 	expect(await env.DB.prepare('SELECT state,acceptance,understanding,version FROM attempts').first()).toEqual({ state: 'saved', acceptance: 'accepted', understanding, version: 2 });
@@ -169,7 +191,7 @@ it.each([
 	const homeworkId = crypto.randomUUID();
 	await env.DB.batch([insertBundle.bind(homeworkId), insertTask.bind(crypto.randomUUID(), homeworkId, problemId, 'in_progress')]);
 	if (saved) await env.DB.prepare("UPDATE attempts SET state='saved'").run();
-	const response = await request(`/problems/${problemId}/judge`, 'POST', { seed: 1, attemptId: known ? attemptId : crypto.randomUUID(), outputs: answers }, student);
+	const response = await request(`/problems/${problemId}/judge`, 'POST', { seed: 1, attemptId: known ? attemptId : crypto.randomUUID(), version: 1, outputs: answers }, student);
 	expect(response.status).toBe(status);
 	expect(await response.json()).toMatchObject({ error: { code } });
 	expect(await env.DB.prepare('SELECT acceptance,understanding FROM attempts').first()).toEqual({ acceptance: 'not_submitted', understanding: 'needs_practice' });

@@ -54,15 +54,16 @@ async function context(env: Env, kind: TutorKind, id: string, quote: string | nu
 		return `${clip(`Learning set: ${set.title}\nSummary: ${set.summary}\nTopics: ${set.topics.join(', ')}\nChapters:\n${chapters.join('\n')}`, 4000)}\n\n${lessonText(set.chapters.map((chapter, index) => `<h1>Глава ${index + 1}. ${chapter.title}</h1>\n${chapter.lesson}`).join('\n'), quote)}`;
 	}
 	const problem = await getProblem(env, id);
+	const content = contentOf(problem.slug);
 	const [statement, task, attempt] = await Promise.all([
-		problem.slug.startsWith('cf-') ? null : question<{ content: string | null }>(problem.slug, 'content').then(value => value?.content, () => null), // Paid-only problems have no content.
+		content?.task.statement ?? (problem.slug.startsWith('cf-') ? null : question<{ content: string | null }>(problem.slug, 'content').then(value => value?.content, () => null)), // Paid-only problems have no content.
 		env.DB.prepare("SELECT h.title,h.instructions,h.due_date AS dueDate,t.state FROM homework_tasks t JOIN homework h ON h.id=t.homework_id WHERE t.problem_id=? AND t.state NOT IN ('completed','cancelled')").bind(id).first<{ title: string; instructions: string; dueDate: string | null; state: string }>(),
 		env.DB.prepare('SELECT state,document FROM attempts WHERE problem_id=? ORDER BY state,saved_at DESC LIMIT 1').bind(id).first<{ state: string; document: string }>(),
 	]);
 	const parts = [clip([`Problem: ${problem.number === null ? '' : `${problem.number}. `}${problem.title} (${problem.difficulty})`, `Topics: ${problem.topics.join(', ')}`, `Summary: ${problem.summary}`, ...(task ? [`Homework: ${task.title}. State: ${task.state}. Due date: ${task.dueDate ?? 'none'}.`] : [])].join('\n'), 4000)];
-	if (statement) parts.push(`LeetCode statement:\n${clip(htmlText(statement), 6000)}`);
+	if (statement) parts.push(`${problem.slug.startsWith('cf-') ? 'Codeforces' : 'LeetCode'} statement:\n${clip(htmlText(statement), 6000)}`);
 	if (task) parts.push(`Homework instructions:\n${clip(task.instructions, 2000)}`);
-	const chapter = contentOf(problem.slug)?.chapters[0];
+	const chapter = content?.chapters[0];
 	if (chapter) parts.push(`Chapter: ${chapter.ref.setTitle}, глава ${chapter.ref.number}. ${chapter.ref.title}\n${clip(lessonText(chapter.lesson, quote), 16_000)}`);
 	if (attempt) {
 		const work = JSON.parse(attempt.document) as AttemptDocument;
