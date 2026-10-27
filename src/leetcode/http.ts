@@ -1,5 +1,6 @@
 import type { Page } from '../../shared/leetcode';
 import { isCalendarDate } from '../../shared/dates';
+import { normalizeTopics } from '../../shared/topics';
 
 export class HttpError extends Error {
 	constructor(public status: number, public code: string, message: string, public fields?: Record<string, string>) { super(message); }
@@ -17,9 +18,11 @@ export function uuid(value: unknown): string {
 	if (typeof value !== 'string' || !/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(value)) throw new HttpError(400, 'invalid_input', 'Неверный идентификатор записи.');
 	return value;
 }
-export function topics(value: unknown): string[] {
+export function topics(value: unknown, slug?: string): string[] {
 	if (!Array.isArray(value) || value.length > 12) throw new HttpError(400, 'invalid_input', 'Укажите не больше 12 тем.');
-	return [...new Set(value.map(item => text(item, 40, true).trim()))];
+	const result = normalizeTopics(value.map(item => text(item, 40, true)), slug);
+	if (result.some(topic => /[^\x20-\x7e]/.test(topic))) throw new HttpError(400, 'invalid_input', 'Укажите название темы на английском языке.');
+	return result;
 }
 export function calendarDate(value: unknown): string | null {
 	if (value === null) return null;

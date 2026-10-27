@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Prime Factorizer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prime Factorization: Trial Division</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@300;400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../dev_tool_style.css">
 <style>
@@ -244,25 +245,60 @@
     color: var(--muted);
     padding: 6px 0;
   }
+  :root { --muted: #aaaac4; }
+  header { flex-wrap: wrap; }
+  header h1 { color: #b8b0f7; }
+  .section-label, .stat-label { text-transform: none; letter-spacing: normal; }
+  .section-label { font-size: 0.9rem; }
+  .stat-label { font-size: 0.75rem; }
+  input[type="number"] { min-width: 0; }
+  :focus-visible { outline: 2px solid var(--accent2); outline-offset: 3px; }
+  .result-card { max-width: 760px; }
+  .learning { line-height: 1.65; gap: 14px; }
+  .learning h2 { font-size: 1.2rem; }
+  code { font-family: 'JetBrains Mono', monospace; font-size: 0.88em; overflow-wrap: anywhere; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  caption { text-align: left; color: var(--muted); padding-bottom: 10px; }
+  th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { font-weight: 400; }
+  td { font-family: 'JetBrains Mono', monospace; }
+  #operationCounts td { text-align: right; }
+  #divisionSteps { table-layout: fixed; font-size: 0.8rem; }
+  #divisionSteps th, #divisionSteps td { overflow-wrap: anywhere; }
+  #divisionSteps th:nth-child(1) { width: 24%; }
+  #divisionSteps th:nth-child(2) { width: 40%; }
+  #divisionSteps th:nth-child(3), #divisionSteps th:nth-child(4) { width: 18%; }
+  .count-note { color: var(--muted); font-size: 0.88rem; line-height: 1.6; }
+  summary { color: var(--accent2); cursor: pointer; }
+  details p { margin-top: 12px; }
+  .history-item { width: 100%; text-align: left; }
+  @media (max-width: 600px) {
+    header { padding: 20px; }
+    .content { padding: 24px 16px; gap: 24px; }
+    .input-card, .result-card { padding: 20px 16px; }
+    .input-row { flex-direction: column; }
+    #divisionSteps { font-size: 0.72rem; }
+    #divisionSteps th, #divisionSteps td { padding: 8px 3px; }
+  }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>// prime_factorizer</h1>
-  <span>decompose any integer into its prime factors</span>
+  <h1>Prime Factorization</h1>
+  <span>Разложение целого числа на простые множители методом Trial Division</span>
 </header>
 
 <div class="content">
 
   <!-- ── Input card ── -->
   <div class="input-card">
-    <div class="section-label">Enter a number</div>
+    <label class="section-label" for="numInput">Введите число N</label>
     <div class="input-row">
-      <input type="number" id="numInput" placeholder="e.g. 360" min="2" max="999999999999" />
-      <button class="run-btn" onclick="factorize()" style="width:auto;padding:9px 20px;">▶ Factorize</button>
+      <input type="number" id="numInput" placeholder="Например, 360" min="2" max="999999999999" aria-describedby="errorMsg" />
+      <button class="run-btn" onclick="factorize()" style="width:auto;padding:9px 20px;">▶ Разложить</button>
     </div>
-    <div class="error-msg" id="errorMsg"></div>
+    <div class="error-msg" id="errorMsg" role="alert"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="secondary" onclick="loadExample(12)">12</button>
       <button class="secondary" onclick="loadExample(360)">360</button>
@@ -274,10 +310,10 @@
 
   <!-- ── Result card ── -->
   <div class="result-card" id="resultCard" style="display:none">
-    <div class="section-label">Factorization</div>
+    <div class="section-label">Разложение</div>
 
     <!-- Big expression: 2² × 3² × 5 etc -->
-    <div class="factorization-display" id="factDisplay"></div>
+    <div class="factorization-display" id="factDisplay" role="status"></div>
 
     <!-- Stats row -->
     <div class="stats-row" id="statsRow"></div>
@@ -285,15 +321,37 @@
     <hr class="divider">
 
     <!-- Individual factor chips -->
-    <div class="section-label">Prime factors</div>
+    <div class="section-label">Простые множители и число повторений</div>
     <div class="factor-chips" id="factorChips"></div>
+    <table id="operationCounts"><caption>Операции Trial Division</caption><tbody></tbody></table>
+    <table id="divisionSteps">
+      <caption>Шаги: остаток r до и после проверки</caption>
+      <thead><tr><th scope="col">Кандидат p</th><th scope="col">Остаток r</th><th scope="col">Проверки %</th><th scope="col">Деления</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="count-note">Каждая проверка <code>n % p === 0</code> считается отдельно: одна в <code>if</code>, затем все в <code>while</code>, включая последнюю неудачную. Диапазон кандидатов объединяет проверки без делений. Строка «в ответ» добавляет оставшийся простой множитель без проверки % и без деления.</p>
   </div>
+
+  <section class="result-card learning" aria-labelledby="costTitle">
+    <h2 id="costTitle">Время и память Trial Division</h2>
+    <p><code>N</code> - исходное значение; <code>r</code> - оставшееся значение после делений; <code>f</code> - число разных простых множителей в ответе. Переменная <code>n</code> в коде хранит именно <code>r</code>. Кандидаты идут от 2, пока <code>p² ≤ r</code>.</p>
+    <p>Если число составное, хотя бы один множитель не больше его квадратного корня. Поэтому после проверки всех допустимых кандидатов остаток <code>r &gt; 1</code> прост. Он не обязан превышать <code>√N</code>: у <code>12</code> после делений на 2 остаётся 3, а <code>3 &lt; √12</code>.</p>
+    <p><strong>Время:</strong> не больше <code>⌊√N⌋−1</code> кандидатов и <code>⌊log₂ N⌋</code> успешных делений. Повторы проверок при найденных множителях добавляют ещё <code>O(log N)</code> операций. Итого <code>O(√N)</code> арифметических операций в худшем случае. Простое <code>998244353</code> даёт <code>31595−2+1 = 31594</code> кандидата и столько же проверок %.</p>
+    <p>Деления уменьшают <code>r</code> и границу цикла. Для <code>360</code>: <code>360 → 45 → 5</code>. Проверяются только 2 и 3. Для 2 нужны <code>1+4 = 5</code> проверок %, для 3 ещё <code>1+3 = 4</code>: всего 9 проверок и 5 делений. Остаток 5 добавляется в ответ.</p>
+    <p><strong>Дополнительная память алгоритма:</strong> <code>O(1)</code> скалярных переменных, без входа и ответа. <strong>Ответ:</strong> <code>O(f)</code> пар «простой множитель, степень». Таблица шагов страницы хранит ещё <code>O(f)</code> строк: соседние неудачные кандидаты объединены. История хранит до 20 отдельных результатов; её память равна сумме размеров этих ответов.</p>
+    <p><strong>Значение и длина входа:</strong> <code>N</code> здесь число, а не число цифр. При <code>b = ⌊log₂ N⌋+1</code> бит оценка <code>O(√N)</code> равна <code>O(2^(b/2))</code>, то есть экспоненциальна по длине записи. Страница принимает числа до <code>999999999999</code>, ниже предела точных целых JavaScript <code>2⁵³−1</code>. Здесь считаем арифметику за <code>O(1)</code>; для произвольно больших целых нужно учитывать размер чисел.</p>
+    <details>
+      <summary>Другие варианты перебора</summary>
+      <p><strong>Только нечётные кандидаты:</strong> сначала убрать множитель 2, затем проверять 3, 5, 7 и далее. Для простого <code>998244353</code> это 1 проверяемый кандидат 2 и 15797 нечётных кандидатов, всего 15798 вместо 31594. Худший случай остаётся <code>O(√N)</code>, дополнительное скалярное состояние - <code>O(1)</code>.</p>
+      <p><strong>Таблица простых:</strong> для многих запросов можно заранее построить простые до <code>M = ⌊√Nmax⌋</code> методом Sieve of Eratosthenes за <code>O(M log log M)</code> времени и <code>O(M)</code> памяти. Один запрос перебирает до <code>π(√N)</code> кандидатов, где <code>π(x)</code> - число простых до <code>x</code>, плюс повторные деления. Подготовка и хранение таблицы оплачиваются отдельно.</p>
+    </details>
+  </section>
 
   <!-- ── History card ── -->
   <div class="result-card" id="historyCard" style="display:none">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div class="section-label" style="margin-bottom:0">History</div>
-      <button class="secondary" style="font-size:0.7rem;padding:4px 10px" onclick="clearHistory()">clear</button>
+      <div class="section-label" style="margin-bottom:0">История</div>
+      <button class="secondary" style="font-size:0.7rem;padding:4px 10px" onclick="clearHistory()">Очистить</button>
     </div>
     <div class="history-list" id="historyList"></div>
   </div>
@@ -305,23 +363,40 @@
 let history = []; // array of { n, factors } objects, newest first
 
 // ─── Core algorithm ───────────────────────────────────────────────────────────
-// Returns an array of [prime, exponent] pairs, e.g. 12 → [[2,2],[3,1]]
 function primeFactors(n) {
   const factors = [];
-  // Trial division from 2 up to sqrt(n)
+  const counts = { candidates: 0, modulo: 0, divisions: 0 };
+  const steps = [];
   for (let p = 2; p * p <= n; p++) {
+    counts.candidates++;
+    counts.modulo++;
     if (n % p === 0) {
+      const before = n;
       let exp = 0;
+      counts.modulo++;
       while (n % p === 0) {
         exp++;
         n = Math.floor(n / p);
+        counts.divisions++;
+        counts.modulo++;
       }
       factors.push([p, exp]);
+      steps.push({ from: p, to: p, before, after: n, modulo: exp + 2, divisions: exp });
+    } else {
+      const last = steps[steps.length - 1];
+      if (last && last.divisions === 0) {
+        last.to = p;
+        last.modulo++;
+      } else {
+        steps.push({ from: p, to: p, before: n, after: n, modulo: 1, divisions: 0 });
+      }
     }
   }
-  // If anything remains it's a prime factor > sqrt(original n)
-  if (n > 1) factors.push([n, 1]);
-  return factors;
+  if (n > 1) {
+    factors.push([n, 1]);
+    steps.push({ from: n, to: n, before: n, after: n, modulo: 0, divisions: 0, residual: true });
+  }
+  return { factors, counts, steps };
 }
 
 // ─── Rendering helpers ────────────────────────────────────────────────────────
@@ -352,20 +427,19 @@ function factorize() {
   errorMsg.textContent = '';
 
   const raw = input.value.trim();
-  if (!raw) { errorMsg.textContent = 'Please enter a number.'; return; }
+  if (!raw) { errorMsg.textContent = 'Введите число.'; return; }
 
-  // Use BigInt parsing to check range, but keep as JS number for the algorithm
   const n = Number(raw);
   if (!Number.isInteger(n) || n < 2) {
-    errorMsg.textContent = 'Enter an integer ≥ 2.';
+    errorMsg.textContent = 'Введите целое число ≥ 2.';
     return;
   }
   if (n > 999_999_999_999) {
-    errorMsg.textContent = 'Number too large (max 999,999,999,999).';
+    errorMsg.textContent = 'Число слишком велико: максимум 999999999999.';
     return;
   }
 
-  const factors = primeFactors(n);
+  const { factors, counts, steps } = primeFactors(n);
 
   // ── Display expression ──
   document.getElementById('factDisplay').innerHTML = renderExpression(factors);
@@ -378,20 +452,20 @@ function factorize() {
 
   document.getElementById('statsRow').innerHTML = `
     <div class="stat-item">
-      <div class="stat-label">is prime</div>
-      <div class="stat-value ${isPrime ? 'yes' : 'no'}">${isPrime ? 'yes' : 'no'}</div>
+      <div class="stat-label">Простое число</div>
+      <div class="stat-value ${isPrime ? 'yes' : 'no'}">${isPrime ? 'да' : 'нет'}</div>
     </div>
     <div class="stat-item">
-      <div class="stat-label">distinct primes</div>
+      <div class="stat-label">Разных простых множителей</div>
       <div class="stat-value">${distinctPrimes}</div>
     </div>
     <div class="stat-item">
-      <div class="stat-label">total prime factors</div>
+      <div class="stat-label">Множителей с повторами</div>
       <div class="stat-value">${totalFactors}</div>
     </div>
     <div class="stat-item">
-      <div class="stat-label">perfect prime power</div>
-      <div class="stat-value ${isPerfectPower ? 'yes' : 'no'}">${isPerfectPower ? 'yes' : 'no'}</div>
+      <div class="stat-label">Все степени равны и &gt; 1</div>
+      <div class="stat-value ${isPerfectPower ? 'yes' : 'no'}">${isPerfectPower ? 'да' : 'нет'}</div>
     </div>
   `;
 
@@ -401,6 +475,15 @@ function factorize() {
       <span class="fc-base">${base}</span>
       <span class="fc-count">× ${exp}</span>
     </div>
+  `).join('');
+
+  document.querySelector('#operationCounts tbody').innerHTML = `
+    <tr><th scope="row">Кандидаты p</th><td>${counts.candidates}</td></tr>
+    <tr><th scope="row">Проверки остатка %</th><td>${counts.modulo}</td></tr>
+    <tr><th scope="row">Успешные деления</th><td>${counts.divisions}</td></tr>
+  `;
+  document.querySelector('#divisionSteps tbody').innerHTML = steps.map(step => `
+    <tr><td>${step.residual ? `${step.from} (в ответ)` : step.from === step.to ? step.from : `${step.from}…${step.to}`}</td><td>${step.before} → ${step.after}</td><td>${step.modulo}</td><td>${step.divisions}</td></tr>
   `).join('');
 
   resultCard.style.display = 'flex';
@@ -429,10 +512,10 @@ function renderHistory() {
 
   card.style.display = 'flex';
   list.innerHTML = history.map(({ n, factors }) => `
-    <div class="history-item" onclick="loadFromHistory(${n})">
+    <button class="history-item" onclick="loadFromHistory(${n})">
       <span class="h-num">${n.toLocaleString()}</span>
       <span class="h-expr">= ${plainExpression(factors)}</span>
-    </div>
+    </button>
   `).join('');
 }
 

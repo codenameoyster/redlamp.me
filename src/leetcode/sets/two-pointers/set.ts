@@ -10,8 +10,8 @@ import lesson4 from './chapter4.html';
 
 export default {
 	slug: 'two-pointers',
-	title: 'Два указателя',
-	summary: 'Два указателя проходят массив один раз вместо перебора всех пар. Вы учите три формы приёма, инвариант каждой формы и два закона, общие для всех форм.',
-	topics: ['Два указателя', 'Массив', 'Сортировка'],
+	title: 'Two Pointers',
+	summary: 'Two Pointers сокращает число проверок в Array. Вы учите три формы приёма, доказываете каждый ход и считаете время, дополнительную память и стоимость Sorting.',
+	topics: ['Two Pointers', 'Array', 'Sorting'],
 	chapters: [{ ...chapter1, lesson: lesson1 }, { ...chapter2, lesson: lesson2 }, { ...chapter3, lesson: lesson3 }, { ...chapter4, lesson: lesson4 }],
 } satisfies LearningSetContent;

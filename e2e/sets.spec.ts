@@ -3,6 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import type { Figure, Homework, LearningSetDetails, Problem } from '../shared/leetcode';
 import twoPointers1 from '../src/leetcode/sets/two-pointers/chapter1';
 import twoPointers2 from '../src/leetcode/sets/two-pointers/chapter2';
+import permutations2 from '../src/leetcode/sets/permutations-and-combinations/chapter2';
 
 const setPath = '/leetcode/sets/permutations-and-combinations', chapterPath = `${setPath}/2`;
 function row(page: Page, title: string) { return page.getByRole('article').filter({ has: page.getByRole('heading', { name: title, exact: true }) }); }
@@ -11,14 +12,14 @@ const steps: Figure = { id: 'test-steps', title: 'Указатели идут н
 	{ caption: 'l = 1, r = 3: 4 + 7 = 11, больше 9.', rows: [{ cells: [1, 4, 5, 7], marked: [1, 3], dimmed: [0], pointers: { l: 1, r: 3 }, window: [1, 3] }] },
 	{ caption: 'l = 1, r = 2: 4 + 5 = 9. Пара найдена.', rows: [{ cells: [1, 4, 5, 7], marked: [1, 2], dimmed: [0, 3], pointers: { l: 1, r: 2 }, window: [1, 2] }] },
 ] };
-const single: Figure = { id: 'test-single', title: 'Один кадр', frames: [{ caption: 'Массив из трёх чисел.', rows: [{ label: 'a', cells: [2, 3, 5] }] }] };
+const single: Figure = { id: 'test-single', title: 'Один кадр', frames: [{ caption: 'Array из трёх чисел.', rows: [{ label: 'a', cells: [2, 3, 5] }] }] };
 const wide: Figure = { id: 'test-wide', title: 'Шестнадцать чисел', frames: [{ caption: 'Числа от 100 до 115.', rows: [{ label: 'nums', cells: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115], pointers: { write: 0, read: 15 }, window: [0, 15] }] }] };
-const heap: Figure = { id: 'test-heap', title: 'Куча в массиве', frames: [
-	{ caption: 'Куча [1, 3, 2, 5, 9, 8]. Дети места 1: места 3 и 4.', rows: [{ label: 'куча', tree: true, cells: [1, 3, 2, 5, 9, 8], marked: [1, 3, 4] }, { label: 'h', cells: [1, 3, 2, 5, 9, 8], marked: [1, 3, 4] }] },
-	{ caption: 'heappop заберёт 1 из корня.', rows: [{ label: 'куча', tree: true, cells: [1, 3, 2, 5, 9, 8], dimmed: [0] }, { label: 'h', cells: [1, 3, 2, 5, 9, 8], dimmed: [0] }] },
-	{ caption: 'heappop забрал 1, число 8 спустилось на место 2. Место 5 пустое.', rows: [{ label: 'куча', tree: true, cells: [2, 3, 8, 5, 9, ''], marked: [0, 2] }, { label: 'h', cells: [2, 3, 8, 5, 9] }] },
+const heap: Figure = { id: 'test-heap', title: 'Heap в Array', frames: [
+	{ caption: 'Heap [1, 3, 2, 5, 9, 8]. Дети места 1: места 3 и 4.', rows: [{ label: 'Heap', tree: true, cells: [1, 3, 2, 5, 9, 8], marked: [1, 3, 4] }, { label: 'h', cells: [1, 3, 2, 5, 9, 8], marked: [1, 3, 4] }] },
+	{ caption: 'heappop заберёт 1 из корня.', rows: [{ label: 'Heap', tree: true, cells: [1, 3, 2, 5, 9, 8], dimmed: [0] }, { label: 'h', cells: [1, 3, 2, 5, 9, 8], dimmed: [0] }] },
+	{ caption: 'heappop забрал 1, число 8 спустилось на место 2. Место 5 пустое.', rows: [{ label: 'Heap', tree: true, cells: [2, 3, 8, 5, 9, ''], marked: [0, 2] }, { label: 'h', cells: [2, 3, 8, 5, 9] }] },
 ] };
-const wideHeap: Figure = { id: 'test-wide-heap', title: 'Куча кортежей', frames: [{ caption: 'Пятнадцать кортежей.', rows: [{ tree: true, cells: Array.from({ length: 15 }, (_, i) => `(${10 + i}, 1, 2)`) }] }] };
+const wideHeap: Figure = { id: 'test-wide-heap', title: 'Heap из tuple', frames: [{ caption: 'Пятнадцать tuple.', rows: [{ tree: true, cells: Array.from({ length: 15 }, (_, i) => `(${10 + i}, 1, 2)`) }] }] };
 // Gives chapter 2 a lesson with these figures.
 const lessonWith = (page: Page, figures: Figure[]) => page.route('**/leetcode/api/sets/permutations-and-combinations/lesson/2', route => route.fulfill({ json: { html: `<p class="lead">Урок с рисунками.</p>\n${figures.map(figure => `<figure data-figure="${figure.id}"></figure>`).join('\n')}\n<p>Текст после рисунков.</p>`, figures } }));
 // Gives chapter 2 a lesson with these <pre> blocks.
@@ -73,7 +74,7 @@ test('shows the chapter lesson to a parent before student work exists', async ({
 	const problem = await (await page.request.post('/leetcode/api/problems', { headers: { Origin: new URL(baseURL!).origin }, data: { url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
 	await page.goto(`/leetcode/problems/${problem.id}`);
 	await expect(page.getByText('Ученик ещё не начал работу.', { exact: true })).toBeVisible();
-	await expect(page.locator('h2').getByRole('link', { name: 'Глава 2. Перебор: подмножества, перестановки, сочетания', exact: true })).toBeVisible();
+	await expect(page.locator(`h2 a[href="${chapterPath}"]`)).toHaveText(`Глава 2. ${permutations2.title}`);
 	await expect(page.locator('article.lesson')).toHaveCount(2);
 });
 
@@ -117,23 +118,23 @@ test('assigns set tasks to new and existing homework', async ({ page, context })
 	await signIn(page, 'parent');
 	await page.getByRole('link', { name: 'Бомжарня', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'Бомжарня', level: 1 })).toBeVisible();
-	await expect(row(page, 'Перестановки и сочетания').locator('.term')).toHaveText(['перестановки', 'подмножества']);
-	await page.getByRole('link', { name: 'Перестановки и сочетания', exact: true }).click();
-	await expect(page.getByRole('heading', { name: 'Перестановки и сочетания', level: 1 })).toBeVisible();
-	await expect(page.locator('main .heading .term')).toHaveText(['перестановки', 'подмножества']);
-	await expect(row(page, 'Считаем варианты').locator('.term')).toHaveText(['факториал', 'подмножества']);
+	await expect(row(page, 'Permutations и Combinations').locator('.term')).toHaveText(['Permutations', 'Combinations', 'Subsets', 'Backtracking', 'Pruning']);
+	await page.getByRole('link', { name: 'Permutations и Combinations', exact: true }).click();
+	await expect(page.getByRole('heading', { name: 'Permutations и Combinations', level: 1 })).toBeVisible();
+	await expect(page.locator('main .heading .term')).toHaveText(['Permutations', 'Combinations', 'Subsets', 'Backtracking', 'Pruning']);
+	await expect(row(page, 'Считаем варианты').locator('.term')).toHaveText(['Linear Scan', 'Product Rule', 'Sum Rule', 'Factorial', 'Permutations', 'Combinations', 'Subsets']);
 	await expect(page.getByRole('link', { name: 'Открыть главу', exact: true })).toHaveCount(4);
-	await expect(row(page, 'Перебор: подмножества, перестановки, сочетания')).toContainText('Задач принято 0 из 5');
-	await expect(row(page, 'Перебор: подмножества, перестановки, сочетания')).toContainText('Квиз. Не пройден');
-	await page.getByRole('link', { name: 'Перебор: подмножества, перестановки, сочетания', exact: true }).click();
+	await expect(row(page, permutations2.title)).toContainText('Задач принято 0 из 5');
+	await expect(row(page, permutations2.title)).toContainText('Квиз. Не пройден');
+	await page.locator(`h2 a[href="${chapterPath}"]`).click();
 	await expect(page).toHaveURL(chapterPath);
-	await expect(page.getByRole('heading', { name: 'Глава 2. Перебор: подмножества, перестановки, сочетания', level: 1 })).toBeVisible();
-	await expect(page.locator('main .heading .term')).toHaveText(['Индекс', 'перестановки']);
-	await expect(page.locator('article.lesson').getByRole('heading', { name: '3. Рекурсия простыми словами', level: 2 })).toBeVisible();
+	await expect(page.getByRole('heading', { name: `Глава 2. ${permutations2.title}`, level: 1 })).toBeVisible();
+	await expect(page.locator('main .heading .term')).toHaveText(['Backtracking', 'индексы', 'Call Stack']);
+	await expect(page.locator('article.lesson #s3')).toHaveText('3. Recursion и Call Stack');
 	await expect(page.locator('article.lesson pre code .hljs-keyword').first()).toHaveText('def');
-	const reading = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Где узнать больше', level: 2 }) }), link = reading.getByRole('link', { name: 'Перебор с возвратом: элементарные примеры', exact: true });
+	const reading = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Где узнать больше', level: 2 }) }), link = reading.getByRole('link', { name: 'Backtracking: первые примеры', exact: true });
 	await expect(reading.getByRole('listitem')).toHaveCount(4);
-	await expect(reading.getByRole('listitem').last()).toHaveText('Полный перебор с рекурсией: подмножества, перестановки, ферзи USACO Guide (англ.)');
+	await expect(reading.getByRole('listitem').last()).toHaveText('Recursion: Subsets, Permutations и N-Queens USACO Guide (англ.)');
 	await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
 	await context.route('https://notes.algoprog.ru/**', route => route.fulfill({ contentType: 'text/html', body: '<p>Reading</p>' }));
 	const [tab] = await Promise.all([context.waitForEvent('page'), link.click()]);
@@ -145,7 +146,7 @@ test('assigns set tasks to new and existing homework', async ({ page, context })
 	const subsets = row(page, 'Subsets');
 	await subsets.getByRole('button', { name: 'Добавить в домашнюю работу', exact: true }).click();
 	const first = page.getByRole('dialog', { name: 'Добавить «Subsets» в домашнюю работу' });
-	await expect(first.getByLabel('Название', { exact: true })).toHaveValue('Перестановки и сочетания');
+	await expect(first.getByLabel('Название', { exact: true })).toHaveValue('Permutations и Combinations');
 	await first.getByLabel('Название', { exact: true }).fill('Week 41: backtracking');
 	await first.getByLabel('Срок', { exact: true }).fill('2026-10-20');
 	await first.getByRole('button', { name: 'Создать и назначить', exact: true }).click();
@@ -180,12 +181,12 @@ test('assigns set tasks to new and existing homework', async ({ page, context })
 	const library = page.getByRole('region', { name: 'Библиотека задач' });
 	await expect(library.getByRole('link', { name: 'Subsets', exact: true })).toBeVisible();
 	await expect(library.getByRole('link', { name: 'Permutations', exact: true })).toBeVisible();
-	expect(await (await page.request.get('/leetcode/api/problems?q=subsets')).json()).toMatchObject({ items: [{ url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: ['Массив', 'Перебор'], summary: 'LeetCode, medium. Шаблон с индексом start. Сохраняйте копию path[:] при каждом вызове, ответов будет 2 в степени n.' }] });
+	expect(await (await page.request.get('/leetcode/api/problems?q=subsets')).json()).toMatchObject({ items: [{ url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: ['Array', 'Backtracking'], summary: permutations2.tasks.find(task => task.title === 'Subsets')!.note }] });
 	await page.getByRole('link', { name: 'Домашняя работа', exact: true }).click();
 	await expect(page.getByRole('region', { name: 'В процессе', exact: true }).getByRole('link', { name: 'Week 41: backtracking', exact: true })).toHaveCount(2);
 	await signIn(page);
 	await page.goto(setPath);
-	await expect(row(page, 'Перебор: подмножества, перестановки, сочетания')).toContainText('Задач принято 0 из 5');
+	await expect(row(page, permutations2.title)).toContainText('Задач принято 0 из 5');
 	await page.getByRole('link', { name: 'Открыть главу', exact: true }).nth(1).click();
 	await expect(page).toHaveURL(chapterPath);
 	await expect(row(page, 'Subsets').getByRole('link', { name: 'Назначено', exact: true })).toBeVisible();
@@ -254,6 +255,34 @@ test('fits the lesson to the width of the page', async ({ page }) => {
 	const lesson = (await page.locator('article.lesson').boundingBox())!, heading = (await page.locator('main .heading').boundingBox())!;
 	expect(lesson.x + lesson.width).toBeCloseTo(heading.x + heading.width, 0);
 });
+
+const lessonLayouts = [
+	{ name: 'Two Pointers on a dark phone', slug: 'two-pointers', chapter: 1, figure: 'tp1-window', width: 390, theme: 'dark' },
+	{ name: 'Heap on a light phone', slug: 'heaps-and-queues', chapter: 2, figure: 'hq2-stones', width: 390, theme: 'light' },
+	{ name: 'Two Pointers on a light desktop', slug: 'two-pointers', chapter: 1, figure: 'tp1-window', width: 1000, theme: 'light' },
+	{ name: 'Heap on a dark desktop', slug: 'heaps-and-queues', chapter: 2, figure: 'hq2-stones', width: 851, theme: 'dark' },
+];
+for (const row of lessonLayouts) {
+	test(`published lesson reflow: ${row.name}`, async ({ page }) => {
+		await page.setViewportSize({ width: row.width, height: 1000 });
+		await signIn(page);
+		if (row.theme === 'light') await page.getByRole('button', { name: 'Светлая тема', exact: true }).click();
+		const set = await (await page.request.get(`/leetcode/api/sets/${row.slug}`)).json() as LearningSetDetails;
+		const lesson = await (await page.request.get(`/leetcode/api/sets/${row.slug}/lesson/${row.chapter}`)).json() as { figures: Figure[] };
+		const content = lesson.figures.find(figure => figure.id === row.figure)!;
+		await page.goto(`/leetcode/sets/${row.slug}/${row.chapter}`);
+		await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Глава ${row.chapter}. ${set.chapters[row.chapter - 1].title}`);
+		const figure = page.locator(`figure[data-figure="${row.figure}"]`);
+		await expect(figure.locator('figcaption')).toHaveText(content.title);
+		await expect(figure.getByRole('img')).toHaveAccessibleName(content.frames[0].caption);
+		for (let i = 1; i < content.frames.length; i++) await figure.getByRole('button', { name: 'Вперёд', exact: true }).click();
+		await expect(figure.getByRole('img')).toHaveAccessibleName(content.frames.at(-1)!.caption);
+		await expect(figure.getByText(`Шаг ${content.frames.length} из ${content.frames.length}`, { exact: true })).toBeVisible();
+		expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+		expect(await page.locator('article.lesson').evaluate(article => article.scrollWidth <= article.clientWidth)).toBe(true);
+		await figure.screenshot({ path: `.superpowers/screenshots/complexity-learning/lesson-${row.slug}-${row.width}-${row.theme}.png` });
+	});
+}
 
 test('steps through a lesson figure', async ({ page }) => {
 	await signIn(page);
@@ -354,12 +383,12 @@ test('shows the figures of the new chapter after client navigation', async ({ pa
 
 // A hard word in code, a hint title or a link stays plain. Only its first use in the lesson prose gets the tip, also when the next use is in another paragraph.
 const termLesson = (page: Page) => page.route('**/leetcode/api/sets/permutations-and-combinations/lesson/2', route => route.fulfill({ json: { html: [
-	'<p class="lead">Урок про очередь.</p>',
-	'<pre><code class="language-python">t = (1, 2)  # кортеж</code></pre>',
-	'<details><summary>Подсказка: кортеж</summary><p>Сравните первые элементы.</p></details>',
-	'<p><a href="https://docs.python.org/3/tutorial/datastructures.html#tuples-and-sequences">Кортеж в Python</a></p>',
-	'<p>Кортеж сравнивают по первому элементу.</p>',
-	'<p>Второй кортеж тоже.</p>',
+	'<p class="lead">Урок про значения.</p>',
+	'<pre><code class="language-python">t = (1, 2)  # tuple</code></pre>',
+	'<details><summary>Подсказка: tuple</summary><p>Сравните первые элементы.</p></details>',
+	'<p><a href="https://docs.python.org/3/tutorial/datastructures.html#tuples-and-sequences">tuple в Python</a></p>',
+	'<p>tuple сравнивают по первому элементу.</p>',
+	'<p>Второй tuple тоже.</p>',
 ].join('\n'), figures: [] } }));
 const tip = (term: Locator) => term.evaluate(element => getComputedStyle(element, '::after').visibility);
 
@@ -367,8 +396,8 @@ test('marks only the first hard word of the lesson prose', async ({ page }) => {
 	await signIn(page);
 	await termLesson(page);
 	await page.goto(chapterPath);
-	await expect(page.locator('article.lesson .term')).toHaveText(['Кортеж']);
-	await expect(page.locator('article.lesson p', { hasText: 'сравнивают' }).locator('.term')).toHaveText('Кортеж');
+	await expect(page.locator('article.lesson .term')).toHaveText(['tuple']);
+	await expect(page.locator('article.lesson p', { hasText: 'сравнивают' }).locator('.term')).toHaveText('tuple');
 });
 
 test('shows the tip of a hard word on hover and on keyboard focus', async ({ page }) => {
@@ -393,7 +422,7 @@ test('fits the set pages at the mobile width', async ({ page }, testInfo) => {
 	await page.setViewportSize(testInfo.config.projects.find(project => project.name === 'mobile')!.use.viewport!);
 	await signIn(page, 'parent');
 	await page.goto('/leetcode/sets');
-	await expect(page.getByRole('link', { name: 'Перестановки и сочетания', exact: true })).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Permutations и Combinations', exact: true })).toBeVisible();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 	await page.goto(setPath);
 	await expect(page.getByRole('link', { name: 'Открыть главу', exact: true })).toHaveCount(4);
@@ -412,10 +441,10 @@ test('fits the set pages at the mobile width', async ({ page }, testInfo) => {
 test('links a set as material of a problem', async ({ page, notebook }) => {
 	await signIn(page, 'parent');
 	await page.goto(`/leetcode/problems/${notebook.problem.id}`);
-	await page.getByRole('combobox', { name: 'Набор', exact: true }).selectOption({ label: 'Перестановки и сочетания' });
+	await page.getByRole('combobox', { name: 'Набор', exact: true }).selectOption({ label: 'Permutations и Combinations' });
 	await page.getByRole('button', { name: 'Привязать', exact: true }).click();
-	await expect(page.getByRole('button', { name: 'Отвязать Перестановки и сочетания', exact: true })).toBeVisible();
-	await page.getByRole('link', { name: 'Перестановки и сочетания', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Отвязать Permutations и Combinations', exact: true })).toBeVisible();
+	await page.getByRole('link', { name: 'Permutations и Combinations', exact: true }).click();
 	await expect(page).toHaveURL(setPath);
 });
 
@@ -424,9 +453,9 @@ test('shows the chapter of a problem as its material', async ({ page, baseURL })
 	const problem = await (await page.request.post('/leetcode/api/problems', { headers: { Origin: new URL(baseURL!).origin }, data: { url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
 	await page.goto(`/leetcode/problems/${problem.id}`);
 	const materials = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Материалы', level: 2 }) });
-	await expect(materials.locator('small')).toHaveText('Перестановки и сочетания');
+	await expect(materials.locator('small')).toHaveText('Permutations и Combinations');
 	await expect(materials.getByRole('button', { name: /^Отвязать/ })).toHaveCount(0);
-	await materials.getByRole('link', { name: 'Глава 2. Перебор: подмножества, перестановки, сочетания', exact: true }).click();
+	await materials.getByRole('link', { name: `Глава 2. ${permutations2.title}`, exact: true }).click();
 	await expect(page).toHaveURL(chapterPath);
 });
 
@@ -485,7 +514,7 @@ test('runs a lesson sample in the work window', async ({ page, baseURL }) => {
 	await lessonCode(page, ['<pre><code class="language-python">print(2 + 3)</code></pre>']);
 	const problem = await (await page.request.post('/leetcode/api/problems', { headers, data: { url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
 	await page.goto(`/leetcode/problems/${problem.id}`);
-	await expect(page.locator('article.lesson', { has: page.getByRole('heading', { name: 'Пример 1' }) }).locator('.term')).toHaveText(['подмножества', 'Метод класса']);
+	await expect(page.locator('article.lesson', { has: page.getByRole('heading', { name: 'Пример 1' }) }).locator('.term')).toHaveText(['Array', 'Subsets', 'Метод класса']);
 	const sample = page.locator('article.lesson pre:has(.sample)');
 	await sample.getByRole('button', { name: 'Запустить', exact: true }).click();
 	await expect(sample.locator('output')).toHaveText('5', { timeout: 30_000 });

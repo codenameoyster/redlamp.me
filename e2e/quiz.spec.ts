@@ -12,7 +12,8 @@ async function answer(page: Page, number: number, value: string, short = false) 
 test('passes a deck with 7 of 8 and waits an hour for the next attempt', async ({ page }) => {
 	await signIn(page);
 	await page.getByRole('link', { name: 'Квиз', exact: true }).click();
-	const deck = page.getByRole('article').filter({ hasText: 'Перестановки и сочетания, глава 1' });
+	const deck = page.getByRole('article').filter({ has: page.locator('h2 a[href="/leetcode/quiz/permutations-and-combinations-1"]') });
+	await expect(deck.getByRole('heading')).toHaveText('Permutations и Combinations, глава 1');
 	await expect(page.getByRole('article')).toHaveCount(12);
 	await expect(deck.getByText('Не пройден', { exact: true })).toBeVisible();
 	await deck.getByRole('link', { name: 'Начать', exact: true }).click();
@@ -31,7 +32,7 @@ test('passes a deck with 7 of 8 and waits an hour for the next attempt', async (
 	const sum = page.getByRole('article').filter({ hasText: 'В столовой 3 супа' });
 	await expect(sum).toContainText('Ваш ответ: 24');
 	await expect(sum).toContainText('Правильный ответ: 20');
-	await expect(sum).toContainText('Суп и второе: 3 · 4 = 12.');
+	await expect(sum).toContainText('Product Rule: суп и второе дают 3 · 4 = 12, второе и десерт дают 4 · 2 = 8. Sum Rule: 12 + 8 = 20.');
 	await expect(page.getByRole('article')).toHaveCount(8);
 	await expect(page.getByText('Повтор через', { exact: false })).toHaveCount(0);
 	await expect(page.getByText(/^Следующая попытка после \d\d:\d\d\.$/)).toBeVisible();
@@ -39,7 +40,7 @@ test('passes a deck with 7 of 8 and waits an hour for the next attempt', async (
 	await expect(deck.getByText('Пройден: 7 из 8', { exact: true })).toBeVisible();
 	await expect(deck.getByText(/^Следующая попытка после \d\d:\d\d$/)).toBeVisible();
 	await expect(deck.getByRole('link', { name: 'Начать' })).toHaveCount(0);
-	await deck.getByRole('link', { name: 'Перестановки и сочетания, глава 1', exact: true }).click();
+	await deck.getByRole('link', { name: 'Permutations и Combinations, глава 1', exact: true }).click();
 	await expect(page.getByText(/^Следующая попытка после \d\d:\d\d\.$/)).toBeVisible();
 	await expect(page.getByText(/^Карточка \d/)).toHaveCount(0);
 	await page.goto('/leetcode/sets/permutations-and-combinations');
@@ -70,25 +71,25 @@ test('a failed attempt shows the wrong cards without the answers and gives no XP
 	await expect(page.getByRole('article')).toHaveCount(3);
 	await expect(page.getByRole('article').filter({ hasText: 'В столовой 3 супа' })).toBeVisible();
 	await expect(page.getByText('Правильный ответ', { exact: false })).toHaveCount(0);
-	await expect(page.getByText('Суп и второе: 3 · 4 = 12.', { exact: false })).toHaveCount(0);
+	await expect(page.getByText('Product Rule: суп и второе дают 3 · 4 = 12', { exact: false })).toHaveCount(0);
 	await page.getByRole('link', { name: 'Сегодня', exact: true }).click();
 	await expect(page.getByText('0 XP. До уровня 2: 100 XP.', { exact: true })).toBeVisible();
 });
 
 test('marks the first hard word of a card prompt and of its explanation, and not the options', async ({ page }) => {
 	await signIn(page);
-	await page.route('**/leetcode/api/quiz/heaps-and-queues-1', route => route.fulfill({ json: { title: 'Heap, queue и deque, глава 1', nextAt: null, cards: [{ id: 'test-deque', type: 'choice', prompt: 'В deque q три числа. Что вернёт q.pop()?', options: ['Число из deque', 'Ничего'] }] } }));
-	await page.route('**/leetcode/api/quiz/heaps-and-queues-1/attempts', route => route.fulfill({ json: { correct: 1, total: 1, passed: true, nextAt: '2026-10-14T12:00:00.000Z', results: [{ cardId: 'test-deque', correct: true, answer: 'Число из deque', explain: 'Deque отдаёт число с конца, а пустой deque даёт ошибку.' }] } }));
+	await page.route('**/leetcode/api/quiz/heaps-and-queues-1', route => route.fulfill({ json: { title: 'Heap (Priority Queue), Queue и Deque, глава 1', nextAt: null, cards: [{ id: 'test-deque', type: 'choice', prompt: 'В Deque q три числа. Что вернёт q.pop()?', options: ['Число из Deque', 'Ничего'] }] } }));
+	await page.route('**/leetcode/api/quiz/heaps-and-queues-1/attempts', route => route.fulfill({ json: { correct: 1, total: 1, passed: true, nextAt: '2026-10-14T12:00:00.000Z', results: [{ cardId: 'test-deque', correct: true, answer: 'Число из Deque', explain: 'Deque отдаёт число с конца, а пустой Deque даёт ошибку.' }] } }));
 	await page.goto('/leetcode/quiz/heaps-and-queues-1');
-	await expect(page.locator('.quiz-card .term')).toHaveText(['deque']);
-	await page.getByRole('button', { name: 'Число из deque', exact: true }).click();
-	await expect(page.getByRole('article').locator('.term')).toHaveText(['deque', 'Deque']);
+	await expect(page.locator('.quiz-card .term')).toHaveText(['Deque']);
+	await page.getByRole('button', { name: 'Число из Deque', exact: true }).click();
+	await expect(page.getByRole('article').locator('.term')).toHaveText(['Deque', 'Deque']);
 });
 
 test('the parent reads the deck with answers', async ({ page }) => {
 	await signIn(page, 'parent');
 	await page.goto('/leetcode/quiz/permutations-and-combinations-1');
-	await expect(page.getByRole('heading', { name: 'Перестановки и сочетания, глава 1', level: 1 })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Permutations и Combinations, глава 1', level: 1 })).toBeVisible();
 	await expect(page.getByText('Ответ: 48')).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Ответить' })).toHaveCount(0);
 });

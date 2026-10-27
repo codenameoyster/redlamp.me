@@ -12,7 +12,7 @@ function nextPermutation(a: number[]): boolean {
 	return i >= 0;
 }
 
-// All distinct permutations from the ascending order, one nextPermutation step each. O(n * P) for P distinct permutations.
+// Sorting plus Next Permutation takes O(n log n + n * P) time for P distinct permutations. Copies store n * P output entries.
 function permutations(nums: number[]): number[][] {
 	const a = [...nums].sort((x, y) => x - y), out = [a.slice()];
 	while (nextPermutation(a)) out.push(a.slice());
@@ -59,7 +59,7 @@ export default {
 	} },
 	// O(n): each value makes a pair with every equal value before it.
 	'number-of-good-pairs': { mode: 'call', solve: (nums: unknown) => { const seen = Array<number>(101).fill(0); return ints(nums, 1, 100, 1, 100).reduce((pairs, x) => pairs + seen[x]++, 0); } },
-	// O(2^L * L) for L letters: every letter doubles the list.
+	// For n characters and l letters, at most n * 2^l prefix extensions produce n * 2^l output characters. String-copy costs depend on the engine.
 	'letter-case-permutation': { mode: 'call', solve: (s: unknown) => [...str(s, /^[a-zA-Z0-9]{1,12}$/)].reduce((out, c) => out.flatMap(p => /\d/.test(c) ? [p + c] : [p + c.toLowerCase(), p + c.toUpperCase()]), ['']) },
 	// O(n * 2^n): every number extends all the subsets before it.
 	subsets: { mode: 'call', solve: (nums: unknown) => distinct(ints(nums, 1, 10, -10, 10)).reduce<number[][]>((out, x) => out.concat(out.map(set => [...set, x])), [[]]) },
@@ -87,7 +87,7 @@ export default {
 		}
 		return out;
 	} },
-	// O(n * P) for P distinct permutations.
+	// O(n log n + n * P) time for Sorting and P distinct permutations.
 	'permutations-ii': { mode: 'call', solve: (nums: unknown) => permutations(ints(nums, 1, 8, -10, 10)) },
 	// The search goes over the sorted candidates. A branch stops when the next candidate is larger than the rest of the target.
 	'combination-sum': { mode: 'call', solve: (candidates: unknown, target: unknown) => {
@@ -132,7 +132,7 @@ export default {
 		for (let i = size - 1; i >= 0; i--) { out += left.splice(Math.floor(rest / factorial[i]), 1)[0]; rest %= factorial[i]; }
 		return out;
 	} },
-	// O(n!): backtracking with bit masks for the columns and both diagonals.
+	// With bounded masks, the search takes O(n!) time and O(n) auxiliary state. Constructing Q boards adds O(n^2 * Q) time and output characters.
 	'n-queens': { mode: 'call', solve: (n: unknown) => {
 		const size = int(n, 1, 9), full = (1 << size) - 1, out: string[][] = [], cols: number[] = [];
 		const go = (row: number, used: number, left: number, right: number): void => {

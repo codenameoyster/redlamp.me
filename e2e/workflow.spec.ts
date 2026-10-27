@@ -23,22 +23,22 @@ test('completes learning with two accounts and a linked set', async ({ page: par
 		await parent.getByRole('group', { name: 'Задача', exact: true }).getByRole('radio', { name: /^Minimum Window Substring/ }).check();
 		await parent.getByRole('button', { name: 'Добавить задание', exact: true }).click();
 		await expect(parent.getByText('Назначено', { exact: true })).toBeVisible();
-		await parent.getByRole('combobox', { name: 'Набор', exact: true }).selectOption({ label: 'Перестановки и сочетания' });
+		await parent.getByRole('combobox', { name: 'Набор', exact: true }).selectOption({ label: 'Permutations и Combinations' });
 		await parent.getByRole('button', { name: 'Привязать' }).click();
-		await expect(parent.getByRole('link', { name: 'Перестановки и сочетания', exact: true })).toBeVisible();
+		await expect(parent.getByRole('link', { name: 'Permutations и Combinations', exact: true })).toBeVisible();
 		await parent.getByRole('link', { name: 'Minimum Window Substring', exact: true }).click();
 		await expect(parent.getByRole('heading', { name: 'Minimum Window Substring', level: 1 })).toBeVisible();
 		const taskURL = parent.url();
 		await signIn(student);
 		await student.goto(taskURL);
 		await student.getByRole('link', { name: 'Week 41: sliding window', exact: true }).click();
-		await student.getByRole('link', { name: 'Перестановки и сочетания', exact: true }).click();
-		await expect(student.getByRole('heading', { name: 'Перестановки и сочетания', level: 1 })).toBeVisible();
+		await student.getByRole('link', { name: 'Permutations и Combinations', exact: true }).click();
+		await expect(student.getByRole('heading', { name: 'Permutations и Combinations', level: 1 })).toBeVisible();
 		await student.goto(taskURL);
 		await student.getByLabel('Основная идея', { exact: true }).fill('Shrink only while all target counts are satisfied.');
 		await student.getByLabel('Код решения', { exact: true }).fill(`return sliding_window(source, target) # ${'long_code_line_'.repeat(40)}`);
 		expect(await student.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-		await student.screenshot({ path: testInfo.outputPath('notebook.png'), fullPage: true });
+		await student.screenshot({ path: `.superpowers/screenshots/complexity-learning/workflow-${testInfo.project.name}.png`, fullPage: true });
 		await student.getByRole('button', { name: 'Решено', exact: true }).click();
 		await expect(student.getByText('Отправлено', { exact: true })).toBeVisible();
 		await parent.reload();
@@ -66,7 +66,7 @@ test('completes learning with two accounts and a linked set', async ({ page: par
 		expect(await (await parent.request.get(`/leetcode/api/problems/${problemId}`)).json()).toMatchObject({ solved: true, understanding: 'independent' });
 		await parent.getByRole('link', { name: 'Сегодня', exact: true }).click();
 		await expect(parent.getByRole('heading', { name: 'Понимание тем' })).toBeVisible();
-		await parent.screenshot({ path: testInfo.outputPath('today.png'), fullPage: true });
+		await parent.screenshot({ path: `.superpowers/screenshots/complexity-learning/today-${testInfo.project.name}.png`, fullPage: true });
 	} finally { await studentContext.close(); }
 });
 
@@ -110,7 +110,7 @@ test('shows the tutor panel full screen on a phone', async ({ page, notebook, se
 	await addMessages(DB, 'problem', notebook.problem.id, [{ author: 'student', body: 'Show the array.' }, { author: 'assistant', body: `\`\`\`diagram\n${JSON.stringify({ type: 'array', cells })}\n\`\`\`\n\n\`\`\`python\nreturn ${'long_code_line_'.repeat(20)}\n\`\`\`` }]);
 	await page.getByRole('button', { name: 'Спросить ИИ', exact: true }).click();
 	const panel = page.getByRole('dialog', { name: 'ИИ-репетитор' });
-	await expect(panel.getByRole('img', { name: /^Массив/ })).toBeVisible();
+	await expect(panel.getByRole('img', { name: /^Array:/ })).toBeVisible();
 	expect(await panel.boundingBox()).toEqual({ x: 0, y: 0, width: 390, height: 844 });
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 	expect(await panel.getByRole('list', { name: 'Сообщения' }).evaluate(list => list.scrollWidth <= list.clientWidth)).toBe(true);
@@ -133,10 +133,11 @@ test('explains a lesson selection with a touch tap', async ({ browser, baseURL }
 			return route.fulfill({ contentType: 'text/event-stream', body: 'data: {"done":true}\n\n' });
 		});
 		await page.goto('/leetcode/sets/permutations-and-combinations/2');
-		await page.locator('article.lesson').locator('p', { hasText: 'которая вызывает сама себя' }).selectText();
+		const passage = page.locator('article.lesson #s3 + p'), quote = await passage.innerText();
+		await passage.selectText();
 		await page.getByRole('button', { name: 'Объяснить с ИИ', exact: true }).tap();
 		await expect(page.getByRole('dialog', { name: 'ИИ-репетитор' })).toBeVisible();
-		await expect.poll(() => body).toEqual({ kind: 'set', id: 'permutations-and-combinations', message: 'Объясните эту часть.', quote: 'Рекурсия это функция, которая вызывает сама себя. Для дерева это удобно. Функция делает один шаг вниз, а дальше просит саму себя сделать остальное. Функцию, которая идёт по дереву, назовём dfs.' });
+		await expect.poll(() => body).toEqual({ kind: 'set', id: 'permutations-and-combinations', message: 'Объясните эту часть.', quote });
 	} finally { await context.close(); }
 });
 

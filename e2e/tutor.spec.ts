@@ -136,7 +136,9 @@ test('draws three diagrams and keeps HTML as text', async ({ page, notebook, ser
 	await panel.getByRole('button', { name: 'Отправить', exact: true }).click();
 	await expect(panel.getByRole('status')).toHaveText('Репетитор ответил.');
 	await expect(panel.locator('figure svg')).toHaveCount(3);
-	await expect(panel.getByRole('img', { name: /^Дерево: 7 узлов\./ })).toBeVisible();
+	await expect(panel.getByRole('img', { name: 'Tree: 7 узлов. Выделено: [], [1]. Ответы: [1,2], [1,3], [2,3]. Отсечено: [3].', exact: true })).toBeVisible();
+	await expect(panel.getByRole('img', { name: 'Array: 2, 7, 11, 15. Указатели: i на 0, j на 3. Выделено: 2 на 0, 15 на 3.', exact: true })).toBeVisible();
+	await expect(panel.getByRole('img', { name: 'Grid: 2 строки и 2 столбца. Выделено: строка 2 столбец 2.', exact: true })).toBeVisible();
 	await expect(panel.locator('.answer img')).toHaveCount(0);
 	await expect(panel.getByText('<img src=x onerror=alert(1)>', { exact: true })).toBeVisible();
 	expect(await page.evaluate(() => (window as unknown as { violations: number }).violations)).toBe(0);
@@ -230,8 +232,8 @@ test('loads older messages above the newest page', async ({ page, notebook, serv
 const ai = /^(Спросить ИИ|Оценить решение с ИИ)$/;
 const placements = [
 	{ name: 'shows no AI button to the parent on the problem page', role: 'parent', path: async (_DB: D1Database, problemId: string) => `/leetcode/problems/${problemId}`, heading: 'Two Sum' },
-	{ name: 'shows no AI button to the parent on the set page', role: 'parent', path: async () => setPath, heading: 'Перестановки и сочетания' },
-	{ name: 'shows no AI button to the parent on the chapter page', role: 'parent', path: async () => chapterPath, heading: 'Глава 2. Перебор: подмножества, перестановки, сочетания' },
+	{ name: 'shows no AI button to the parent on the set page', role: 'parent', path: async () => setPath, heading: 'Permutations и Combinations' },
+	{ name: 'shows no AI button to the parent on the chapter page', role: 'parent', path: async () => chapterPath, heading: 'Глава 2. Backtracking: Subsets, Permutations, Combinations' },
 	{ name: 'shows no AI button on Today', role: 'student', path: async () => '/leetcode', heading: 'Стройте понимание, задача за задачей.' },
 	{ name: 'shows no AI button on the problem list', role: 'student', path: async () => '/leetcode/problems', heading: 'Задачи' },
 	{ name: 'shows no AI button on the recall page', role: 'student', path: async (_DB: D1Database, problemId: string) => `/leetcode/problems/${problemId}/review`, heading: 'Two Sum' },
@@ -275,6 +277,7 @@ test('shows the address error under the address field', async ({ page }) => {
 });
 
 const undo = 'Третий шаг нужен, чтобы вернуть path в то состояние, какое было до выбора. Тогда следующий шаг цикла начинает с чистого места.';
+const bridgeLesson = (page: Page) => page.route('**/leetcode/api/sets/permutations-and-combinations/lesson/2', route => route.fulfill({ json: { html: '<h2>Backtracking</h2><p>Третий шаг нужен, чтобы вернуть <code>path</code> в то состояние, какое было до выбора. Тогда следующий шаг цикла начинает с чистого места.</p>', figures: [] } }));
 const marked = 'Отрывок выделен в уроке.', notFound = 'Этого отрывка нет в тексте урока.';
 const lesson = (page: Page) => page.locator('article.lesson');
 const explain = (page: Page) => page.getByRole('button', { name: 'Объяснить с ИИ', exact: true });
@@ -304,6 +307,7 @@ for (const row of explains) {
 		const { DB } = await server.getWorker<TestEnv>().getEnv();
 		const bodies: { quote: string }[] = [];
 		await signIn(page);
+		await bridgeLesson(page);
 		await onSend(page, async route => {
 			const body = route.request().postDataJSON() as { quote: string };
 			bodies.push(body);
@@ -324,15 +328,17 @@ for (const row of explains) {
 
 test('ignores a selection outside the lesson', async ({ page }) => {
 	await signIn(page);
+	await bridgeLesson(page);
 	await page.goto(chapterPath);
 	await lesson(page).locator('p', { hasText: 'Третий шаг нужен' }).selectText();
 	await expect(explain(page)).toBeVisible();
-	await page.getByRole('heading', { level: 1, name: 'Глава 2. Перебор: подмножества, перестановки, сочетания' }).selectText();
+	await page.getByRole('heading', { level: 1, name: 'Глава 2. Backtracking: Subsets, Permutations, Combinations' }).selectText();
 	await expect(explain(page)).toBeHidden();
 });
 
 test('shows no lesson bridge to the parent', async ({ page }) => {
 	await signIn(page, 'parent');
+	await bridgeLesson(page);
 	await page.goto(chapterPath);
 	await lesson(page).locator('p', { hasText: 'Третий шаг нужен' }).selectText();
 	await expect(page.locator('.lesson-ai')).toHaveCount(0);
@@ -353,6 +359,7 @@ for (const row of highlights) {
 		const { DB } = await server.getWorker<TestEnv>().getEnv();
 		if (row.from === 'tutor') await addMessages(DB, 'set', 'permutations-and-combinations', row.quotes.map(quote => ({ author: 'assistant' as const, body: `\`\`\`lesson\n${quote}\n\`\`\`` })));
 		await signIn(page);
+		await bridgeLesson(page);
 		await page.goto(chapterPath);
 		await expect(page.locator('.lesson-ai')).toHaveCount(1);
 		await expect(lesson(page).locator('p', { hasText: 'Третий шаг нужен' })).toBeVisible();
@@ -378,6 +385,7 @@ for (const row of shows) {
 		await addMessages(DB, 'set', 'permutations-and-combinations', [{ author: 'student', body: 'What is a circle?' }, { author: 'assistant', body: 'Read this part:\n\n```lesson\nТретий шаг нужен, чтобы вернуть path в то состояние, какое было до выбора.\n```' }]);
 		await page.setViewportSize({ width: row.width, height: 900 });
 		await signIn(page);
+		await bridgeLesson(page);
 		await page.goto(chapterPath);
 		await page.getByRole('button', { name: 'Спросить ИИ', exact: true }).click();
 		const panel = page.getByRole('dialog', { name: 'ИИ-репетитор' });

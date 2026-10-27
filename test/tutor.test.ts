@@ -3,10 +3,18 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import prompt from '../src/leetcode/tutor-prompt.txt';
 import evaluation from '../src/leetcode/evaluate-prompt.txt';
 import { htmlText, pump } from '../src/leetcode/tutor';
+import { sets } from '../src/leetcode/sets';
 import { login, request } from './client';
 
 const TOKEN = 'https://auth.openai.com/api/accounts/oauth/token', MODELS = 'https://api.openai.com/v1/models', RESPONSES = 'https://api.openai.com/v1/responses', GRAPHQL = 'https://leetcode.com/graphql';
 const PROBLEM = '11111111-1111-4111-8111-111111111111', SET = 'permutations-and-combinations', HOMEWORK = '77777777-7777-4777-8777-777777777777';
+const chapters = sets.find(set => set.slug === SET)!.chapters, publishedLessons = chapters.map(chapter => chapter.lesson);
+const contextLessons = [
+	'<p>Вводный пример.</p><h2>1. Linear Scan</h2><p>Просмотрите Array.</p>',
+	'<p>Backtracking.</p><h2>1. Выбор</h2><p>Добавьте элемент.</p><h2>2. Call Stack</h2><p>Call Stack хранит незавершённые вызовы.</p>',
+	'<p>Pruning.</p><h2>1. Pruning</h2><p>Закончите ветку.</p>',
+	'<p>Порядок.</p><h2>1. Next Permutation</h2><p>Найдите следующий порядок.</p>',
+];
 const tokens = { access_token: 'access-1', refresh_token: 'refresh-1', token_type: 'Bearer', expires_in: 3600, scope: 'openid profile email offline_access resource.invoke chatgpt.tokens.use.direct' };
 const rotated = { access_token: 'access-2', refresh_token: 'refresh-2', token_type: 'Bearer', expires_in: 3600 };
 const approach = { id: '33333333-3333-4333-8333-333333333333', label: 'Hash map', idea: 'Remember seen values.', correctness: 'Each pair is checked once.', timeComplexity: 'O(n)', spaceComplexity: 'O(n)', edgeCases: 'Empty input', mistakes: '', language: 'python' };
@@ -26,7 +34,7 @@ beforeEach(async () => {
 	vi.restoreAllMocks();
 	student = await login('student');
 });
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => { vi.restoreAllMocks(); chapters.forEach((chapter, i) => { chapter.lesson = publishedLessons[i]; }); });
 
 function upstream(replies: Record<string, Reply[]>) {
 	return vi.spyOn(globalThis, 'fetch').mockImplementation(async target => {
@@ -163,10 +171,18 @@ it.each([
 	{ name: 'tutor prompt without the evaluate flag', data: {}, instructions: prompt },
 	{ name: 'evaluate prompt with the evaluate flag', data: { evaluate: true }, instructions: evaluation },
 ])('$name', async ({ data, instructions }) => {
+	const work = { notes: 'Хеш-таблица: моя заметка.', approaches: [{ ...approach, code: 'return seen' }] };
+	await env.DB.batch([
+		env.DB.prepare('UPDATE problems SET topics=? WHERE id=?').bind(JSON.stringify(['HashTable', 'Хеш-таблица', 'Array', 'Hash Table']), PROBLEM),
+		env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'draft',?,'','not_submitted','needs_practice','now','now')").bind(crypto.randomUUID(), PROBLEM, JSON.stringify(work)),
+	]);
 	const spy = upstream({ [RESPONSES]: [answer], [GRAPHQL]: [() => Response.json({ data: { question: { content: '<p>Text</p>' } } })] });
 	const response = await request('/tutor/messages', 'POST', send({ kind: 'problem', id: PROBLEM, ...data }), student);
 	expect(await events(response)).toEqual([{ delta: 'Hi' }, { done: true }]);
 	expect(sent(spy)[0].instructions).toBe(instructions);
+	expect(sent(spy)[0].input.at(-2)!.content).toContain('Topics: Hash Table, Array\n');
+	expect(sent(spy)[0].input.at(-2)!.content).toContain('Notes: Хеш-таблица: моя заметка.');
+	expect(JSON.parse((await env.DB.prepare('SELECT document FROM attempts WHERE problem_id=?').bind(PROBLEM).first<string>('document'))!)).toEqual(work);
 });
 
 it.each([
@@ -176,13 +192,14 @@ it.each([
 	{ name: 'statement fetch fails', kind: 'problem', statement: 500, includes: ['Problem: 1. Two Sum (easy)'], excludes: ['LeetCode statement'] },
 	{ name: 'paid-only statement', kind: 'problem', statement: null, includes: ['Problem: 1. Two Sum (easy)'], excludes: ['LeetCode statement'] },
 	{ name: 'Codeforces problem has no LeetCode statement', kind: 'problem', slug: 'cf-1-a', includes: ['Problem: 1. Two Sum (easy)'], excludes: ['LeetCode statement'] },
-	{ name: 'chapter of the problem after the homework', kind: 'problem', slug: 'subsets', task: true, work: [['draft', 'return seen', null]], statement: '<p>Text</p>', includes: [/Homework instructions:\nUse a hash map\.\n\nChapter: Перестановки и сочетания, глава 2\. Перебор: подмножества, перестановки, сочетания\nLesson outline:\n## 1\. Когда нужны сами варианты\n[\s\S]*\nLesson text \(sections 1-11 of 11\)\.\n[\s\S]*\n\nCurrent draft:\n/], excludes: ['К каждой футболке подходят 4 пары штанов.', 'Learning set', 'The rest is cut'] },
-	{ name: 'quote selects a chapter section', kind: 'problem', slug: 'subsets', statement: '<p>Text</p>', quote: 'Рекурсия  это функция,\nкоторая вызывает сама себя. Для дерева это удобно.', includes: [/Lesson text \(sections 4-11 of 11\)\. The rest is cut\.\n## 3\. Рекурсия простыми словами\n/], excludes: [] },
+	{ name: 'chapter of the problem after the homework', kind: 'problem', slug: 'subsets', lessons: true, task: true, work: [['draft', 'return seen', null]], statement: '<p>Text</p>', includes: [/Homework instructions:\nUse a hash map\.\n\nChapter: Permutations и Combinations, глава 2\. Backtracking: Subsets, Permutations, Combinations\nLesson outline:\n## 1\. Выбор\n## 2\. Call Stack\n\nLesson text \(sections 1-3 of 3\)\.\nBacktracking\.\n## 1\. Выбор\nДобавьте элемент\.\n## 2\. Call Stack\nCall Stack хранит незавершённые вызовы\.\n\nCurrent draft:\n/], excludes: ['Просмотрите Array.', 'Learning set', 'The rest is cut'] },
+	{ name: 'quote selects a chapter section', kind: 'problem', slug: 'subsets', lessons: true, statement: '<p>Text</p>', quote: 'Call Stack  хранит\nнезавершённые вызовы.', includes: ['Lesson text (sections 3-3 of 3). The rest is cut.\n## 2. Call Stack\nCall Stack хранит незавершённые вызовы.'], excludes: ['Добавьте элемент.'] },
 	{ name: 'problem in no chapter', kind: 'problem', statement: '<p>Text</p>', includes: ['Problem: 1. Two Sum (easy)'], excludes: ['Chapter:', 'Lesson'] },
 	{ name: 'field over its cap', kind: 'problem', work: [['draft', 'x'.repeat(13_000), null]], statement: null, includes: [/Current draft:\n[\s\S]{12000} \[cut\]\n<\/context>$/], excludes: [] },
-	{ name: 'quote selects a section', kind: 'set', quote: 'Рекурсия это функция, которая вызывает сама себя. Для дерева это удобно.', includes: ['Learning set: Перестановки и сочетания', /Lesson text \(sections 13-35 of 35\)\. The rest is cut\.\n## 3\. Рекурсия простыми словами\n/], excludes: ['К каждой футболке подходят 4 пары штанов.'] },
-	{ name: 'set without a quote', kind: 'set', includes: ['Lesson outline:\n# Глава 1. Считаем варианты\n## 1. Зачем считать до кода\n', '\n# Глава 2. Перебор: подмножества, перестановки, сочетания\n## 1. Когда нужны сами варианты\n', 'Lesson text (sections 1-35 of 35).\n', 'Chapters:\n1. Считаем варианты: Прежде чем писать перебор, посчитайте варианты. Правило произведения, правило суммы, факториал, выбор по порядку и без порядка, подмножества.\nMatching (Codeforces 1821A, easy). Codeforces, рейтинг 800. Каждый знак ? даёт 10 вариантов', '\n2. Перебор: подмножества, перестановки, сочетания: Один шаблон на Python выписывает все варианты: выбрать, пойти глубже, отменить. Индекс start даёт наборы без порядка, список used даёт перестановки.\nLetter Case Permutation (LeetCode 784, medium).'], excludes: ['The rest is cut'] },
-] as { name: string; kind: string; task?: boolean; slug?: string; work?: [string, string, string | null][]; statement?: string | number | null; quote?: string; includes: (string | RegExp)[]; excludes: string[] }[])('$name', async ({ kind, task, slug, work, statement, quote, includes, excludes }) => {
+	{ name: 'quote selects a section', kind: 'set', lessons: true, quote: 'Call Stack хранит незавершённые вызовы.', includes: ['Learning set: Permutations и Combinations', 'Lesson text (sections 4-6 of 6). The rest is cut.\n## 2. Call Stack\nCall Stack хранит незавершённые вызовы.', 'Закончите ветку.', 'Найдите следующий порядок.'], excludes: ['Просмотрите Array.', 'Добавьте элемент.'] },
+	{ name: 'set without a quote', kind: 'set', lessons: true, includes: ['Learning set: Permutations и Combinations', 'Lesson outline:\n# Глава 1. Считаем варианты\n## 1. Linear Scan\n', '\n# Глава 2. Backtracking: Subsets, Permutations, Combinations\n## 1. Выбор\n## 2. Call Stack\n', 'Lesson text (sections 1-6 of 6).\n', 'Chapters:\n1. Считаем варианты:', 'Matching (Codeforces 1821A, easy).', 'Просмотрите Array.', 'Добавьте элемент.', 'Call Stack хранит незавершённые вызовы.', 'Закончите ветку.', 'Найдите следующий порядок.'], excludes: ['The rest is cut'] },
+] as { name: string; kind: string; task?: boolean; slug?: string; lessons?: boolean; work?: [string, string, string | null][]; statement?: string | number | null; quote?: string; includes: (string | RegExp)[]; excludes: string[] }[])('$name', async ({ kind, task, slug, lessons, work, statement, quote, includes, excludes }) => {
+	if (lessons) chapters.forEach((chapter, i) => { chapter.lesson = contextLessons[i]; });
 	if (slug) await env.DB.prepare('UPDATE problems SET slug=? WHERE id=?').bind(slug, PROBLEM).run();
 	if (task) await env.DB.batch([
 		env.DB.prepare("INSERT INTO homework (id,title,instructions,due_date,created_at,updated_at) VALUES (?,'Week 41','Use a hash map.','2026-10-12','now','now')").bind(HOMEWORK),
@@ -203,8 +220,27 @@ it.each([
 });
 
 it.each([
+	{ name: 'complete published counting set', set: 'permutations-and-combinations', problem: null },
+	{ name: 'complete published pointer set', set: 'two-pointers', problem: null },
+	{ name: 'complete published queue set', set: 'heaps-and-queues', problem: null },
+	{ name: 'complete published N-Queens chapter in problem chat', set: 'permutations-and-combinations', problem: 'n-queens' },
+])('$name reaches the tutor without a quote', async ({ set, problem }) => {
+	if (problem) await env.DB.prepare('UPDATE problems SET slug=? WHERE id=?').bind(problem, PROBLEM).run();
+	const spy = upstream({ [RESPONSES]: [answer], [GRAPHQL]: problem ? [() => Response.json({ data: { question: { content: null } } })] : [] });
+	const response = await request('/tutor/messages', 'POST', send({ kind: problem ? 'problem' : 'set', id: problem ? PROBLEM : set }), student);
+	expect(await events(response)).toEqual([{ delta: 'Hi' }, { done: true }]);
+	const context = sent(spy)[0].input.at(-2)!.content;
+	const lessons = sets.find(item => item.slug === set)!.chapters.filter(chapter => !problem || chapter.tasks.some(task => task.url.endsWith(`/${problem}/`)));
+	expect(lessons).not.toHaveLength(0);
+	for (const chapter of lessons) expect(context.includes(htmlText(chapter.lesson)), chapter.title).toBe(true);
+	expect(context).not.toContain('The rest is cut.');
+});
+
+it.each([
 	{ name: 'script removed', html: '<p>a</p><script>x()</script>', expected: 'a' },
-	{ name: 'sup becomes caret', html: '10<sup>4</sup>', expected: '10^4' },
+	{ name: 'sup becomes grouped power', html: '10<sup>4</sup>', expected: '10^(4)' },
+	{ name: 'sum in an exponent stays grouped', html: '2<sup>n + 1</sup> − 1', expected: '2^(n + 1) − 1' },
+	{ name: 'difference in an exponent stays grouped', html: 'n · 2<sup>n − 1</sup>', expected: 'n · 2^(n − 1)' },
 	{ name: 'entities decoded', html: 'a &lt; b &amp;&amp; c', expected: 'a < b && c' },
 	{ name: 'heading marked', html: '<h2>Base case</h2>', expected: '## Base case' },
 	{ name: 'code indentation kept', html: '<pre>if x:\n    y</pre>', expected: 'if x:\n    y' },

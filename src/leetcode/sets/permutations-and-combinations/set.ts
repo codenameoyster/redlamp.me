@@ -10,8 +10,8 @@ import lesson4 from './chapter4.html';
 
 export default {
 	slug: 'permutations-and-combinations',
-	title: 'Перестановки и сочетания',
-	summary: 'Вы учитесь считать варианты: перестановки, сочетания и подмножества. Потом один шаблон перебора выписывает их, убирает повторы и останавливает лишние ветки.',
-	topics: ['Комбинаторика', 'Рекурсия', 'Перебор'],
+	title: 'Permutations и Combinations',
+	summary: 'Вы учитесь считать варианты: Permutations, Combinations и Subsets. Затем Backtracking строит ответы, убирает повторы и применяет Pruning. Считаем операции, рабочую память и размер ответа.',
+	topics: ['Combinatorics', 'Recursion', 'Backtracking'],
 	chapters: [{ ...chapter1, lesson: lesson1 }, { ...chapter2, lesson: lesson2 }, { ...chapter3, lesson: lesson3 }, { ...chapter4, lesson: lesson4 }],
 } satisfies LearningSetContent;

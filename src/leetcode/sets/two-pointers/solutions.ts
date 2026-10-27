@@ -4,7 +4,7 @@ import { int, ints, need, reader, str } from '../constraints';
 const sorted = (list: number[]): number[] => { need(list.every((value, index) => !index || list[index - 1] <= value)); return list; };
 
 export default {
-	// O(n): a count of the pairs checks that the answer is unique, then l and r move toward each other.
+	// Expected O(n) time and O(n) storage for uniqueness validation. Two Pointers then uses constant auxiliary state.
 	'two-sum-ii-input-array-is-sorted': { mode: 'call', solve: (numbers: unknown, target: unknown) => {
 		const a = sorted(ints(numbers, 2, 3e4, -1000, 1000)), t = int(target, -1000, 1000), seen = new Map<number, number>();
 		let pairs = 0, l = 0, r = a.length - 1;
@@ -20,7 +20,7 @@ export default {
 		while (l < r) if (!alnum(t.charCodeAt(l))) l++; else if (!alnum(t.charCodeAt(r))) r--; else if (low(t.charCodeAt(l++)) !== low(t.charCodeAt(r--))) return false;
 		return true;
 	} },
-	// O(n): a hash map keeps the numbers that wait for a pair.
+	// Expected O(n) time: a Hash Table keeps the numbers that wait for a pair.
 	'max-number-of-k-sum-pairs': { mode: 'call', solve: (nums: unknown, k: unknown) => {
 		const a = ints(nums, 1, 1e5, 1, 1e9), sum = int(k, 1, 1e9), wait = new Map<number, number>();
 		let ops = 0;
@@ -41,14 +41,14 @@ export default {
 		for (let r = p.length - 1; l <= r; r--, boats++) if (p[l] + p[r] <= lim) l++;
 		return boats;
 	} },
-	// O(n): the write pointer keeps each new value once.
+	// O(n) time and O(1) scan state. The returned prefix copy stores k output entries.
 	'remove-duplicates-from-sorted-array': { mode: 'call', solve: (nums: unknown) => {
 		const a = sorted(ints(nums, 1, 3e4, -100, 100));
 		let k = 1;
 		for (let i = 1; i < a.length; i++) if (a[i] !== a[k - 1]) a[k++] = a[i];
 		return a.slice(0, k);
 	} },
-	// O(n): the write pointer keeps the values that are not val.
+	// O(n) time and O(1) scan state. The returned prefix copy stores k output entries.
 	'remove-element': { mode: 'call', solve: (nums: unknown, val: unknown) => {
 		const a = ints(nums, 0, 100, 0, 50), v = int(val, 0, 100);
 		let k = 0;
@@ -62,7 +62,7 @@ export default {
 		for (let i = 0; i < a.length; i++) if (a[i] !== 0) a[k++] = a[i];
 		return a.fill(0, k);
 	} },
-	// O(n): keep a value when it is not equal to the value two places back in the kept prefix.
+	// O(n) time and O(1) scan state. The returned prefix copy stores k output entries.
 	'remove-duplicates-from-sorted-array-ii': { mode: 'call', solve: (nums: unknown) => {
 		const a = sorted(ints(nums, 1, 3e4, -1e4, 1e4));
 		let k = 0;
@@ -80,7 +80,7 @@ export default {
 		}
 		return a;
 	} },
-	// O(m + n): fill nums1 from the end with the larger tail value.
+	// O(m + n) time. Validation slices use O(m + n) temporary entries; the backward Merge uses O(1) auxiliary state.
 	'merge-sorted-array': { mode: 'call', solve: (nums1: unknown, m: unknown, nums2: unknown, n: unknown) => {
 		const mm = int(m, 0, 200), nn = int(n, 0, 200);
 		need(mm + nn >= 1 && mm + nn <= 200);
@@ -99,14 +99,14 @@ export default {
 		for (let j = 0; j < text.length && i < sub.length; j++) if (text[j] === sub[i]) i++;
 		return i === sub.length;
 	} },
-	// O(n + m): take one letter from each word in turn, then the rest of the longer word.
+	// O(n + m) append operations and output characters. String-copy costs depend on the engine.
 	'merge-strings-alternately': { mode: 'call', solve: (word1: unknown, word2: unknown) => {
 		const a = str(word1, /^[a-z]{1,100}$/), b = str(word2, /^[a-z]{1,100}$/);
 		let out = '';
 		for (let i = 0; i < Math.max(a.length, b.length); i++) out += (a[i] ?? '') + (b[i] ?? '');
 		return out;
 	} },
-	// O(n + m): a hash set of nums2 filters the unique values of nums1.
+	// Expected O(n + m) time: a Hash Table of nums2 filters the unique values of nums1.
 	'intersection-of-two-arrays': { mode: 'call', solve: (nums1: unknown, nums2: unknown) => {
 		const a = ints(nums1, 1, 1000, 0, 1000), b = new Set(ints(nums2, 1, 1000, 0, 1000));
 		return [...new Set(a)].filter(x => b.has(x));
@@ -142,7 +142,7 @@ export default {
 		}
 		return out;
 	} },
-	// O(n): each group of equal characters gives its character and the digits of its length.
+	// O(n) time and storage for the copied input and output. Each group gives its character and the digits of its length.
 	'string-compression': { mode: 'call', solve: (chars: unknown) => {
 		need(Array.isArray(chars) && chars.length >= 1 && chars.length <= 2000);
 		const a = chars.map(char => str(char, /^[\x20-\x7e]$/)), out: string[] = [];

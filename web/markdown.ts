@@ -106,8 +106,8 @@ export function layoutTree(root: TreeNode): { nodes: Placed[]; slot: number; wid
 const part = (label: string, items: string[]) => items.length ? ` ${label}: ${items.join(', ')}.` : '';
 
 export function diagramLabel(d: Diagram): string {
-	if (d.type === 'array') return `Массив: ${d.cells.join(', ')}.${part('Указатели', Object.entries(d.pointers ?? {}).map(([name, at]) => `${name} на ${at}`))}${part('Выделено', (d.hl ?? []).map(i => `${d.cells[i]} на ${i}`))}`;
-	if (d.type === 'grid') return `Сетка: ${plural(d.cells.length, ['строка', 'строки', 'строк'])} и ${plural(d.cells[0].length, ['столбец', 'столбца', 'столбцов'])}.${part('Выделено', (d.hl ?? []).map(([row, col]) => `строка ${row + 1} столбец ${col + 1}`))}`;
+	if (d.type === 'array') return `Array: ${d.cells.join(', ')}.${part('Указатели', Object.entries(d.pointers ?? {}).map(([name, at]) => `${name} на ${at}`))}${part('Выделено', (d.hl ?? []).map(i => `${d.cells[i]} на ${i}`))}`;
+	if (d.type === 'grid') return `Grid: ${plural(d.cells.length, ['строка', 'строки', 'строк'])} и ${plural(d.cells[0].length, ['столбец', 'столбца', 'столбцов'])}.${part('Выделено', (d.hl ?? []).map(([row, col]) => `строка ${row + 1} столбец ${col + 1}`))}`;
 	const nodes = layoutTree(d.root).nodes.map(placed => placed.node);
-	return `Дерево: ${plural(nodes.length, ['узел', 'узла', 'узлов'])}.${part('Выделено', nodes.filter(node => node.hl).map(node => node.label))}${part('Ответы', nodes.filter(node => node.kind === 'answer').map(node => node.label))}${part('Отсечено', nodes.filter(node => node.kind === 'pruned').map(node => node.label))}`;
+	return `Tree: ${plural(nodes.length, ['узел', 'узла', 'узлов'])}.${part('Выделено', nodes.filter(node => node.hl).map(node => node.label))}${part('Ответы', nodes.filter(node => node.kind === 'answer').map(node => node.label))}${part('Отсечено', nodes.filter(node => node.kind === 'pruned').map(node => node.label))}`;
 }

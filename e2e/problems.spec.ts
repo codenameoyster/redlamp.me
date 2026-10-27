@@ -1,5 +1,22 @@
 import { test, expect, signIn } from './fixtures';
 
+const topicFilters = [
+	{ name: 'legacy topic URL shows its canonical name', query: 'Arrays', input: null, canonical: 'Array' },
+	{ name: 'legacy topic submission uses the canonical query', query: '', input: 'Массивы', canonical: 'Array' },
+];
+for (const row of topicFilters) {
+	test(row.name, async ({ page, notebook }) => {
+		await page.goto(`/leetcode/problems?topic=${encodeURIComponent(row.query)}`);
+		if (row.input) {
+			await page.getByRole('textbox', { name: 'Тема', exact: true }).fill(row.input);
+			await page.getByRole('button', { name: 'Применить фильтры' }).click();
+			await expect(page).toHaveURL(`/leetcode/problems?topic=${row.canonical}`);
+		}
+		await expect(page.getByRole('textbox', { name: 'Тема', exact: true })).toHaveValue(row.canonical);
+		await expect(page.getByRole('region', { name: 'Библиотека задач' }).getByRole('link', { name: notebook.problem.title, exact: true })).toBeVisible();
+	});
+}
+
 test('adds metadata and finds the problem by its summary', async ({ page }) => {
 	await signIn(page);
 	await page.route('**/leetcode/api/problems/*/statement', route => route.fulfill({ json: { html: null, text: null } }));
