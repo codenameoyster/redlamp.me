@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import type { Page, Problem } from '../shared/leetcode';
 import { login, request } from './client';
 
 let cookie: string;
@@ -38,6 +39,101 @@ it('returns the existing problem for a duplicate URL', async () => {
 	expect(second.status).toBe(200);
 	expect(await second.json()).toEqual(first);
 	expect(await env.DB.prepare('SELECT count(*) AS count FROM problems').first()).toEqual({ count: 1 });
+});
+
+it.each([
+	{ name: 'manual aliases', slug: 'two-sum', values: ['HashTable', 'Хеш-таблица', 'Массивы'], expected: ['Hash Table', 'Array'] },
+	{ name: 'Backtracking context', slug: 'subsets', values: ['Перебор', 'Backtracking'], expected: ['Backtracking'] },
+	{ name: 'Dynamic Programming context', slug: 'unique-paths', values: ['Таблица', 'Сочетания'], expected: ['Dynamic Programming', 'Combinations'] },
+	{ name: 'new English topic', slug: 'custom-problem', values: ['Custom Technique'], expected: ['Custom Technique'] },
+])('stores canonical topics for $name', async ({ slug, values, expected }) => {
+	const response = await request('/problems', 'POST', { ...input, url: `https://leetcode.com/problems/${slug}/`, topics: values }, cookie);
+	expect(response.status).toBe(201);
+	const problem = await response.json() as Problem;
+	expect(problem.topics).toEqual(expected);
+	expect(await env.DB.prepare('SELECT topics,search_text FROM problems WHERE id=?').bind(problem.id).first()).toEqual({ topics: JSON.stringify(expected), search_text: `two sum 1 ${expected.join(' ').toLowerCase()} ` });
+});
+
+it('normalizes a metadata edit and preserves saved work and progress', async () => {
+	const problem = await (await request('/problems', 'POST', input, cookie)).json() as Problem;
+	const summary = 'Моя Хеш-таблица', document = JSON.stringify({ notes: 'Перебор и Таблица', approaches: [] });
+	await env.DB.batch([
+		env.DB.prepare("UPDATE problems SET topics='[\"Хеш-таблица\"]',summary=?,progress_version=7,understanding='with_help',next_review_date='2026-11-01' WHERE id=?").bind(summary, problem.id),
+		env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'saved',?,'перебор и таблица','accepted','with_help','now','now')").bind(crypto.randomUUID(), problem.id, document),
+		env.DB.prepare("INSERT INTO reviews (id,problem_id,result,note,reviewed_on,created_at) VALUES (?,?,'with_help','Таблица','2026-10-27','now')").bind(crypto.randomUUID(), problem.id),
+	]);
+	await addTask(problem.id, 'completed');
+	const attempts = (await env.DB.prepare('SELECT * FROM attempts').all()).results, reviews = (await env.DB.prepare('SELECT * FROM reviews').all()).results, tasks = (await env.DB.prepare('SELECT * FROM homework_tasks').all()).results;
+	const response = await request(`/problems/${problem.id}`, 'PATCH', { ...input, topics: ['HashTable', 'Массив', 'Хеш-таблица'], summary, version: 1 }, cookie);
+	expect(response.status).toBe(200);
+	expect(await response.json()).toMatchObject({ id: problem.id, slug: 'two-sum', number: 1, version: 2, progressVersion: 7, solved: true, understanding: 'with_help', nextReviewDate: '2026-11-01', createdAt: problem.createdAt, summary, topics: ['Hash Table', 'Array'] });
+	expect(await env.DB.prepare('SELECT topics,search_text FROM problems WHERE id=?').bind(problem.id).first()).toEqual({ topics: '["Hash Table","Array"]', search_text: 'two sum 1 hash table array моя хеш-таблица' });
+	expect((await env.DB.prepare('SELECT * FROM attempts').all()).results).toEqual(attempts);
+	expect((await env.DB.prepare('SELECT * FROM reviews').all()).results).toEqual(reviews);
+	expect((await env.DB.prepare('SELECT * FROM homework_tasks').all()).results).toEqual(tasks);
+});
+
+it.each([
+	{ name: 'single problem read', action: 'read', version: 1, archived: false },
+	{ name: 'library read', action: 'list', version: 1, archived: false },
+	{ name: 'duplicate URL', action: 'duplicate', version: 1, archived: false },
+	{ name: 'archive response', action: 'archive', version: 2, archived: false },
+	{ name: 'restore response', action: 'restore', version: 2, archived: true },
+])('normalizes legacy topics in $name', async ({ action, version, archived }) => {
+	const problem = await (await request('/problems', 'POST', input, cookie)).json() as Problem;
+	const stored = '["HashTable","Хеш-таблица","Hash Table","Особая тема"]';
+	await env.DB.prepare("UPDATE problems SET topics=?,summary='Мои заметки',progress_version=8,understanding='independent',next_review_date='2026-11-01',archived_at=? WHERE id=?").bind(stored, archived ? 'now' : null, problem.id).run();
+	const path = `/problems/${problem.id}`;
+	const response = action === 'list' ? await request('/problems', 'GET', undefined, cookie) : action === 'duplicate' ? await request('/problems', 'POST', input, cookie) : action === 'read' ? await request(path, 'GET', undefined, cookie) : await request(`${path}/${action}`, 'POST', { version: 1 }, cookie);
+	expect(response.status).toBe(200);
+	const body = await response.json();
+	expect(action === 'list' ? (body as Page<Problem>).items[0] : body).toMatchObject({ id: problem.id, slug: 'two-sum', version, progressVersion: 8, understanding: 'independent', nextReviewDate: '2026-11-01', createdAt: problem.createdAt, summary: 'Мои заметки', topics: ['Hash Table', 'Особая тема'] });
+	expect(await env.DB.prepare('SELECT topics FROM problems WHERE id=?').bind(problem.id).first()).toEqual({ topics: stored });
+});
+
+it.each([
+	{ name: 'POST rejects a new non-English topic', method: 'POST', query: '', values: ['Особая тема'] },
+	{ name: 'PATCH rejects a new non-English topic', method: 'PATCH', query: '', values: ['Особая тема'] },
+	{ name: 'topic filter needs unambiguous context', method: 'GET', query: `?${new URLSearchParams({ topic: 'Перебор' })}`, values: [] },
+])('$name', async ({ method, query, values }) => {
+	const problem = await (await request('/problems', 'POST', input, cookie)).json() as Problem;
+	const response = await request(`/problems${method === 'PATCH' ? `/${problem.id}` : query}`, method, method === 'GET' ? undefined : { ...input, topics: values, ...(method === 'PATCH' ? { version: 1 } : {}) }, cookie);
+	expect(response.status).toBe(400);
+	expect(await response.json()).toMatchObject({ error: { code: 'invalid_input', message: 'Укажите название темы на английском языке.' } });
+});
+
+it.each<{ name: string; query: Record<string, string>; slugs: string[]; nextOffset: number | null }>([
+	{ name: 'canonical topic on the first page', query: { topic: 'Hash Table', limit: '1' }, slugs: ['legacy-first'], nextOffset: 1 },
+	{ name: 'Russian alias on the second page', query: { topic: 'Хеш-таблица', limit: '1', offset: '1' }, slugs: ['mixed'], nextOffset: 2 },
+	{ name: 'compact alias on the last page', query: { topic: 'HashTable', limit: '2', offset: '2' }, slugs: ['canonical', 'legacy-last'], nextOffset: null },
+	{ name: 'topic case and whitespace', query: { topic: ' hash  TABLE ' }, slugs: ['legacy-first', 'mixed', 'canonical', 'legacy-last'], nextOffset: null },
+	{ name: 'canonical text finds legacy metadata', query: { q: 'HASH TABLE', limit: '1' }, slugs: ['legacy-first'], nextOffset: 1 },
+	{ name: 'canonical text on the last page', query: { q: 'Hash Table', limit: '1', offset: '3' }, slugs: ['legacy-last'], nextOffset: null },
+	{ name: 'raw metadata text stays searchable', query: { q: 'HashTable' }, slugs: ['legacy-first', 'mixed'], nextOffset: null },
+	{ name: 'topic and scalar filters before pagination', query: { topic: 'HashTable', difficulty: 'medium', understanding: 'independent', due: '2026-10-27', limit: '1', offset: '1' }, slugs: ['legacy-last'], nextOffset: null },
+	{ name: 'literal attempt text and topic filter', query: { topic: 'Hash Table', q: 'МОЯ ХЕШ-ТАБЛИЦА 100%_READY' }, slugs: ['legacy-last'], nextOffset: null },
+	{ name: 'canonical metadata respects topic filter', query: { topic: 'Array', q: 'Hash Table' }, slugs: [], nextOffset: null },
+	{ name: 'archived canonical text', query: { archived: '1', q: 'Hash Table' }, slugs: ['archived'], nextOffset: null },
+])('filters $name', async ({ query, slugs, nextOffset }) => {
+	const rows = [
+		{ name: 'last legacy match', slug: 'legacy-last', topics: ['Хеш-таблица'], date: '2026-10-01', difficulty: 'medium', understanding: 'independent', archived: null },
+		{ name: 'canonical match', slug: 'canonical', topics: ['Hash Table'], date: '2026-10-02', difficulty: 'easy', understanding: 'independent', archived: null },
+		{ name: 'several aliases on one problem', slug: 'mixed', topics: ['HashTable', 'Хеш-таблица', 'Hash Table'], date: '2026-10-03', difficulty: 'medium', understanding: 'with_help', archived: null },
+		{ name: 'first legacy match', slug: 'legacy-first', topics: ['HashTable'], date: '2026-10-04', difficulty: 'medium', understanding: 'independent', archived: null },
+		{ name: 'newer unrelated problem', slug: 'unrelated', topics: ['Array'], date: '2026-10-05', difficulty: 'medium', understanding: 'independent', archived: null },
+		{ name: 'archived legacy match', slug: 'archived', topics: ['Хеш-таблица'], date: '2026-10-06', difficulty: 'medium', understanding: 'independent', archived: 'now' },
+	];
+	for (const row of rows) {
+		const id = crypto.randomUUID();
+		await env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,understanding,next_review_date,archived_at,created_at,updated_at) VALUES (?,?,?, ?,?,'',?,?,'2026-10-20',?,'now',?)").bind(id, row.slug, row.name, row.difficulty, JSON.stringify(row.topics), row.topics.join(' ').toLowerCase(), row.understanding, row.archived, row.date).run();
+		if (row.slug === 'legacy-last' || row.slug === 'unrelated') await env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'draft','{}',?,'not_submitted','needs_practice','now','now')").bind(crypto.randomUUID(), id, row.slug === 'legacy-last' ? 'моя хеш-таблица 100%_ready' : 'моя хеш-таблица 100xready').run();
+	}
+	const response = await request(`/problems?${new URLSearchParams(query)}`, 'GET', undefined, cookie);
+	expect(response.status).toBe(200);
+	const body = await response.json() as Page<Problem>;
+	expect(body.items.map(problem => problem.slug)).toEqual(slugs);
+	expect(body.nextOffset).toBe(nextOffset);
+	expect(body.items.every(problem => problem.topics.length === 1 && problem.topics[0] === 'Hash Table')).toBe(true);
 });
 
 it('finds Unicode notes as literal text', async () => {
@@ -157,6 +253,7 @@ const question = { questionFrontendId: '1', title: 'Two Sum', difficulty: 'Easy'
 it.each([
 	{ name: 'details from a description link', url: 'https://leetcode.com/problems/two-sum/description/', reply: () => Response.json({ data: { question } }), status: 200, body: { number: 1, title: 'Two Sum', difficulty: 'easy', topics: ['Array', 'Hash Table'] }, slug: 'two-sum' },
 	{ name: 'details without a numeric problem ID', url: 'https://leetcode.com/problems/two-sum/', reply: () => Response.json({ data: { question: { ...question, questionFrontendId: 'LCP 01' } } }), status: 200, body: { number: null, title: 'Two Sum' }, slug: 'two-sum' },
+	{ name: 'details normalize aliases and retain new English topics', url: 'https://leetcode.com/problems/two-sum/', reply: () => Response.json({ data: { question: { ...question, topicTags: [{ name: 'HashTable' }, { name: 'Хеш-таблица' }, { name: 'Arrays' }, { name: 'Custom Technique' }] } } }), status: 200, body: { topics: ['Hash Table', 'Array', 'Custom Technique'] }, slug: 'two-sum' },
 	{ name: 'unknown LeetCode problem', url: 'https://leetcode.com/problems/two-sum/', reply: () => Response.json({ data: { question: null } }), status: 404, body: { error: { code: 'not_found' } }, slug: 'two-sum' },
 	{ name: 'LeetCode error response', url: 'https://leetcode.com/problems/two-sum/', reply: () => new Response('Busy', { status: 503 }), status: 502, body: { error: { code: 'lookup_failed' } }, slug: 'two-sum' },
 	{ name: 'unreachable LeetCode', url: 'https://leetcode.com/problems/two-sum/', reply: () => { throw new TypeError('Network connection lost.'); }, status: 502, body: { error: { code: 'lookup_failed' } }, slug: 'two-sum' },

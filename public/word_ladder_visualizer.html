@@ -1,60 +1,96 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Word Ladder Graph</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Ladder: Graph и BFS</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@300;400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="dev_tool_style.css">
+<style>
+  :root { --muted: #aaaac4; }
+  header { flex-wrap: wrap; }
+  header h1 { color: #b8b0f7; }
+  .main { flex: none; }
+  .canvas-wrap { min-width: 0; min-height: 560px; }
+  canvas { position: absolute; inset: 0; }
+  input { min-width: 0; }
+  .examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .section-label { text-transform: none; letter-spacing: normal; font-size: 0.85rem; }
+  .chip .remove { padding: 2px 4px; background: transparent; font-size: 0.85rem; }
+  :focus-visible { outline: 2px solid var(--accent2); outline-offset: 3px; }
+  .learning { width: 100%; max-width: 1120px; margin: 0 auto; padding: 28px 32px 48px; line-height: 1.65; }
+  .learning h2 { font-size: 1.3rem; }
+  .learning h3 { font-size: 1.05rem; margin-bottom: 12px; }
+  .learning p { margin: 12px 0; }
+  .learning code { font-family: 'JetBrains Mono', monospace; font-size: 0.88em; overflow-wrap: anywhere; }
+  .stages { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 36px; margin: 24px 0; }
+  .stage { min-width: 0; border-top: 1px solid var(--border); padding-top: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  caption { text-align: left; color: var(--muted); padding: 8px 0; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; }
+  th { font-weight: 400; }
+  td { text-align: right; font-family: 'JetBrains Mono', monospace; }
+  summary { cursor: pointer; color: var(--accent2); }
+  @media (max-width: 700px) {
+    header { padding: 20px; }
+    .main { flex-direction: column; }
+    .sidebar { width: 100%; min-width: 0; border-right: 0; }
+    .canvas-wrap { flex: none; min-height: 380px; border-block: 1px solid var(--border); }
+    .learning { padding: 24px 20px; }
+    .stages { grid-template-columns: 1fr; }
+    .hint { right: 12px; font-size: 0.65rem; }
+  }
+</style>
 </head>
 <body>
 
 <header>
-  <h1>// word_ladder_graph</h1>
-  <span>BFS visualizer — nodes = words, edges = differ by 1 letter</span>
+  <h1>Word Ladder</h1>
+  <span>Graph: вершины обозначают слова, рёбра соединяют слова с одной разной буквой</span>
 </header>
 
 <div class="main">
   <div class="sidebar">
 
     <div>
-      <div class="section-label">Word List</div>
+      <div class="section-label">Список слов</div>
       <div class="word-chips" id="chips"></div>
       <div style="margin-top:10px" class="add-word">
-        <input type="text" id="newWord" placeholder="add word..." maxlength="12" />
-        <button onclick="addWord()">+</button>
+        <input type="text" id="newWord" aria-label="Новое слово" placeholder="Введите слово" maxlength="12" />
+        <button onclick="addWord()" aria-label="Добавить слово">+</button>
       </div>
-      <div style="margin-top:8px;display:flex;gap:6px">
-        <button class="secondary" onclick="loadExample('short')">example (short)</button>
-        <button class="secondary" onclick="loadExample('long')">longer</button>
+      <div class="examples">
+        <button class="secondary" onclick="loadExample('short')">Короткий набор</button>
+        <button class="secondary" onclick="loadExample('long')">Длинный набор</button>
       </div>
     </div>
 
     <hr class="divider">
 
     <div class="bfs-section">
-      <div class="section-label">BFS Path</div>
+      <div class="section-label">Путь BFS</div>
       <div class="field-row">
-        <label>begin word</label>
+        <label for="beginWord">Начальное слово</label>
         <input type="text" id="beginWord" placeholder="hit" maxlength="12" />
       </div>
       <div class="field-row">
-        <label>end word</label>
+        <label for="endWord">Конечное слово</label>
         <input type="text" id="endWord" placeholder="cog" maxlength="12" />
       </div>
-      <button class="run-btn" onclick="runBFS()">▶ Run BFS</button>
-      <button class="secondary" onclick="clearBFS()">✕ Clear path</button>
-      <div class="result-box" id="resultBox">path will appear here</div>
+      <button class="run-btn" onclick="runBFS()">▶ Запустить BFS</button>
+      <button class="secondary" onclick="clearBFS()">✕ Убрать путь</button>
+      <div class="result-box" id="resultBox" role="status">Здесь появится путь</div>
     </div>
 
     <hr class="divider">
 
     <div>
-      <div class="section-label">Legend</div>
+      <div class="section-label">Обозначения</div>
       <div class="legend">
-        <div class="legend-item"><div class="legend-dot" style="background:#3a3a5c;border:2px solid #6060a0"></div> regular node</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#1e3a2e;border:2px solid #5cf7a2"></div> begin / end</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#2a1e3a;border:2px solid #7c6af7"></div> on BFS path</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#2a1e1e;border:2px solid #f75c7c"></div> visited (not on path)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3a3a5c;border:2px solid #6060a0"></div> Обычная вершина</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#1e3a2e;border:2px solid #5cf7a2"></div> Начало / конец пути</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#2a1e3a;border:2px solid #7c6af7"></div> Внутри пути BFS</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#2a1e1e;border:2px solid #f75c7c"></div> Обнаружена, вне пути</div>
       </div>
     </div>
 
@@ -63,12 +99,51 @@
   <div class="canvas-wrap">
     <div class="empty-state" id="emptyState">
       <div class="big">⬡</div>
-      <p>Add words to build the graph.<br>Words connected by a single letter change<br>will be linked by an edge.</p>
+      <p>Добавьте слова для построения Graph.<br>Одно ребро означает замену одной буквы.</p>
     </div>
-    <canvas id="c"></canvas>
-    <div class="hint">drag to pan · scroll to zoom</div>
+    <canvas id="c" role="img" aria-label="Graph для Word Ladder. Найденный путь указан в результате BFS."></canvas>
+    <div class="hint">Перетаскивание: сдвиг. Колесо: масштаб.</div>
   </div>
 </div>
+
+<section class="learning" aria-labelledby="costTitle">
+  <h2 id="costTitle">Что стоит каждый этап</h2>
+  <p><code>V</code> - число слов; <code>E</code> - число неориентированных рёбер; <code>L</code> - длина слова. Код считает позиции UTF-16: для латиницы это число букв. <code>D</code> - число слов в самом длинном пути, добавленном в Queue; <code>P</code> - число слов в ответе, или 0, если пути нет.</p>
+  <p>Дополнительная память означает максимум одновременно хранимых рабочих данных, без входа и ответа. Оценки BFS и рисования считают сравнение коротких слов и доступ по ключу за <code>O(1)</code>. Счётчики показывают операции, а не время в миллисекундах.</p>
+  <div class="stages">
+    <section class="stage">
+      <h3>Построение Graph</h3>
+      <p>Каждая пара слов проверяется один раз. Код сравнивает все <code>L</code> позиций: <code>V(V−1)/2 × L</code> проверок, время <code>Θ(V²L)</code>. В Adjacency List каждое ребро записано дважды: <code>2E</code> ссылок. Дополнительная память: <code>O(V+E)</code>. Текст входных слов занимает <code>Θ(VL)</code>.</p>
+      <table id="graphCounts"><caption>Текущий набор</caption><tbody></tbody></table>
+      <p>Короткий набор: <code>7×6/2 = 21</code> пара, <code>21×3 = 63</code> проверки. Длинный: <code>20×19/2 = 190</code> пар, <code>190×3 = 570</code> проверок.</p>
+    </section>
+    <section class="stage">
+      <h3>Breadth-First Search (BFS)</h3>
+      <p>Queue обрабатывает пути по числу рёбер. Поэтому первый найденный путь кратчайший. Вершина отмечается при добавлении и попадает в Queue не больше одного раза. Здесь Queue хранит целые пути: <code>[...path, nb]</code> копирует префикс, всего до <code>O(VD)</code> ссылок.</p>
+      <p><code>shift()</code> удаляет первый элемент Array. В модели со сдвигом остальных ссылок это до <code>O(V²)</code> работы за поиск. Браузер может оптимизировать сдвиги. Общая верхняя оценка текущего BFS: <code>O(V+E+VD+V²)</code> времени, <code>O(VD)</code> дополнительной памяти. Ответ занимает <code>O(P)</code> ссылок.</p>
+      <table id="bfsCounts"><caption id="bfsCaption">Последний поиск</caption><tbody></tbody></table>
+      <p>В коротком наборе для <code>hit → cog</code> копируются <code>1+2+2+3+3+4 = 15</code> ссылок на слова. Ещё 6 соседей записываются в концы новых путей. Пиковый счётчик учитывает только пути в Queue, без текущего извлечённого пути и множества обнаруженных слов.</p>
+    </section>
+    <section class="stage">
+      <h3>Force-Directed Layout</h3>
+      <p>Расстановка вершин выполняется отдельно от BFS. Каждый из 300 раундов обрабатывает все пары, <code>2E</code> записей Adjacency List и <code>V</code> координат: <code>O(300×(V²+E+V))</code> времени. Силы и координаты текущих вершин занимают <code>O(V)</code> дополнительной памяти.</p>
+      <table id="layoutCounts"><caption>Последняя расстановка</caption><tbody></tbody></table>
+      <p>Для короткого набора: <code>300×21 = 6300</code> пар и <code>300×18 = 5400</code> посещений соседей. Для длинного: <code>57000</code> и <code>21600</code>. Добавление и удаление слов запускают построение Graph и расстановку заново. Объект <code>positions</code> сохраняет также старые ключи слов до пустого набора: эта память зависит от истории изменений.</p>
+    </section>
+    <section class="stage">
+      <h3>Рисование</h3>
+      <p>Для каждого ребра <code>some()</code> ищет его в пути за <code>O(P)</code>. Номера на вершинах ищутся через <code>indexOf()</code>: суммарно <code>1+2+…+P</code> позиций. Итого <code>O(E×(P+1)+V+P²)</code> работы с данными за одно рисование, плюс работа Canvas. Размер текста и пикселей также влияет на вывод.</p>
+      <p>Множество слов пути занимает <code>O(P)</code> дополнительной памяти. Сам Canvas хранит пиксели отдельно от BFS. При <code>P=5</code> поиск номеров просматривает <code>1+2+3+4+5 = 15</code> позиций. Сдвиг и масштаб повторяют только рисование.</p>
+      <table id="drawCounts"><caption>Последнее рисование</caption><tbody></tbody></table>
+    </section>
+  </div>
+  <details>
+    <summary>Как уменьшить работу</summary>
+    <p><strong>Построение Graph:</strong> можно прекратить сравнение пары после второго различия. Худший случай остаётся <code>O(V²L)</code>. Другой способ меняет каждую букву и ищет результат в Hash Table. Для алфавита из <code>A</code> букв это <code>V×L×(A−1)</code> кандидатов. Копирование и хеширование каждого слова стоят до <code>O(L)</code>, поэтому простая реализация даёт ожидаемое <code>O(VAL²)</code> времени. Хранение Graph по-прежнему требует <code>O(V+E)</code>.</p>
+    <p><strong>BFS:</strong> Queue из вершин с индексом головы убирает сдвиги, а один предшественник на вершину убирает копии путей. При доступе по ключу за <code>O(1)</code> поиск занимает <code>O(V+E)</code> времени и <code>O(V)</code> дополнительной памяти. Восстановление одного ответа требует ещё <code>O(P)</code> времени и памяти. Эти оценки относятся к поиску в уже построенном Graph.</p>
+    <p><strong>Расстановка:</strong> круговая расстановка требует <code>O(V)</code> времени и координат, но не раздвигает близкие вершины. <strong>Рисование:</strong> таблицы рёбер пути и номеров вершин требуют <code>O(P)</code> подготовки и памяти. Тогда проверки принадлежности при рисовании занимают ожидаемое <code>O(V+E)</code> времени.</p>
+  </details>
+</section>
 
 <script>
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -77,6 +152,10 @@ let graph = {};        // word → [neighbors]
 let positions = {};    // word → {x, y}
 let bfsPath = [];      // ordered path from BFS
 let bfsVisited = new Set();
+let graphCounts = { pairs: 0, characters: 0, edges: 0 };
+let layoutCounts = { rounds: 0, pairs: 0, neighbors: 0, updates: 0 };
+let bfsCounts = null;
+let drawCounts = { edges: 0, vertices: 0, pathTests: 0 };
 
 // Canvas pan/zoom
 let offsetX = 0, offsetY = 0, scale = 1;
@@ -89,24 +168,32 @@ const ctx = canvas.getContext('2d');
 function diffByOne(a, b) {
   if (a.length !== b.length) return false;
   let diff = 0;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) diff++;
+  for (let i = 0; i < a.length; i++) {
+    graphCounts.characters++;
+    if (a[i] !== b[i]) diff++;
+  }
   return diff === 1;
 }
 
 function buildGraph() {
   graph = {};
+  graphCounts = { pairs: 0, characters: 0, edges: 0 };
   for (const w of words) graph[w] = [];
   for (let i = 0; i < words.length; i++)
-    for (let j = i+1; j < words.length; j++)
+    for (let j = i+1; j < words.length; j++) {
+      graphCounts.pairs++;
       if (diffByOne(words[i], words[j])) {
+        graphCounts.edges++;
         graph[words[i]].push(words[j]);
         graph[words[j]].push(words[i]);
       }
+    }
 }
 
 // Force-directed layout (simple spring model)
 function layoutGraph() {
   const n = words.length;
+  layoutCounts = { rounds: 0, pairs: 0, neighbors: 0, updates: 0 };
   if (n === 0) { positions = {}; return; }
 
   // Init in a circle
@@ -118,12 +205,14 @@ function layoutGraph() {
 
   // Iterate
   for (let iter = 0; iter < 300; iter++) {
+    layoutCounts.rounds++;
     const forces = {};
     words.forEach(w => forces[w] = {x:0, y:0});
 
     // Repulsion between all pairs
     for (let i = 0; i < words.length; i++) {
       for (let j = i+1; j < words.length; j++) {
+        layoutCounts.pairs++;
         const a = words[i], b = words[j];
         let dx = positions[b].x - positions[a].x;
         let dy = positions[b].y - positions[a].y;
@@ -139,6 +228,7 @@ function layoutGraph() {
     // Attraction along edges
     for (const a of words) {
       for (const b of graph[a]) {
+        layoutCounts.neighbors++;
         let dx = positions[b].x - positions[a].x;
         let dy = positions[b].y - positions[a].y;
         let dist = Math.sqrt(dx*dx + dy*dy) || 0.1;
@@ -150,6 +240,7 @@ function layoutGraph() {
 
     const damping = 0.85;
     words.forEach(w => {
+      layoutCounts.updates++;
       positions[w].x += forces[w].x * damping;
       positions[w].y += forces[w].y * damping;
     });
@@ -161,18 +252,29 @@ function bfs(start, end) {
   if (!graph[start] || !graph[end]) return null;
   const queue = [[start]];
   const visited = new Set([start]);
+  const counts = { removed: 0, neighbors: 0, copied: 0, shifts: 0, peakPaths: 1, peakEntries: 1, depth: 1 };
+  let queuedEntries = 1;
   while (queue.length) {
+    counts.shifts += queue.length - 1;
     const path = queue.shift();
+    counts.removed++;
+    queuedEntries -= path.length;
     const node = path[path.length - 1];
-    if (node === end) return { path, visited };
+    if (node === end) return { path, visited, counts };
     for (const nb of (graph[node] || [])) {
+      counts.neighbors++;
       if (!visited.has(nb)) {
         visited.add(nb);
         queue.push([...path, nb]);
+        counts.copied += path.length;
+        queuedEntries += path.length + 1;
+        counts.peakPaths = Math.max(counts.peakPaths, queue.length);
+        counts.peakEntries = Math.max(counts.peakEntries, queuedEntries);
+        counts.depth = Math.max(counts.depth, path.length + 1);
       }
     }
   }
-  return { path: null, visited };
+  return { path: null, visited, counts };
 }
 
 function runBFS() {
@@ -181,15 +283,17 @@ function runBFS() {
   const box   = document.getElementById('resultBox');
 
   if (!words.includes(begin) || !words.includes(end)) {
-    box.innerHTML = `<span class="result-none">Words must be in the word list.</span>`;
+    box.innerHTML = `<span class="result-none">Оба слова должны быть в списке.</span>`;
+    bfsCounts = null;
     bfsPath = []; bfsVisited = new Set(); draw(); return;
   }
 
   const result = bfs(begin, end);
   bfsVisited = result.visited;
+  bfsCounts = result.counts;
 
   if (!result.path) {
-    box.innerHTML = `<span class="result-none">No path found (disconnected graph)</span>`;
+    box.innerHTML = `<span class="result-none">Путь не найден: слова в разных компонентах Graph.</span>`;
     bfsPath = [];
   } else {
     bfsPath = result.path;
@@ -197,15 +301,28 @@ function runBFS() {
       i < result.path.length-1
         ? `<span class="path-step">${w}</span> <span class="path-arrow">→</span> `
         : `<span class="path-step">${w}</span>`
-    ).join('') + `<br><span style="color:var(--muted)">length: ${result.path.length}</span>`;
+    ).join('') + `<br><span style="color:var(--muted)">Слов в пути: ${result.path.length}; замен букв: ${result.path.length - 1}</span>`;
   }
   draw();
 }
 
 function clearBFS() {
   bfsPath = []; bfsVisited = new Set();
-  document.getElementById('resultBox').textContent = 'path will appear here';
+  bfsCounts = null;
+  document.getElementById('resultBox').textContent = 'Здесь появится путь';
   draw();
+}
+
+function showCounts(id, rows) {
+  document.querySelector(`#${id} tbody`).innerHTML = rows.map(([label, value]) => `<tr><th scope="row">${label}</th><td>${value}</td></tr>`).join('');
+}
+
+function renderCounts() {
+  showCounts('graphCounts', [['Слова V', words.length], ['Рёбра E', graphCounts.edges], ['Длина L', words[0]?.length || 0], ['Пары слов', graphCounts.pairs], ['Сравнения позиций', graphCounts.characters], ['Ссылки в Adjacency List', 2 * graphCounts.edges]]);
+  showCounts('layoutCounts', [['Раунды', layoutCounts.rounds], ['Посещения пар', layoutCounts.pairs], ['Посещения соседей', layoutCounts.neighbors], ['Обновления координат', layoutCounts.updates]]);
+  document.getElementById('bfsCaption').textContent = bfsCounts ? 'Последний поиск' : 'Запустите BFS для текущего набора';
+  showCounts('bfsCounts', bfsCounts ? [['Извлечения из Queue', bfsCounts.removed], ['Просмотры соседей', bfsCounts.neighbors], ['Копии ссылок префикса', bfsCounts.copied], ['Сдвиги ссылок Queue (модель)', bfsCounts.shifts], ['Пик путей в Queue', bfsCounts.peakPaths], ['Пик ссылок на слова в Queue', bfsCounts.peakEntries], ['Самый длинный путь D', bfsCounts.depth], ['Слова в ответе P', bfsPath.length]] : []);
+  showCounts('drawCounts', [['Нарисовано рёбер', drawCounts.edges], ['Нарисовано вершин', drawCounts.vertices], ['Проверки позиций в some()', drawCounts.pathTests]]);
 }
 
 // ─── Drawing ──────────────────────────────────────────────────────────────────
@@ -215,7 +332,8 @@ function draw() {
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
 
-  if (words.length === 0) return;
+  drawCounts = { edges: 0, vertices: 0, pathTests: 0 };
+  if (words.length === 0) { renderCounts(); return; }
 
   ctx.save();
   ctx.translate(W/2 + offsetX, H/2 + offsetY);
@@ -227,17 +345,20 @@ function draw() {
   for (const a of words) {
     for (const b of graph[a]) {
       if (a < b) {
-        const onPath = bfsPath.length > 1 && bfsPath.some((w,i) =>
-          i < bfsPath.length-1 && ((bfsPath[i]===a && bfsPath[i+1]===b)||(bfsPath[i]===b && bfsPath[i+1]===a)));
+        drawCounts.edges++;
+        const onPath = bfsPath.length > 1 && bfsPath.some((w,i) => {
+          drawCounts.pathTests++;
+          return i < bfsPath.length-1 && ((bfsPath[i]===a && bfsPath[i+1]===b)||(bfsPath[i]===b && bfsPath[i+1]===a));
+        });
         ctx.beginPath();
         ctx.moveTo(positions[a].x, positions[a].y);
         ctx.lineTo(positions[b].x, positions[b].y);
         if (onPath) {
           ctx.strokeStyle = '#7c6af7';
-          ctx.lineWidth = 2.5;
+          ctx.lineWidth = Math.max(2.5, 2 / scale);
         } else {
-          ctx.strokeStyle = '#2a2a40';
-          ctx.lineWidth = 1;
+          ctx.strokeStyle = '#606080';
+          ctx.lineWidth = Math.max(1, 1 / scale);
         }
         ctx.stroke();
       }
@@ -246,6 +367,7 @@ function draw() {
 
   // Draw nodes
   for (const w of words) {
+    drawCounts.vertices++;
     const {x, y} = positions[w];
     const isBegin = bfsPath[0] === w;
     const isEnd   = bfsPath[bfsPath.length-1] === w && bfsPath.length > 1;
@@ -267,13 +389,13 @@ function draw() {
     if (isBegin || isEnd) ctx.strokeStyle = '#5cf7a2';
     else if (onPath)      ctx.strokeStyle = '#7c6af7';
     else if (visited)     ctx.strokeStyle = '#f75c7c';
-    else                  ctx.strokeStyle = '#3a3a5c';
-    ctx.lineWidth = isBegin||isEnd ? 2.5 : onPath ? 2 : 1.5;
+    else                  ctx.strokeStyle = '#6060a0';
+    ctx.lineWidth = Math.max(1 / scale, isBegin||isEnd ? 2.5 : onPath ? 2 : 1.5);
     ctx.stroke();
 
     // Label
     ctx.fillStyle = isBegin||isEnd ? '#5cf7a2' : onPath ? '#b8b0f7' : '#c0c0d8';
-    ctx.font = `600 ${Math.max(9, 13 - w.length)}px JetBrains Mono, monospace`;
+    ctx.font = `600 ${Math.max(9 / scale, 13 - w.length)}px JetBrains Mono, monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(w, x, y);
@@ -288,15 +410,17 @@ function draw() {
   }
 
   ctx.restore();
+  renderCounts();
 }
 
 // ─── Canvas resize ────────────────────────────────────────────────────────────
 function resize() {
   canvas.width = canvas.offsetWidth;
   canvas.height = canvas.offsetHeight;
+  resetView();
   draw();
 }
-window.addEventListener('resize', resize);
+new ResizeObserver(resize).observe(canvas.parentElement);
 
 // ─── Pan & Zoom ───────────────────────────────────────────────────────────────
 canvas.addEventListener('mousedown', e => {
@@ -326,7 +450,13 @@ function renderChips() {
   for (const w of words) {
     const chip = document.createElement('div');
     chip.className = 'chip';
-    chip.innerHTML = `${w}<span class="remove" onclick="removeWord('${w}')">✕</span>`;
+    chip.textContent = w;
+    const remove = document.createElement('button');
+    remove.className = 'remove';
+    remove.textContent = '✕';
+    remove.setAttribute('aria-label', `Удалить ${w}`);
+    remove.onclick = () => removeWord(w);
+    chip.appendChild(remove);
     container.appendChild(chip);
   }
   document.getElementById('emptyState').style.display = words.length ? 'none' : 'block';
@@ -340,7 +470,7 @@ function addWord() {
   if (words.length && w.length !== words[0].length) {
     input.value = '';
     document.getElementById('resultBox').innerHTML =
-      `<span class="result-none">All words must have the same length (${words[0].length} letters)</span>`;
+      `<span class="result-none">Все слова должны иметь одинаковую длину: ${words[0].length}.</span>`;
     return;
   }
   words.push(w);
@@ -350,8 +480,6 @@ function addWord() {
 
 function removeWord(w) {
   words = words.filter(x => x !== w);
-  bfsPath = bfsPath.filter(x => x !== w);
-  bfsVisited.delete(w);
   refresh();
 }
 
@@ -360,11 +488,21 @@ function refresh() {
   layoutGraph();
   renderChips();
   resetView();
-  draw();
+  clearBFS();
 }
 
 function resetView() {
   offsetX = 0; offsetY = 0; scale = 1;
+  if (!words.length) return;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const word of words) {
+    const { x, y } = positions[word];
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+  }
+  scale = Math.min(1, (canvas.width - 2 * NODE_R) / (maxX - minX + 2 * NODE_R), (canvas.height - 2 * NODE_R) / (maxY - minY + 2 * NODE_R));
+  offsetX = -(minX + maxX) / 2 * scale;
+  offsetY = -(minY + maxY) / 2 * scale;
 }
 
 document.getElementById('newWord').addEventListener('keydown', e => {
@@ -382,8 +520,6 @@ function loadExample(type) {
     document.getElementById('beginWord').value = 'cat';
     document.getElementById('endWord').value = 'cog';
   }
-  bfsPath = []; bfsVisited = new Set();
-  document.getElementById('resultBox').textContent = 'path will appear here';
   refresh();
 }
 

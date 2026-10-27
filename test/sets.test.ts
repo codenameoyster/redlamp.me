@@ -3,6 +3,7 @@ import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
 import type { FigureRow, LearningSetDetails, LearningSetSummary, SetTask } from '../shared/leetcode';
 import { glossary } from '../shared/glossary';
+import { normalizeTopics } from '../shared/topics';
 import { parsePy, reprPy, same } from '../shared/answers';
 import { expectedOf, mulberry32 } from '../src/leetcode/judge';
 import { contentOf, sets, taskLabel, taskSlug, tasksOf, type Reference } from '../src/leetcode/sets';
@@ -12,14 +13,20 @@ let student: string;
 const set = sets.find(item => item.slug === 'permutations-and-combinations')!;
 const twoPointers = sets.find(item => item.slug === 'two-pointers')!;
 
+it.each(sets.flatMap(item => item.chapters.map((chapter, index) => ({ name: `${item.slug}/${index + 1}`, chapter }))))('$name states problem costs with English topics', ({ chapter }) => {
+	expect(chapter.tasks.filter(task => !/Время:/.test(task.note) || !/Память:/.test(task.note) || !/O\(/.test(task.note)).map(taskSlug)).toEqual([]);
+	expect(chapter.tasks.filter(task => task.topics.some(topic => /[а-яё]/i.test(topic)) || new Set(task.topics).size !== task.topics.length).map(taskSlug)).toEqual([]);
+	expect(chapter.lesson).toContain('Дополнительная память');
+});
+
 it.each([
-	{ name: 'in-place problem with its ordering lesson', slug: 'next-permutation', spec: { mode: 'call', method: 'nextPermutation', check: 'arg0' }, input: '[[1, 2, 3]]', answer: '[1, 3, 2]', chapter: 4, title: 'Порядок и номер', lesson: '2. Следующая перестановка' },
-	{ name: 'standard-input problem with its counting lesson', slug: 'cf-1821-a', spec: { mode: 'stdio' }, input: '2\n??\n0\n', answer: '90\n0\n', chapter: 1, title: 'Считаем варианты', lesson: '2. Правило произведения' },
+	{ name: 'in-place problem with its ordering lesson', slug: 'next-permutation', spec: { mode: 'call', method: 'nextPermutation', check: 'arg0' }, input: '[[1, 2, 3]]', answer: '[1, 3, 2]', chapter: 4, title: 'Порядок и номер', lesson: '2. Next Permutation' },
+	{ name: 'standard-input problem with its counting lesson', slug: 'cf-1821-a', spec: { mode: 'stdio' }, input: '2\n??\n0\n', answer: '90\n0\n', chapter: 1, title: 'Считаем варианты', lesson: '2. Product Rule' },
 ])('resolves $name', ({ slug, spec, input, answer, chapter, title, lesson }) => {
 	const content = contentOf(slug)!;
 	expect(content.task.tests).toMatchObject(spec);
 	expect(expectedOf(content.reference!, input)).toEqual({ value: answer });
-	expect(content.chapters.map(item => item.ref)).toEqual([{ set: 'permutations-and-combinations', setTitle: 'Перестановки и сочетания', number: chapter, title }]);
+	expect(content.chapters.map(item => item.ref)).toEqual([{ set: 'permutations-and-combinations', setTitle: 'Permutations и Combinations', number: chapter, title }]);
 	expect(content.chapters[0].lesson).toContain(lesson);
 });
 
@@ -80,10 +87,10 @@ it.each([
 	expect(details).toMatchObject({ slug: set.slug, title: set.title, summary: set.summary, topics: set.topics });
 	expect(details.chapters.map(chapter => chapter.links)).toEqual(set.chapters.map(chapter => chapter.links));
 	expect(details.chapters.map(chapter => ({ number: chapter.number, title: chapter.title, summary: chapter.summary, tasks: chapter.tasks.map(task => task.slug) }))).toEqual([
-		{ number: 1, title: 'Считаем варианты', summary: 'Прежде чем писать перебор, посчитайте варианты. Правило произведения, правило суммы, факториал, выбор по порядку и без порядка, подмножества.', tasks: ['cf-1821-a', 'cf-1743-a', 'cf-629-a', 'cf-1674-b', 'number-of-good-pairs'] },
-		{ number: 2, title: 'Перебор: подмножества, перестановки, сочетания', summary: 'Один шаблон на Python выписывает все варианты: выбрать, пойти глубже, отменить. Индекс start даёт наборы без порядка, список used даёт перестановки.', tasks: ['letter-case-permutation', 'subsets', 'permutations', 'combinations', 'letter-combinations-of-a-phone-number'] },
-		{ number: 3, title: 'Повторы и отсечения', summary: 'Если во входе есть одинаковые числа, перебор даёт одинаковые ответы. Сортировка и пропуск убирают повторы, а отсечение останавливает бесполезные ветки.', tasks: ['subsets-ii', 'permutations-ii', 'combination-sum', 'generate-parentheses', 'cf-1097-b'] },
-		{ number: 4, title: 'Порядок и номер', summary: 'Следующая перестановка, пути в сетке, k-я перестановка и ферзи. Вы находите один вариант или число вариантов без списка всех.', tasks: ['next-permutation', 'unique-paths', 'permutation-sequence', 'n-queens'] },
+		{ number: 1, title: 'Считаем варианты', summary: 'Считаем операции и память: Linear Scan, Product Rule, Sum Rule, Factorial, Permutations, Combinations и Subsets. Отличаем число вариантов от размера ответа.', tasks: ['cf-1821-a', 'cf-1743-a', 'cf-629-a', 'cf-1674-b', 'number-of-good-pairs'] },
+		{ number: 2, title: 'Backtracking: Subsets, Permutations, Combinations', summary: 'Backtracking: выбрать, пойти глубже, отменить. start задаёт возрастающие индексы, used отмечает занятые. Считаем вызовы, проверки, копии и память Call Stack.', tasks: ['letter-case-permutation', 'subsets', 'permutations', 'combinations', 'letter-combinations-of-a-phone-number'] },
+		{ number: 3, title: 'Повторы и Pruning', summary: 'Sorting и пропуск убирают повторные ответы Backtracking. Pruning останавливает бесполезные ветки. Считаем вызовы, проверки, копии и память префиксов.', tasks: ['subsets-ii', 'permutations-ii', 'combination-sum', 'generate-parentheses', 'cf-1097-b'] },
+		{ number: 4, title: 'Порядок и номер', summary: 'Next Permutation, Dynamic Programming для путей, Permutation Sequence и N-Queens. Учитываем копии Python, вызовы Factorial и формат ответа.', tasks: ['next-permutation', 'unique-paths', 'permutation-sequence', 'n-queens'] },
 	]);
 	const rows = details.chapters.flatMap(chapter => chapter.tasks);
 	expect(rows.find(task => task.slug === 'subsets')).toEqual({ ...set.chapters[1].tasks.find(task => taskSlug(task) === 'subsets'), slug: 'subsets', label: 'LeetCode 78', problemId, accepted, assignable, activeTask: active ? { state: taskState } : null });
@@ -91,8 +98,8 @@ it.each([
 });
 
 it.each([
-	{ name: 'student chapter 1 lesson', role: 'student', item: set, chapter: '1', body: { html: set.chapters[0].lesson, figures: [] } },
-	{ name: 'parent chapter 4 lesson', role: 'parent', item: set, chapter: '4', body: { html: set.chapters[3].lesson, figures: [] } },
+	{ name: 'student chapter 1 lesson', role: 'student', item: set, chapter: '1', body: { html: set.chapters[0].lesson, figures: set.chapters[0].figures } },
+	{ name: 'parent chapter 4 lesson', role: 'parent', item: set, chapter: '4', body: { html: set.chapters[3].lesson, figures: set.chapters[3].figures } },
 	{ name: 'lesson with figures', role: 'student', item: twoPointers, chapter: '1', body: { html: twoPointers.chapters[0].lesson, figures: twoPointers.chapters[0].figures } },
 	{ name: 'chapter 5 is missing', role: 'parent', item: set, chapter: '5', body: null },
 	{ name: 'chapter 0 is missing', role: 'parent', item: set, chapter: '0', body: null },
@@ -126,6 +133,8 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item 
 	expect(sets.filter(other => other.slug === item.slug)).toHaveLength(1);
 	expect(item.slug).toMatch(slugFormat);
 	const tasks = tasksOf(item);
+	expect(item.topics).toEqual(normalizeTopics(item.topics));
+	expect(tasks.filter(task => JSON.stringify(task.topics) !== JSON.stringify(normalizeTopics(task.topics, taskSlug(task)))).map(taskSlug)).toEqual([]);
 	expect(tasks.filter(task => !slugFormat.test(taskSlug(task))).map(taskSlug)).toEqual([]);
 	expect(tasks.filter((task, index) => tasks.findIndex(other => taskSlug(other) === taskSlug(task)) !== index).map(taskSlug)).toEqual([]);
 	expect(tasks.filter(task => !task.tests || task.tests.cases.length < 4 || task.tests.cases.length > 6 || (task.tests.mode === 'stdio') !== taskSlug(task).startsWith('cf-') || task.tests.mode === 'call' && !/^[a-z][A-Za-z]*$/.test(task.tests.method)).map(taskSlug)).toEqual([]);
@@ -139,7 +148,7 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item 
 	expect(links.filter(link => new URL(link.url).protocol !== 'https:').map(link => link.url)).toEqual([]);
 	expect(links.filter((link, index) => links.findIndex(other => other.url === link.url) !== index).map(link => link.url)).toEqual([]);
 	const lessons = item.chapters.map(chapter => chapter.lesson);
-	expect(lessons.map(lesson => htmlText(lesson).length).filter(length => length >= 6000)).toEqual([]);
+	expect(lessons.map(lesson => htmlText(lesson).length).filter(length => length >= 12000)).toEqual([]);
 	expect(lessons.flatMap(lesson => [...lesson.matchAll(/<([a-z][a-z0-9]*)/gi)].map(match => match[1]).filter(tag => !fragmentTag.test(tag)))).toEqual([]);
 	expect(lessons.flatMap((lesson, index) => lesson.startsWith('<p class="lead">') && !/\s(?:style|on[a-z]+)=|<div(?! class="rule">)/i.test(lesson) ? [] : [index + 1])).toEqual([]);
 	// A figure is an empty placeholder on its own line. The placeholders follow the order of chapter.figures.
@@ -151,7 +160,7 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item 
 
 // The hard words that need a tip in shared/glossary.ts. The list also has words that no set uses yet, so a new set with such a word fails until the word gets a tip.
 // An English name of a data structure is a word of its own: heapq, dequeue, collections.deque, deque(...) and deque.popleft are code.
-const hardWord = /(?<!\p{L})(?:инвариант|O\(|log|метод|(?<![\d_.])(?:(?:heap|deque|queue|stack)s?|monotonic|priority)(?![\p{L}\d_(]|\.\p{L})|монотонн|жадн|моделир|кортеж|рекурс|перебор\p{L}*\s+с\s+возврат|отсеч|трассир|подмассив|подпоследовательн|лексикограф|ленив|индекс|факториал|перестановк|подмножеств|скользящ|ASCII|регистр|слияни|32-бит|линейн|переполн|амортиз|асимптот|мемоиз|итератор|компаратор|эвристик|коллизи|логарифм|граф|бинарн)/giu;
+const hardWord = /(?<!\p{L})(?:инвариант|O\(|log|метод|(?<![\d_.])(?:(?:heap|deque|queue|stack|array|string|subset|permutation|combination)s?|monotonic|priority|hash\s+table|two\s+pointers|linear\s+scan|binary\s+search|sliding\s+window|dynamic\s+programming|brute\s+force|backtracking|recursion|pruning|factorial|sorting|merge|greedy|simulation|quickselect|DFS|BFS)(?![\p{L}\d_(]|\.\p{L})|монотонн|жадн|моделир|кортеж|рекурс|перебор\p{L}*\s+с\s+возврат|отсеч|трассир|подмассив|подпоследовательн|лексикограф|ленив|индекс|факториал|перестановк|подмножеств|скользящ|ASCII|регистр|слияни|32-бит|линейн|переполн|амортиз|асимптот|мемоиз|итератор|компаратор|эвристик|коллизи|логарифм|граф|бинарн)/giu;
 // The hard words of the text that no match of the patterns covers.
 const untipped = (text: string, patterns: RegExp[]) => [...text.matchAll(hardWord)].filter(word => !patterns.some(pattern => [...text.matchAll(pattern)].some(match => match.index <= word.index && word.index < match.index + match[0].length))).map(word => word[0]);
 // Code is not prose. The text of the other tags stays.
@@ -166,11 +175,11 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name hard words have a 
 	expect(texts.flatMap(([place, text]) => untipped(text, patterns).map(word => `${place}: ${word}`))).toEqual([]);
 });
 
-// The sets name the data structures in English. The external link titles are not set text.
-const russianName = /(?<!\p{L})(?:куч(?:а|и|е|у|ей|ею|ам|ами|ах)?|дек(?:а|е|у|ом|и|ов|ам|ами|ах)?|стек(?:а|е|у|ом|и|ов|ам|ами|ах)?)(?!\p{L})/giu;
-const strings = (value: unknown): string[] => typeof value === 'string' ? [value] : value && typeof value === 'object' ? Object.values(value).flatMap(strings) : [];
+// Technical names stay English. Ordinary Russian words such as a table row or a line of people remain valid.
+const russianName = /(?<!\p{L})(?:куч(?:а|и|е|у|ей|ею|ам|ами|ах)?|дек(?:а|е|у|ом|и|ов|ам|ами|ах)?|стек(?:а|е|у|ом|и|ов|ам|ами|ах)?|массив\p{L}*|х[еэ]ш[- ]?таблиц\p{L}*|(?:двоичн|бинарн)\p{L}*\s+поиск\p{L}*|(?:два|двух|двумя)\s+указател\p{L}*|скользящ\p{L}*\s+окн\p{L}*|динамическ\p{L}*\s+программирован\p{L}*|сортировк\p{L}*|перестановк\p{L}*|подмножеств\p{L}*|подмассив\p{L}*|подпоследовательност\p{L}*|факториал\p{L}*)(?!\p{L})/giu;
+const strings = (value: unknown): string[] => typeof value === 'string' ? [value] : value && typeof value === 'object' ? Object.entries(value).filter(([key]) => key !== 'url').flatMap(([, item]) => strings(item)) : [];
 it.each(sets.map(item => ({ name: item.slug, item })))('$name names the data structures in English', ({ item }) => {
-	expect(strings({ ...item, chapters: item.chapters.map(chapter => ({ ...chapter, links: [] })) }).flatMap(text => text.match(russianName) ?? [])).toEqual([]);
+	expect(strings(item).flatMap(text => text.match(russianName) ?? [])).toEqual([]);
 });
 
 it('each tip is plain', () => {
@@ -207,7 +216,7 @@ it.each([
 	expect(taskLabel({ ...task, url, number })).toBe(label);
 });
 
-const linkedSet = { slug: 'permutations-and-combinations', title: 'Перестановки и сочетания' };
+const linkedSet = { slug: 'permutations-and-combinations', title: 'Permutations и Combinations' };
 it.each([
 	{ name: 'parent links a set to a problem', owner: 'problems', role: 'parent', method: 'PUT', slug: linkedSet.slug, before: false, version: 1, expected: 204, linked: [linkedSet], homeworkVersion: 1 },
 	{ name: 'parent links a set to homework', owner: 'homework', role: 'parent', method: 'PUT', slug: linkedSet.slug, before: false, version: 1, expected: 204, linked: [linkedSet], homeworkVersion: 2 },
@@ -226,8 +235,8 @@ it.each([
 	expect(await env.DB.prepare('SELECT version FROM homework WHERE id=?').bind(homeworkId).first()).toEqual({ version: homeworkVersion });
 });
 
-const chapter2 = { set: 'permutations-and-combinations', setTitle: 'Перестановки и сочетания', number: 2, title: 'Перебор: подмножества, перестановки, сочетания' };
-const chapter3 = { ...chapter2, number: 3, title: 'Повторы и отсечения' };
+const chapter2 = { set: 'permutations-and-combinations', setTitle: 'Permutations и Combinations', number: 2, title: 'Backtracking: Subsets, Permutations, Combinations' };
+const chapter3 = { ...chapter2, number: 3, title: 'Повторы и Pruning' };
 it.each([
 	{ name: 'problem in a chapter', owner: 'problems', slugs: ['subsets'], chapters: [chapter2] },
 	{ name: 'problem in no chapter', owner: 'problems', slugs: ['two-sum'], chapters: [] },

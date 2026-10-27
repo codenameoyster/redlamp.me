@@ -10,8 +10,8 @@ import lesson4 from './chapter4.html';
 
 export default {
 	slug: 'heaps-and-queues',
-	title: 'Heap, queue и deque',
-	summary: 'Queue, deque и heap отдают нужный элемент за O(1) или за O(log n). Вы моделируете процессы на collections.deque, находите максимум в окне через monotonic deque и решаете на heapq задачи про k лучших, слияние списков и жадный выбор.',
-	topics: ['Queue', 'Deque', 'Heap', 'Скользящее окно'],
+	title: 'Heap (Priority Queue), Queue и Deque',
+	summary: 'Queue, Deque и Heap (Priority Queue) выбирают элементы по разным правилам. Вы используете Simulation, Monotonic Queue, K-Way Merge и Greedy. Для каждого решения считаете операции, пиковую дополнительную память и размер ответа.',
+	topics: ['Queue', 'Deque', 'Heap (Priority Queue)', 'Sliding Window'],
 	chapters: [{ ...chapter1, lesson: lesson1 }, { ...chapter2, lesson: lesson2 }, { ...chapter3, lesson: lesson3 }, { ...chapter4, lesson: lesson4 }],
 } satisfies LearningSetContent;

@@ -36,11 +36,57 @@ it.each([
 it('counts accepted problems separately from current understanding', async () => {
 	const dashboard = await request('/dashboard?today=2026-10-07', 'GET', undefined, cookie);
 	expect(dashboard.status).toBe(200);
-	expect(await dashboard.json()).toMatchObject({ counts: { recorded: 3, solved: 2, independent: 1 }, topics: [{ topic: 'Arrays', solved: 2, independent: 1 }, { topic: 'Graphs', solved: 1, independent: 0 }] });
+	expect(await dashboard.json()).toMatchObject({ counts: { recorded: 3, solved: 2, independent: 1 }, topics: [{ topic: 'Array', solved: 2, independent: 1 }, { topic: 'Graph Theory', solved: 1, independent: 0 }] });
 	const value = { version: 1, result: 'needs_practice', note: 'Missed the invariant.', reviewedOn: '2026-10-07', nextReviewDate: '2026-10-08' };
 	expect((await request(`/problems/${first}/reviews`, 'POST', value, cookie)).status).toBe(201);
 	expect(await (await request('/dashboard?today=2026-10-07', 'GET', undefined, cookie)).json()).toMatchObject({ counts: { solved: 2, independent: 0 } });
 	expect(await (await request(`/problems/${first}`, 'GET', undefined, cookie)).json()).toMatchObject({ solved: true, understanding: 'needs_practice', nextReviewDate: '2026-10-08' });
+});
+
+it('counts each solved problem once after topic normalization', async () => {
+	const rows = [
+		{ name: 'canonical', topics: ['Hash Table'], understanding: 'independent', acceptance: 'accepted', state: 'saved', archived: null },
+		{ name: 'compact', topics: ['HashTable'], understanding: 'independent', acceptance: 'accepted', state: 'saved', archived: null },
+		{ name: 'Russian', topics: ['Хеш-таблица'], understanding: 'independent', acceptance: 'accepted', state: 'saved', archived: null },
+		{ name: 'several aliases', topics: ['Hash Table', 'HashTable', 'Хеш-таблица'], understanding: 'with_help', acceptance: 'accepted', state: 'saved', archived: null },
+		{ name: 'archived', topics: ['HashTable'], understanding: 'independent', acceptance: 'accepted', state: 'saved', archived: 'now' },
+		{ name: 'unaccepted', topics: ['Хеш-таблица'], understanding: 'independent', acceptance: 'not_accepted', state: 'saved', archived: null },
+		{ name: 'draft', topics: ['Hash Table'], understanding: 'independent', acceptance: 'accepted', state: 'draft', archived: null },
+	];
+	for (const row of rows) {
+		const id = crypto.randomUUID();
+		await env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,understanding,archived_at,next_review_date,created_at,updated_at) VALUES (?,?,?,'easy',?,'','',?,?,'2026-10-27','now','now')").bind(id, id, row.name, JSON.stringify(row.topics), row.understanding, row.archived).run();
+		const attempt = env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,?,'{}','',?,?,'now','now')");
+		await attempt.bind(crypto.randomUUID(), id, row.state, row.acceptance, row.understanding).run();
+		if (row.name === 'several aliases') await attempt.bind(crypto.randomUUID(), id, 'saved', 'accepted', 'independent').run();
+	}
+	const response = await request('/dashboard?today=2026-10-27', 'GET', undefined, cookie);
+	expect(response.status).toBe(200);
+	const dashboard = await response.json() as Dashboard;
+	expect(dashboard.topics).toEqual([{ topic: 'Array', solved: 2, independent: 1 }, { topic: 'Graph Theory', solved: 1, independent: 0 }, { topic: 'Hash Table', solved: 4, independent: 3 }]);
+	expect(dashboard.dueReviews.find(problem => problem.title === 'several aliases')).toMatchObject({ topics: ['Hash Table'], solved: true, understanding: 'with_help' });
+});
+
+it('normalizes all topic groups before the 50-group limit', async () => {
+	const rows = [
+		{ name: 'first ten', topics: ['Topic 01', 'Topic 02', 'Topic 03', 'Topic 04', 'Topic 05', 'Topic 06', 'Topic 07', 'Topic 08', 'Topic 09', 'Topic 10'] },
+		{ name: 'second ten', topics: ['Topic 11', 'Topic 12', 'Topic 13', 'Topic 14', 'Topic 15', 'Topic 16', 'Topic 17', 'Topic 18', 'Topic 19', 'Topic 20'] },
+		{ name: 'third ten', topics: ['Topic 21', 'Topic 22', 'Topic 23', 'Topic 24', 'Topic 25', 'Topic 26', 'Topic 27', 'Topic 28', 'Topic 29', 'Topic 30'] },
+		{ name: 'fourth ten', topics: ['Topic 31', 'Topic 32', 'Topic 33', 'Topic 34', 'Topic 35', 'Topic 36', 'Topic 37', 'Topic 38', 'Topic 39', 'Topic 40'] },
+		{ name: 'last nine', topics: ['Topic 41', 'Topic 42', 'Topic 43', 'Topic 44', 'Topic 45', 'Topic 46', 'Topic 47', 'Topic 48', 'Topic 49'] },
+		{ name: 'legacy group after raw limit', topics: ['Хеш-таблица'] },
+	];
+	for (const row of rows) {
+		const id = crypto.randomUUID();
+		await env.DB.batch([
+			env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,understanding,created_at,updated_at) VALUES (?,?,?,'easy',?,'','','independent','now','now')").bind(id, id, row.name, JSON.stringify(row.topics)),
+			env.DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'saved','{}','','accepted','independent','now','now')").bind(crypto.randomUUID(), id),
+		]);
+	}
+	const { topics } = await (await request('/dashboard?today=2026-10-27', 'GET', undefined, cookie)).json() as Dashboard;
+	expect(topics).toHaveLength(50);
+	expect(topics.slice(0, 3)).toEqual([{ topic: 'Array', solved: 2, independent: 1 }, { topic: 'Graph Theory', solved: 1, independent: 0 }, { topic: 'Hash Table', solved: 1, independent: 1 }]);
+	expect(topics.at(-1)).toEqual({ topic: 'Topic 47', solved: 1, independent: 1 });
 });
 
 it.each([

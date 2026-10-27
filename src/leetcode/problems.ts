@@ -1,5 +1,6 @@
 import type { Env } from '../index';
 import type { Difficulty, Problem, ProblemDetails, ProblemInput } from '../../shared/leetcode';
+import { normalizeTopics } from '../../shared/topics';
 import { calendarDate, changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, topics, uuid } from './http';
 
 export const solvedSQL = "EXISTS(SELECT 1 FROM attempts a WHERE a.problem_id=p.id AND a.state='saved' AND a.acceptance='accepted')";
@@ -7,7 +8,7 @@ export const assignableSQL = `p.archived_at IS NULL AND NOT ${solvedSQL} AND NOT
 export const problemColumns = `p.id,p.slug,p.number,p.title,p.difficulty,p.topics,p.summary,p.version,p.progress_version AS progressVersion,p.understanding,
 p.next_review_date AS nextReviewDate,p.archived_at AS archivedAt,p.created_at AS createdAt,p.updated_at AS updatedAt,${solvedSQL} AS solved`;
 type ProblemRow = Omit<Problem, 'topics' | 'url' | 'solved'> & { topics: string; solved: number };
-export function problemValue(row: ProblemRow): Problem { return { ...row, topics: JSON.parse(row.topics), solved: Boolean(row.solved), url: problemUrl(row.slug) }; }
+export function problemValue(row: ProblemRow): Problem { return { ...row, topics: normalizeTopics(JSON.parse(row.topics), row.slug), solved: Boolean(row.solved), url: problemUrl(row.slug) }; }
 export function searchText(value: string): string { return value.normalize('NFC').toLowerCase(); }
 
 export async function getProblem(env: Env, id: string): Promise<Problem> {
@@ -33,7 +34,7 @@ export function problemUrl(slug: string): string {
 
 function metadata(data: Record<string, unknown>): ProblemInput & { slug: string } {
 	const value = slug(data.url);
-	return { slug: value, url: problemUrl(value), number: data.number === null ? null : integer(data.number), title: text(data.title, 200, true).trim(), difficulty: choice(data.difficulty, ['easy', 'medium', 'hard']), topics: topics(data.topics), summary: text(data.summary, 8000).trim() };
+	return { slug: value, url: problemUrl(value), number: data.number === null ? null : integer(data.number), title: text(data.title, 200, true).trim(), difficulty: choice(data.difficulty, ['easy', 'medium', 'hard']), topics: topics(data.topics, value), summary: text(data.summary, 8000).trim() };
 }
 
 export async function question<T>(titleSlug: string, fields: string): Promise<T | null> {
@@ -46,7 +47,7 @@ async function details(titleSlug: string): Promise<ProblemDetails> {
 	try { value = await question(titleSlug, 'questionFrontendId title difficulty topicTags { name }'); }
 	catch { throw new HttpError(502, 'lookup_failed', 'Данные с LeetCode недоступны. Заполните их сами.'); }
 	if (!value) throw new HttpError(404, 'not_found', 'На LeetCode нет задачи по этой ссылке.');
-	return { number: /^\d+$/.test(value.questionFrontendId) ? Number(value.questionFrontendId) : null, title: value.title, difficulty: value.difficulty.toLowerCase() as Difficulty, topics: value.topicTags.slice(0, 12).map(tag => tag.name) };
+	return { number: /^\d+$/.test(value.questionFrontendId) ? Number(value.questionFrontendId) : null, title: value.title, difficulty: value.difficulty.toLowerCase() as Difficulty, topics: topics(value.topicTags.slice(0, 12).map(tag => tag.name), titleSlug) };
 }
 
 export async function handleProblems(request: Request, env: Env): Promise<Response | null> {
@@ -65,18 +66,25 @@ export async function handleProblems(request: Request, env: Env): Promise<Respon
 		if (id) return Response.json(await getProblem(env, id));
 		const { limit, offset } = pagination(url);
 		const q = searchText(text(url.searchParams.get('q') ?? '', 100));
+		const topic = url.searchParams.has('topic') ? topics([url.searchParams.get('topic')])[0] : null;
 		const where = [url.searchParams.get('archived') === '1' ? 'p.archived_at IS NOT NULL' : 'p.archived_at IS NULL'];
 		const args: (string | number | null)[] = [];
-		if (q) { where.push('(instr(p.search_text,?)>0 OR EXISTS(SELECT 1 FROM attempts a WHERE a.problem_id=p.id AND instr(a.search_text,?)>0))'); args.push(q, q); }
 		if (url.searchParams.has('difficulty')) { where.push('p.difficulty=?'); args.push(choice(url.searchParams.get('difficulty'), ['easy', 'medium', 'hard'])); }
 		if (url.searchParams.has('understanding')) { where.push('p.understanding=?'); args.push(choice(url.searchParams.get('understanding'), ['needs_practice', 'with_help', 'independent'])); }
-		if (url.searchParams.has('topic')) { where.push('EXISTS(SELECT 1 FROM json_each(p.topics) WHERE value=?)'); args.push(text(url.searchParams.get('topic'), 40, true)); }
 		if (url.searchParams.has('solved')) { where.push(`${solvedSQL}=?`); args.push(Number(choice(url.searchParams.get('solved'), ['0', '1']))); }
 		if (url.searchParams.has('homework')) { where.push("EXISTS(SELECT 1 FROM homework_tasks t WHERE t.problem_id=p.id AND t.state NOT IN ('completed','cancelled'))=?"); args.push(Number(choice(url.searchParams.get('homework'), ['0', '1']))); }
 		if (url.searchParams.get('assignable') === '1') where.push(assignableSQL);
 		if (url.searchParams.has('due')) { where.push('p.next_review_date<=?'); args.push(calendarDate(url.searchParams.get('due'))); }
-		const rows = await env.DB.prepare(`SELECT ${problemColumns} FROM problems p WHERE ${where.join(' AND ')} ORDER BY p.updated_at DESC,p.id LIMIT ? OFFSET ?`).bind(...args, limit + 1, offset).all<ProblemRow>();
-		return Response.json(page(rows.results.map(problemValue), limit, offset));
+		const filtered = Boolean(q || topic);
+		const searchMatch = q ? ',(instr(p.search_text,?)>0 OR EXISTS(SELECT 1 FROM attempts a WHERE a.problem_id=p.id AND instr(a.search_text,?)>0)) AS searchMatch' : '';
+		const rows = await env.DB.prepare(`SELECT ${problemColumns}${searchMatch} FROM problems p WHERE ${where.join(' AND ')} ORDER BY p.updated_at DESC,p.id${filtered ? '' : ' LIMIT ? OFFSET ?'}`).bind(...(q ? [q, q] : []), ...args, ...(filtered ? [] : [limit + 1, offset])).all<ProblemRow & { searchMatch?: number }>();
+		const items = rows.results.flatMap(({ searchMatch, ...row }) => {
+			const problem = problemValue(row);
+			if (topic && !problem.topics.some(value => searchText(value) === searchText(topic))) return [];
+			if (q && !searchMatch && !searchText([problem.title, problem.number, ...problem.topics, problem.summary].join(' ')).includes(q)) return [];
+			return [problem];
+		});
+		return Response.json(page(filtered ? items.slice(offset, offset + limit + 1) : items, limit, offset));
 	}
 	const data = object(await readJson(request), match[2] ? ['version'] : ['url', 'number', 'title', 'difficulty', 'topics', 'summary', ...(id ? ['version'] : [])]);
 	const now = new Date().toISOString();

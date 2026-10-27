@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type SubmitEvent } from 'react';
 import { LoaderCircle } from 'lucide-react';
 import type { Page, Problem, ProblemDetails, SessionUser } from '../shared/leetcode';
+import { normalizeTopic } from '../shared/topics';
 import { api, message } from './api';
 import { useResource } from './useResource';
 import { go } from './navigate';
@@ -42,7 +43,7 @@ export function ProblemForm({ problem, student, close, saved }: { problem?: Prob
 		{lookup && <p className="small lookup" role="status">{lookup === 'loading' ? <><LoaderCircle size={16} className="spin" />Заполняем данные из LeetCode</> : lookup}</p>}
 		<label>Название<input name="title" required maxLength={200} defaultValue={problem?.title} /></label>
 		<div className="editor-grid"><label>Номер задачи<input name="number" type="number" min="1" defaultValue={problem?.number ?? ''} /></label><label>Сложность<select name="difficulty" defaultValue={problem?.difficulty ?? 'medium'}>{Object.entries(difficultyLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></div>
-		<div><label>Темы<input name="topics" aria-describedby="topics-help" defaultValue={problem?.topics.join(', ')} placeholder="Массивы, скользящее окно" /></label><small id="topics-help">Разделяйте темы запятыми. Не больше 12.</small></div>
+		<div><label>Темы<input name="topics" aria-describedby="topics-help" defaultValue={problem?.topics.join(', ')} placeholder="Array, Sliding Window" /></label><small id="topics-help">Пишите названия тем на английском. Разделяйте темы запятыми. Не больше 12.</small></div>
 		<label>Описание<textarea aria-label="Описание" name="summary" maxLength={8000} defaultValue={problem?.summary} />{student && <Dictation />}</label>
 		{error && <p className="error" role="alert">{error}</p>}<div className="row spread"><button type="button" onClick={close} data-tip="Закрыть форму без сохранения.">Отмена</button><button className="primary" disabled={busy} data-tip="Сохранить данные задачи.">Сохранить задачу</button></div>
 	</form></dialog>;
@@ -55,13 +56,13 @@ export function Problems({ user }: { user: SessionUser }) {
 	function filter(event: SubmitEvent<HTMLFormElement>) {
 		event.preventDefault();
 		const params = new URLSearchParams();
-		for (const [key, value] of new FormData(event.currentTarget)) if (value) params.set(key, String(value));
+		for (const [key, value] of new FormData(event.currentTarget)) if (value) params.set(key, key === 'topic' ? normalizeTopic(String(value)) : String(value));
 		go(`/leetcode/problems?${params}`);
 	}
 	return <div className="stack"><div className="heading"><div><h1>Задачи</h1><p>Записывайте ход мысли, код и выводы.</p></div><button className="primary" onClick={() => setAdding(true)} data-tip="Открыть форму для новой задачи.">Добавить задачу</button></div>
 		<form onSubmit={filter} className="card card-pad stack"><label>Поиск по задачам и заметкам<input name="q" type="search" maxLength={100} defaultValue={query.get('q') ?? ''} /></label><div className="filters">
 			<label>Сложность<select name="difficulty" defaultValue={query.get('difficulty') ?? ''}><option value="">Любая сложность</option>{Object.entries(difficultyLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-			<label>Тема<input name="topic" maxLength={40} defaultValue={query.get('topic') ?? ''} /></label>
+			<label>Тема<input name="topic" maxLength={40} defaultValue={normalizeTopic(query.get('topic') ?? '')} /></label>
 			<label>Статус<select name="solved" defaultValue={query.get('solved') ?? ''}><option value="">Все задачи</option><option value="1">Принято</option><option value="0">Ещё не принято</option></select></label>
 			<label>Понимание<select name="understanding" defaultValue={query.get('understanding') ?? ''}><option value="">Любое понимание</option><option value="needs_practice">Нужно потренироваться</option><option value="with_help">Решил с подсказкой</option><option value="independent">Решил сам</option></select></label>
 			<label>Домашняя работа<select name="homework" defaultValue={query.get('homework') ?? ''}><option value="">Все задачи</option><option value="1">Есть активное задание</option><option value="0">Нет активного задания</option></select></label>

@@ -181,7 +181,7 @@ test('shows the topics and the colored level at the right side of each problem i
 	const homework = await (await page.request.post('/leetcode/api/homework', { headers: { Origin: new URL(baseURL!).origin }, data: { title: 'Week 41', instructions: '', dueDate: null } })).json() as Homework;
 	await page.goto(`/leetcode/homework/${homework.id}`);
 	const row = page.getByRole('group', { name: 'Задача', exact: true }).locator('label').filter({ hasText: notebook.problem.title });
-	await expect(row.getByText('Arrays', { exact: true })).toBeVisible();
+	await expect(row.getByText('Array', { exact: true })).toBeVisible();
 	const level = row.getByText('Легко', { exact: true });
 	await expect(level).toHaveClass('tag easy');
 	const [rowBox, levelBox] = [await row.boundingBox(), await level.boundingBox()];
@@ -216,7 +216,7 @@ for (const row of panes) {
 		await page.goto(`/leetcode/problems/${problem.id}`);
 		const code = page.getByLabel('Код решения', { exact: true }), idea = page.getByLabel('Основная идея', { exact: true });
 		await expect(code).toBeEditable();
-		await expect(page.getByRole('link', { name: 'Глава 2. Перебор: подмножества, перестановки, сочетания', exact: true })).toHaveCount(row.chapter ? 2 : 0);
+		await expect(page.getByRole('link', { name: 'Глава 2. Backtracking: Subsets, Permutations, Combinations', exact: true })).toHaveCount(row.chapter ? 2 : 0);
 		await expect(page.getByRole('img', { name: 'Рисунок в окне работы.', exact: true })).toHaveCount(row.chapter ? 1 : 0);
 		const [codeBox, ideaBox] = [(await code.boundingBox())!, (await idea.boundingBox())!];
 		expect(row.chapter ? ideaBox.y > codeBox.y + codeBox.height : ideaBox.x + ideaBox.width < codeBox.x).toBe(true);

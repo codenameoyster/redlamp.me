@@ -23,7 +23,7 @@ const minHeap = () => {
 	};
 	return { push, pop, size: (): number => h.length };
 };
-// For each right border r, the smallest left border l with max - min <= limit on a[l..r]. Two deques of indexes keep the maximum and the minimum of the window. O(n).
+// For each right border r, return the smallest l with max - min <= limit on a[l..r]. Two index Deques take O(n) time and O(n) storage for retained prefixes and all left borders.
 const lefts = (a: number[], limit: number): number[] => {
 	const hi: number[] = [], lo: number[] = [], out: number[] = [];
 	let l = 0, h = 0, m = 0;
@@ -118,7 +118,7 @@ export default {
 		const a = ints(nums, 1, 1e5, -1e4, 1e4), at = int(k, 1, a.length);
 		return [...a].sort((x, y) => y - x)[at - 1];
 	} },
-	// O(n log n): count the words, then sort by the count in descending order and by the word.
+	// For n words, u distinct words, and bounded word lengths: expected O(n + u log(u + 1)) time to count and sort.
 	'top-k-frequent-words': { mode: 'call', solve: (words: unknown, k: unknown) => {
 		need(Array.isArray(words) && words.length >= 1 && words.length <= 500);
 		const count = new Map<string, number>();
@@ -126,7 +126,7 @@ export default {
 		const top = int(k, 1, count.size);
 		return [...count].sort(([a, x], [b, y]) => y - x || (a < b ? -1 : 1)).slice(0, top).map(([word]) => word);
 	} },
-	// O(n): a deque of indexes with decreasing values. The back drops the values not greater than the new one, the front drops the index that left the window.
+	// O(n) time and O(n) physical storage. The head index skips expired entries but retains their array prefix.
 	'sliding-window-maximum': { mode: 'call', solve: (nums: unknown, k: unknown) => {
 		const a = ints(nums, 1, 1e5, -1e4, 1e4), size = int(k, 1, a.length), dq: number[] = [], out: number[] = [];
 		let head = 0;
@@ -145,7 +145,7 @@ export default {
 	} },
 	// O(n): for each right border r, the subarrays l..r, ..., r..r fit, so add r - l + 1.
 	'continuous-subarrays': { mode: 'call', solve: (nums: unknown) => lefts(ints(nums, 1, 1e5, 1, 1e9), 2).reduce((count, l, r) => count + r - l + 1, 0) },
-	// O(n): a window with a deque of indexes for the maximum charge and the running sum of the costs. The left border moves while the cost is above the budget.
+	// O(n) time with a maximum Deque and a running sum. Retained array prefixes use O(n) physical storage.
 	'maximum-number-of-robots-within-budget': { mode: 'call', solve: (chargeTimes: unknown, runningCosts: unknown, budget: unknown) => {
 		const charge = ints(chargeTimes, 1, 5e4, 1, 1e5), cost = ints(runningCosts, charge.length, charge.length, 1, 1e5), limit = int(budget, 1, 1e15), dq: number[] = [];
 		let l = 0, head = 0, sum = 0, best = 0;
@@ -194,7 +194,7 @@ export default {
 	'single-threaded-cpu': { mode: 'call', solve: (tasks: unknown) => {
 		need(Array.isArray(tasks) && tasks.length >= 1 && tasks.length <= 1e5);
 		const t = tasks.map(task => ints(task, 2, 2, 1, 1e9)), ready = minHeap(), order: number[] = [];
-		// The key enqueue time * 10^5 + number sorts without a compare function, so the reference stays far under 100 ms for n = 10^5.
+		// The key enqueue time * 10^5 + number orders arrivals, then breaks ties by job number.
 		const byArrival = Array.from(Float64Array.from(t, ([at], i) => at * 1e5 + i).sort(), key => key % 1e5);
 		let time = 0, next = 0;
 		while (order.length < t.length) {
@@ -207,7 +207,8 @@ export default {
 		}
 		return order;
 	} },
-	// O(n log n): one heap of (cost, number) holds the first and the last candidates workers. Each number of the first group is smaller than each number of the last group, so the smallest key follows the tie rule. The pointers l and r refill the group of the hired worker while l <= r.
+	// For c candidates and k hires, h = min(n, 2c): O(n + (h + k) log(h + 1)) time and O(h) Heap storage. Initialization uses h separate pushes.
+	// Keys order by cost, then worker number. The pointers refill the group of the hired worker while l <= r.
 	'total-cost-to-hire-k-workers': { mode: 'call', solve: (costs: unknown, k: unknown, candidates: unknown) => {
 		const c = ints(costs, 1, 1e5, 1, 1e5), hires = int(k, 1, c.length), m = int(candidates, 1, c.length), workers = minHeap();
 		// The key is cost * 10^5 + number.

@@ -1,5 +1,31 @@
 import { test, expect, addTask, signIn, type TestEnv } from './fixtures';
 
+test('counts each solved problem once across legacy Hash Table topics', async ({ page, server }) => {
+	const { DB } = await server.getWorker<TestEnv>().getEnv();
+	const problems = [
+		{ name: 'canonical', topics: ['Hash Table'], understanding: 'independent', archived: 0, accepted: 1 },
+		{ name: 'joined alias', topics: ['HashTable'], understanding: 'independent', archived: 0, accepted: 2 },
+		{ name: 'Russian alias', topics: ['Хеш-таблица'], understanding: 'with_help', archived: 0, accepted: 1 },
+		{ name: 'all aliases', topics: ['Hash Table', 'HashTable', 'Хеш-таблица'], understanding: 'independent', archived: 0, accepted: 1 },
+		{ name: 'archived', topics: ['HashTable'], understanding: 'independent', archived: 1, accepted: 1 },
+		{ name: 'not accepted', topics: ['Хеш-таблица'], understanding: 'independent', archived: 0, accepted: 0 },
+	];
+	for (const row of problems) {
+		const id = crypto.randomUUID();
+		await DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,understanding,archived_at,created_at,updated_at) VALUES (?,?,?,'easy',?,'','',?,?,'now','now')").bind(id, id, row.name, JSON.stringify(row.topics), row.understanding, row.archived ? 'now' : null).run();
+		for (let i = 0; i < row.accepted; i++) await DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,saved_at,created_at,updated_at) VALUES (?,?,'saved','{}','','accepted',?,'now','now','now')").bind(crypto.randomUUID(), id, row.understanding).run();
+	}
+	const stored = await DB.prepare('SELECT id,problem_id,document,acceptance,understanding FROM attempts ORDER BY id').all();
+	await signIn(page);
+	const progress = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Понимание тем', exact: true }) });
+	await expect(progress.getByRole('progressbar')).toHaveCount(1);
+	const hashTable = progress.getByRole('progressbar', { name: 'Hash Table: решено самостоятельно', exact: true });
+	await expect(hashTable).toHaveAttribute('value', '3');
+	await expect(hashTable).toHaveAttribute('max', '4');
+	await expect(progress.getByText('3 / 4', { exact: true })).toBeVisible();
+	expect((await DB.prepare('SELECT id,problem_id,document,acceptance,understanding FROM attempts ORDER BY id').all()).results).toEqual(stored.results);
+});
+
 const dueDates = [
 	{ name: 'submitted homework past its due date is not overdue', state: 'submitted', due: 'Срок 2020-01-01' },
 	{ name: 'assigned homework past its due date is overdue', state: 'assigned', due: 'Срок 2020-01-01 - Просрочено' },

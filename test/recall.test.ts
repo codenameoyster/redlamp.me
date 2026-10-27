@@ -10,6 +10,7 @@ const tasks = new Map(tasksOf(sets.find(set => set.slug === 'two-pointers')!).ma
 // All set tasks except the first three are due in the manual list, so the set pool has exactly three candidates.
 const kept = [...tasks.keys()].slice(0, 3), due = [...tasks.keys()].slice(3).map(slug => ({ slug, due: '2026-10-11' }));
 const [xor, letterCase, phone] = ['sum-of-all-subset-xor-totals', 'letter-case-permutation', 'letter-combinations-of-a-phone-number'];
+const setTopics: Record<string, string[]> = { 'two-sum-ii-input-array-is-sorted': ['Array', 'Two Pointers'], 'valid-palindrome': ['String', 'Two Pointers'], 'max-number-of-k-sum-pairs': ['Array', 'Two Pointers', 'Sorting'] };
 async function addLibrary(library: Library) {
 	const ids = new Map<string, string>();
 	for (const problem of library) {
@@ -34,10 +35,23 @@ it.each<{ name: string; library: Library; picks: string[] }>([
 	const ids = await addLibrary(library);
 	const expected = picks.map(slug => {
 		const task = tasks.get(slug);
-		return task ? { ...task, slug, label: taskLabel(task), problemId: ids.get(slug) ?? null } : { url: `https://leetcode.com/problems/${slug}/`, title: 'Problem', difficulty: 'medium', topics: [], note: '', slug, label: 'LeetCode', problemId: ids.get(slug) };
+		return task ? { ...task, topics: setTopics[slug], slug, label: taskLabel(task), problemId: ids.get(slug) ?? null } : { url: `https://leetcode.com/problems/${slug}/`, title: 'Problem', difficulty: 'medium', topics: [], note: '', slug, label: 'LeetCode', problemId: ids.get(slug) };
 	});
 	const bySlug = (a: { slug: string }, b: { slug: string }) => a.slug.localeCompare(b.slug);
 	expect([...await recallPicks(env, '2026-10-11')].sort(bySlug)).toEqual(expected.sort(bySlug));
+});
+
+it.each([
+	{ name: 'library aliases', slug: xor, topics: ['HashTable', 'Хеш-таблица', 'Hash Table'], expected: ['Hash Table'] },
+	{ name: 'contextual library topics', slug: letterCase, topics: ['Строка', 'Перебор', 'Backtracking'], expected: ['String', 'Backtracking'] },
+	{ name: 'unknown legacy topic', slug: phone, topics: ['Особая тема'], expected: ['Особая тема'] },
+])('normalizes recall topics for $name', async ({ slug, topics, expected }) => {
+	const ids = await addLibrary([...due, { slug }]);
+	await env.DB.prepare("UPDATE problems SET topics=?,summary='Мои заметки',progress_version=9,understanding='with_help' WHERE slug=?").bind(JSON.stringify(topics), slug).run();
+	const before = await env.DB.prepare('SELECT * FROM problems WHERE slug=?').bind(slug).first();
+	const pick = (await recallPicks(env, '2026-10-11')).find(pick => pick.slug === slug);
+	expect(pick).toMatchObject({ problemId: ids.get(slug), slug, topics: expected, note: 'Мои заметки' });
+	expect(await env.DB.prepare('SELECT * FROM problems WHERE slug=?').bind(slug).first()).toEqual(before);
 });
 
 it.each([

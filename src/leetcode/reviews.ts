@@ -1,6 +1,7 @@
 import type { Env } from '../index';
 import type { BadgeId, Dashboard, Distribution, Game, HomeworkTask, Revision, SessionUser } from '../../shared/leetcode';
 import { addCalendarDays } from '../../shared/dates';
+import { normalizeTopics } from '../../shared/topics';
 import { requireRole } from './auth';
 import { attemptColumns } from './attempts';
 import { taskColumns, taskTables, unreadValue } from './homework';
@@ -30,13 +31,21 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 		const [[progress, assignments, topics, homework, drafts, dueReviews], picks] = await Promise.all([env.DB.batch<Record<string, unknown>>([
 			env.DB.prepare(`SELECT count(*) AS recorded,coalesce(sum(${solvedSQL}),0) AS solved,coalesce(sum(${solvedSQL} AND p.understanding='independent'),0) AS independent,coalesce(sum(p.next_review_date<=?),0) AS dueReviews FROM problems p WHERE p.archived_at IS NULL`).bind(today),
 			env.DB.prepare("SELECT count(*) AS waitingReview FROM homework_tasks t JOIN problems p ON p.id=t.problem_id WHERE t.state='submitted' AND p.archived_at IS NULL"),
-			env.DB.prepare(`SELECT t.value AS topic,count(*) AS solved,sum(p.understanding='independent') AS independent FROM problems p,json_each(p.topics) t WHERE p.archived_at IS NULL AND ${solvedSQL} GROUP BY t.value ORDER BY t.value LIMIT 50`),
+			env.DB.prepare(`SELECT p.slug,p.topics,p.understanding FROM problems p WHERE p.archived_at IS NULL AND ${solvedSQL}`),
 			env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE p.archived_at IS NULL AND t.state NOT IN ('completed','cancelled') ORDER BY ${user.role === 'parent' ? "(t.state='submitted') DESC,t.updated_at ASC" : "(t.state='submitted') ASC,h.due_date IS NULL,h.due_date ASC"},t.id LIMIT 10`).bind(user.role),
 			// The work window opens a draft of an accepted problem after the acceptance, so that draft is not a next step.
 			env.DB.prepare(`SELECT ${attemptColumns},(SELECT title FROM problems p WHERE p.id=attempts.problem_id) AS problemTitle FROM attempts WHERE state='draft' AND EXISTS(SELECT 1 FROM problems p WHERE p.id=attempts.problem_id AND p.archived_at IS NULL AND NOT ${solvedSQL}) ORDER BY updated_at DESC,id LIMIT 5`),
 			env.DB.prepare(`SELECT ${problemColumns},EXISTS(SELECT 1 FROM homework_tasks t WHERE t.problem_id=p.id AND t.state='completed') AS fromHomework FROM problems p WHERE p.archived_at IS NULL AND p.next_review_date<=? ORDER BY p.next_review_date,p.id LIMIT 10`).bind(today),
 		]), recallPicks(env, today!)]);
-		return Response.json({ counts: { ...progress.results[0], ...assignments.results[0] }, topics: topics.results, homework: (homework.results as unknown as HomeworkTask[]).map(unreadValue), drafts: drafts.results, dueReviews: dueReviews.results.map(row => ({ ...problemValue(row as unknown as Parameters<typeof problemValue>[0]), fromHomework: Boolean(row.fromHomework) })), recallPicks: picks } as Dashboard);
+		const byTopic = new Map<string, Dashboard['topics'][number]>();
+		for (const row of topics.results) for (const topic of normalizeTopics(JSON.parse(row.topics as string), row.slug as string)) {
+			const counts = byTopic.get(topic) ?? { topic, solved: 0, independent: 0 };
+			counts.solved++;
+			if (row.understanding === 'independent') counts.independent++;
+			byTopic.set(topic, counts);
+		}
+		const topicProgress = [...byTopic.keys()].sort().slice(0, 50).map(topic => byTopic.get(topic)!);
+		return Response.json({ counts: { ...progress.results[0], ...assignments.results[0] }, topics: topicProgress, homework: (homework.results as unknown as HomeworkTask[]).map(unreadValue), drafts: drafts.results, dueReviews: dueReviews.results.map(row => ({ ...problemValue(row as unknown as Parameters<typeof problemValue>[0]), fromHomework: Boolean(row.fromHomework) })), recallPicks: picks } as Dashboard);
 	}
 	if (url.pathname === '/leetcode/api/reviews/distribute') {
 		methods(request, ['POST']);

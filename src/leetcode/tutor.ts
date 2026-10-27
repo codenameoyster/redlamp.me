@@ -30,7 +30,7 @@ function thread(kind: unknown, id: unknown): [TutorKind, string] {
 
 // Plain text for the model and for the LeetCode statement in the work window. Code indentation stays.
 export function htmlText(html: string): string {
-	return html.replace(/<(script|style|template|svg)\b[\s\S]*?<\/\1\s*>/gi, '').replace(/<sup\b[^>]*>/gi, '^').replace(/<h([1-4])\b[^>]*>/gi, (_, level: string) => `\n${'#'.repeat(Number(level))} `)
+	return html.replace(/<(script|style|template|svg)\b[\s\S]*?<\/\1\s*>/gi, '').replace(/<sup\b[^>]*>([\s\S]*?)<\/sup\s*>/gi, '^($1)').replace(/<h([1-4])\b[^>]*>/gi, (_, level: string) => `\n${'#'.repeat(Number(level))} `)
 		.replace(/<\/?(?:address|article|aside|blockquote|br|dd|details|div|dl|dt|figcaption|figure|footer|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|summary|table|td|th|tr|ul)\b[^>]*>/gi, '\n')
 		.replace(/<[^>]*>/g, '').replace(/&(lt|gt|amp|quot|#39|nbsp);/g, (_, name: string) => ENTITIES[name])
 		.replace(/(\S)[ \t]+/g, '$1 ').replace(/[ \t]+$/gm, '').replace(/\n+/g, '\n').trim();
@@ -41,9 +41,10 @@ function lessonText(html: string, quote: string | null): string {
 	const value = htmlText(html), sections = value.split(/^(?=## )/m), needle = quote === null ? '' : squash(quote).slice(0, 80);
 	const start = Math.max(0, sections.findIndex(section => squash(section).includes(needle)));
 	let end = start + 1, size = sections[start].length;
-	while (end < sections.length && size + sections[end].length <= 32_000) size += sections[end++].length;
+	// Four lessons of up to 12,000 characters fit with their chapter headings.
+	while (end < sections.length && size + sections[end].length <= 50_000) size += sections[end++].length;
 	const outline = value.split('\n').filter(line => /^#{1,4} /.test(line)).join('\n');
-	return `Lesson outline:\n${clip(outline, 3000)}\n\nLesson text (sections ${start + 1}-${end} of ${sections.length}).${start || end < sections.length ? ' The rest is cut.' : ''}\n${clip(sections.slice(start, end).join(''), 32_000)}`;
+	return `Lesson outline:\n${clip(outline, 3000)}\n\nLesson text (sections ${start + 1}-${end} of ${sections.length}).${start || end < sections.length ? ' The rest is cut.' : ''}\n${clip(sections.slice(start, end).join(''), 50_000)}`;
 }
 
 async function context(env: Env, kind: TutorKind, id: string, quote: string | null): Promise<string> {
@@ -62,7 +63,7 @@ async function context(env: Env, kind: TutorKind, id: string, quote: string | nu
 	if (statement) parts.push(`LeetCode statement:\n${clip(htmlText(statement), 6000)}`);
 	if (task) parts.push(`Homework instructions:\n${clip(task.instructions, 2000)}`);
 	const chapter = contentOf(problem.slug)?.chapters[0];
-	if (chapter) parts.push(`Chapter: ${chapter.ref.setTitle}, глава ${chapter.ref.number}. ${chapter.ref.title}\n${clip(lessonText(chapter.lesson, quote), 8000)}`);
+	if (chapter) parts.push(`Chapter: ${chapter.ref.setTitle}, глава ${chapter.ref.number}. ${chapter.ref.title}\n${clip(lessonText(chapter.lesson, quote), 16_000)}`);
 	if (attempt) {
 		const work = JSON.parse(attempt.document) as AttemptDocument;
 		parts.push(`${attempt.state === 'draft' ? 'Current draft' : 'Newest saved attempt'}:\n${clip([`Notes: ${work.notes}`, ...work.approaches.map((a, i) => `Approach ${i + 1}: ${a.label}\nIdea: ${a.idea}\nWhy it works: ${a.correctness}\nTime complexity: ${a.timeComplexity}\nSpace complexity: ${a.spaceComplexity}\nEdge cases: ${a.edgeCases}\nMistakes: ${a.mistakes}\nLanguage: ${a.language}\nCode:\n${a.code}`)].join('\n\n'), 12_000)}`);
