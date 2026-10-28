@@ -39,7 +39,7 @@ export function ProblemForm({ problem, student, close, saved }: { problem?: Prob
 	}
 	return <dialog ref={dialog} onCancel={close} aria-labelledby="problem-form-title"><form onSubmit={submit} className="stack">
 		<h2 id="problem-form-title">{problem ? 'Изменить задачу' : 'Добавить задачу'}</h2>
-		<label>Ссылка на задачу (LeetCode или Codeforces)<input name="url" type="url" required maxLength={2000} defaultValue={problem?.url} onChange={event => { if (!problem && (event.nativeEvent as InputEvent).inputType === 'insertFromPaste' && leetcode(event.currentTarget.value)) void fill(event.currentTarget); }} /></label>
+		<label>Ссылка на задачу (LeetCode или Codeforces)<input name="url" type="url" required maxLength={2000} defaultValue={problem?.url} onChange={event => { looked.current = ''; setLookup(''); if (!problem && (event.nativeEvent as InputEvent).inputType === 'insertFromPaste' && leetcode(event.currentTarget.value)) void fill(event.currentTarget); }} /></label>
 		{lookup && <p className="small lookup" role="status">{lookup === 'loading' ? <><LoaderCircle size={16} className="spin" />Заполняем данные из LeetCode</> : lookup}</p>}
 		<label>Название<input name="title" required maxLength={200} defaultValue={problem?.title} /></label>
 		<div className="editor-grid"><label>Номер задачи<input name="number" type="number" min="1" defaultValue={problem?.number ?? ''} /></label><label>Сложность<select name="difficulty" defaultValue={problem?.difficulty ?? 'medium'}>{Object.entries(difficultyLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></div>

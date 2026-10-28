@@ -131,8 +131,9 @@ export function Workspace({ problemId: id, user, registerGuard }: { problemId: s
 	const chapter = useResource<{ chapters: ChapterRef[] }>(`/problems/${id}/sets`).data?.chapters[0];
 	const lesson = useResource<{ html: string; figures: Figure[] }>(chapter ? `/sets/${chapter.set}/lesson/${chapter.number}` : null);
 	const statement = useResource<{ html: string | null; text: string | null }>(`/problems/${id}/statement`).data;
-	// The student works in the draft and the parent reads the newest attempt.
-	const [work, setWork] = useState<string>(), latest = attempts.data?.items[0], attemptId = student ? work : latest?.id;
+	// Parent review shows the submitted attempt. Completed tasks show the newest notes.
+	const [work, setWork] = useState<string>(), latest = attempts.data?.items[0];
+	const parentAttemptId = tasks.data && (task?.state === 'submitted' ? task.submissionAttemptId : latest?.id), attemptId = student ? work : parentAttemptId;
 	const current = useResource<Attempt>(attemptId ? `/problems/${id}/attempts/${attemptId}` : null);
 	const [editing, setEditing] = useState(false), [code, setCode] = useState(''), [feedback, setFeedback] = useState(''), [notice, setNotice] = useState<ReactNode>(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
 	const guard = useRef<LeaveGuard | null>(null), article = useRef<HTMLElement>(null), statementRoot = useRef<HTMLElement>(null);

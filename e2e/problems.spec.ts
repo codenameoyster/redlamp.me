@@ -91,6 +91,33 @@ test.describe('problem details', () => {
 		await expect(dialog.getByLabel('Ссылка на задачу')).toHaveValue(url);
 	});
 
+	const staleLookups = [
+		{ name: 'keeps manual fields after the URL changes during a lookup', reply: { json: { number: 76, title: 'Minimum Window Substring', difficulty: 'hard', topics: ['String'] } } },
+		{ name: 'ignores a lookup error after the URL changes', reply: { status: 502, json: { error: { code: 'lookup_failed', message: 'LeetCode details are unavailable. Enter them yourself.' } } } },
+	];
+	for (const row of staleLookups) test(row.name, async ({ page }) => {
+		let release!: () => void;
+		const held = new Promise<void>(resolve => { release = resolve; });
+		await page.route('**/leetcode/api/problem-details?*', async route => { await held; await route.fulfill(row.reply); });
+		const dialog = page.getByRole('dialog');
+		await dialog.getByLabel('Ссылка на задачу').focus();
+		await page.keyboard.press('ControlOrMeta+V');
+		await expect(dialog.getByRole('status')).toHaveText('Заполняем данные из LeetCode');
+		await dialog.getByLabel('Ссылка на задачу').fill('https://codeforces.com/problemset/problem/1/A');
+		await dialog.getByLabel('Название', { exact: true }).fill('Theatre Square');
+		await dialog.getByLabel('Номер задачи').fill('');
+		await dialog.getByLabel('Сложность').selectOption('easy');
+		await dialog.getByLabel('Темы', { exact: true }).fill('Math');
+		const response = page.waitForResponse('**/leetcode/api/problem-details?*');
+		release();
+		await (await response).finished();
+		await expect(dialog.getByRole('status')).toHaveCount(0);
+		await expect(dialog.getByLabel('Название', { exact: true })).toHaveValue('Theatre Square');
+		await expect(dialog.getByLabel('Номер задачи')).toHaveValue('');
+		await expect(dialog.getByLabel('Сложность')).toHaveValue('easy');
+		await expect(dialog.getByLabel('Темы', { exact: true })).toHaveValue('Math');
+	});
+
 	test('adds a Codeforces problem without the LeetCode auto-fill', async ({ page }) => {
 		let looked = false;
 		await page.route('**/leetcode/api/problem-details?*', route => { looked = true; return route.fulfill({ status: 500 }); });

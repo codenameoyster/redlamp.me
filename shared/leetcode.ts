@@ -58,7 +58,7 @@ export interface Homework { id: string; title: string; instructions: string; due
 export interface HomeworkSummary extends Homework { taskCount: number; completedCount: number; submittedCount: number; requestedCount: number; unread: boolean }
 export interface HomeworkTask {
 	id: string; homeworkId: string; homeworkTitle: string; instructions: string; dueDate: string | null; postponedTo: string | null; problemId: string; problemTitle: string; difficulty: Difficulty;
-	state: TaskState; submissionId: string | null; version: number; createdAt: string; updatedAt: string; unread: boolean;
+	state: TaskState; submissionId: string | null; submissionAttemptId: string | null; version: number; createdAt: string; updatedAt: string; unread: boolean;
 }
 export interface Feedback { id: string; problemId: string; taskId: string | null; submissionId: string | null; author: Role; kind: 'reply' | 'changes_requested' | 'completed'; body: string; createdAt: string }
 export interface HomeworkDetails { homework: Homework; tasks: HomeworkTask[] }
@@ -67,8 +67,8 @@ export interface TestCase { input: string; expected: string | null }
 // call: LeetCode style. input is a Python literal list of the arguments, expected a Python literal.
 // check: 'return' compares the return value, 'arg0' the first argument after the call (in-place tasks), 'prefix' the first argument cut to the returned length (Remove Duplicates).
 // order: 'exact', 'any' (sort the top-level list), 'any-nested' (sort each inner list, then the outer list).
-// stdio: Codeforces style. input is the stdin text, expected the stdout text; compared token by token.
-export type TestSpec = { mode: 'call'; method: string; check?: 'return' | 'arg0' | 'prefix'; order?: 'exact' | 'any' | 'any-nested' } | { mode: 'stdio' };
+// stdio: Codeforces style. input is the stdin text, expected the stdout text; compared token by token. ignoreCase follows the task output rule.
+export type TestSpec = { mode: 'call'; method: string; check?: 'return' | 'arg0' | 'prefix'; order?: 'exact' | 'any' | 'any-nested' } | { mode: 'stdio'; ignoreCase?: boolean };
 export type TaskTests = TestSpec & { cases: TestCase[] };
 export interface OwnTest { id: string; input: string; createdAt: string }
 // The answer of the reference solution to an own test: null when the task has no reference.

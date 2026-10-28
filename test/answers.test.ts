@@ -76,6 +76,12 @@ const comparisons: { name: string; spec: TestSpec; expected: string; output: str
 	{ name: 'output that is not a Python literal', spec: { mode: 'call', method: 'solve' }, expected: '[1]', output: '<object at 0x1>', equal: false },
 	{ name: 'stdio with other white space', spec: { mode: 'stdio' }, expected: '1 2\n3\n', output: '1  2 3', equal: true },
 	{ name: 'stdio with joined tokens', spec: { mode: 'stdio' }, expected: '1 2\n', output: '12\n', equal: false },
+	{ name: 'stdio keeps case by default', spec: { mode: 'stdio' }, expected: 'YES\n', output: 'yes\n', equal: false },
+	{ name: 'stdio ignores letter case when allowed', spec: { mode: 'stdio', ignoreCase: true }, expected: 'YES\n', output: 'yEs\n', equal: true },
+	{ name: 'stdio ignores case and white space', spec: { mode: 'stdio', ignoreCase: true }, expected: 'YES NO\n', output: 'yes\nNo', equal: true },
+	{ name: 'stdio with another answer when case is ignored', spec: { mode: 'stdio', ignoreCase: true }, expected: 'YES\n', output: 'no\n', equal: false },
+	{ name: 'stdio with split tokens when case is ignored', spec: { mode: 'stdio', ignoreCase: true }, expected: 'YES\n', output: 'y es\n', equal: false },
+	{ name: 'stdio with extra tokens when case is ignored', spec: { mode: 'stdio', ignoreCase: true }, expected: 'YES\n', output: 'yes no\n', equal: false },
 ];
 it.each(comparisons)('compares $name', ({ spec, expected, output, equal }) => {
 	expect(same(spec, expected, output)).toBe(equal);
