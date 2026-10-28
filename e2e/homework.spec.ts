@@ -93,11 +93,14 @@ test('opens, submits, returns, and completes a task in one window', async ({ pag
 	await expect(page.getByRole('region', { name: 'Принятое', exact: true }).getByRole('link', { name: notebook.problem.title, exact: true })).toHaveAttribute('href', taskURL);
 });
 
-// The judge completes the task with the accepted attempt. The work window then opens a new draft, where the student writes the notes.
-test('shows the newest notes of a completed task from the homework page', async ({ page, notebook, server }) => {
-	const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id, 'completed'), submissionId = crypto.randomUUID();
+const parentWork = [
+	{ name: 'shows the submitted attempt while a newer draft exists', state: 'submitted', section: 'В процессе', status: 'Отправлено', notes: 'Правило произведения.' },
+	{ name: 'shows the newest notes of a completed task from the homework page', state: 'completed', section: 'Принятое', status: 'Завершено', notes: 'Правило суммы.' },
+];
+for (const row of parentWork) test(row.name, async ({ page, notebook, server }) => {
+	const { DB } = await server.getWorker<TestEnv>().getEnv(), { taskId } = await addTask(DB, notebook.problem.id, row.state), submissionId = crypto.randomUUID();
 	await DB.batch([
-		DB.prepare("UPDATE attempts SET state='saved',acceptance='accepted',saved_at='now' WHERE id=?").bind(notebook.attempt.id),
+		DB.prepare("UPDATE attempts SET state='saved',acceptance='accepted',saved_at='now',document=? WHERE id=?").bind(JSON.stringify({ ...notebook.attempt.document, notes: 'Правило произведения.' }), notebook.attempt.id),
 		DB.prepare("INSERT INTO submissions (id,task_id,attempt_id,task_version,created_at) VALUES (?,?,?,1,'now')").bind(submissionId, taskId, notebook.attempt.id),
 		DB.prepare('UPDATE homework_tasks SET current_submission_id=? WHERE id=?').bind(submissionId, taskId),
 	]);
@@ -106,11 +109,16 @@ test('shows the newest notes of a completed task from the homework page', async 
 	await expect(page.getByRole('status', { name: 'Состояние сохранения' })).toHaveText('Сохранено');
 	await signIn(page, 'parent');
 	await page.goto('/leetcode/homework');
-	await page.getByRole('region', { name: 'Принятое', exact: true }).getByRole('link', { name: notebook.problem.title, exact: true }).click();
+	await page.getByRole('region', { name: row.section, exact: true }).getByRole('link', { name: notebook.problem.title, exact: true }).click();
 	await expect(page).toHaveURL(`/leetcode/problems/${notebook.problem.id}`);
-	await expect(page.getByText('Завершено', { exact: true })).toBeVisible();
-	await expect(page.getByLabel('Общие заметки', { exact: true })).toHaveValue('Правило суммы.');
+	await expect(page.getByText(row.status, { exact: true })).toBeVisible();
+	await expect(page.getByLabel('Общие заметки', { exact: true })).toHaveValue(row.notes);
 	await expect(page.getByLabel('Отзыв', { exact: true })).toBeVisible();
+	if (row.state === 'submitted') {
+		await page.getByRole('button', { name: 'Завершить', exact: true }).click();
+		await expect(page.getByText('Завершено', { exact: true }).first()).toBeVisible();
+		await expect(page.getByLabel('Общие заметки', { exact: true })).toHaveValue('Правило суммы.');
+	}
 });
 
 test('shows the tasks in three sections and spreads the accepted tasks over 30 days', async ({ page, notebook, server }) => {

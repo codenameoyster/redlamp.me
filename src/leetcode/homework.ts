@@ -8,8 +8,10 @@ const postponedSQL = '(SELECT to_date FROM postponements WHERE homework_id=h.id)
 const homeworkColumns = `h.id,h.title,h.instructions,h.due_date AS dueDate,${postponedSQL},h.version,h.created_at AS createdAt,h.updated_at AS updatedAt`;
 // ?1 is the viewer role. A later ? takes the next number. https://www.sqlite.org/lang_expr.html#varparam
 const unreadSQL = "EXISTS(SELECT 1 FROM feedback f WHERE f.problem_id=t.problem_id AND f.author<>?1 AND f.created_at>coalesce((SELECT read_at FROM discussion_reads r WHERE r.role=?1 AND r.problem_id=t.problem_id),''))";
-export const taskColumns = `t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,h.instructions,h.due_date AS dueDate,${postponedSQL},t.problem_id AS problemId,p.title AS problemTitle,p.difficulty,t.state,t.current_submission_id AS submissionId,t.version,t.created_at AS createdAt,t.updated_at AS updatedAt,${unreadSQL} AS unread`;
-export const taskTables = 'homework_tasks t JOIN homework h ON h.id=t.homework_id JOIN problems p ON p.id=t.problem_id';
+export const taskColumns = `t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,h.instructions,h.due_date AS dueDate,${postponedSQL},t.problem_id AS problemId,p.title AS problemTitle,p.difficulty,t.state,t.current_submission_id AS submissionId,s.attempt_id AS submissionAttemptId,t.version,t.created_at AS createdAt,t.updated_at AS updatedAt,${unreadSQL} AS unread`;
+export const taskTables = 'homework_tasks t JOIN homework h ON h.id=t.homework_id JOIN problems p ON p.id=t.problem_id LEFT JOIN submissions s ON s.id=t.current_submission_id';
+export const onTimeSQL = "SELECT count(*) FROM homework_tasks t JOIN homework h ON h.id=t.homework_id WHERE t.state<>'cancelled' AND EXISTS(SELECT 1 FROM submissions s WHERE s.task_id=t.id AND date(s.created_at)<=h.due_date)";
+const awardOnTime = (env: Env) => env.DB.prepare(`INSERT OR IGNORE INTO earned_badges SELECT 'on-time-five' WHERE (${onTimeSQL})>=5`);
 const feedbackColumns = 'id,problem_id AS problemId,task_id AS taskId,submission_id AS submissionId,author,kind,body,created_at AS createdAt';
 export function unreadValue<T extends { unread: boolean }>(row: T): T { return { ...row, unread: Boolean(row.unread) }; }
 export async function getHomework(env: Env, id: string): Promise<Homework> {
@@ -70,11 +72,12 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		if (id) {
 			await getHomework(env, id);
 			const version = integer(data.version);
-			// A new due date gives the student Сила Бомжа again. The delete runs first, so it still reads the old due date.
+			// A new due date gives the student Сила Бомжа again. The delete reads the old due date before the update.
 			changed((await env.DB.batch([
+				awardOnTime(env),
 				env.DB.prepare('DELETE FROM postponements WHERE homework_id=?1 AND EXISTS(SELECT 1 FROM homework WHERE id=?1 AND version=?2 AND due_date IS NOT ?3)').bind(id, version, dueDate),
 				env.DB.prepare('UPDATE homework SET title=?,instructions=?,due_date=?,version=version+1,updated_at=? WHERE id=? AND version=?').bind(title, instructions, dueDate, now, id, version),
-			]))[1]);
+			]))[2]);
 			return Response.json(await getHomework(env, id));
 		}
 		const newId = crypto.randomUUID();
@@ -126,7 +129,10 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		changed(result[0]);
 	} else {
 		const version = integer(object(await readJson(request), ['version']).version);
-		changed(await env.DB.prepare(`UPDATE homework_tasks SET state=?,version=version+1,updated_at=? WHERE id=? AND version=? AND ${action === 'start' ? "state='assigned'" : "state NOT IN ('completed','cancelled')"}`).bind(action === 'start' ? 'in_progress' : 'cancelled', now, id, version).run());
+		changed((await env.DB.batch([
+			...action === 'cancel' ? [awardOnTime(env)] : [],
+			env.DB.prepare(`UPDATE homework_tasks SET state=?,version=version+1,updated_at=? WHERE id=? AND version=? AND ${action === 'start' ? "state='assigned'" : "state NOT IN ('completed','cancelled')"}`).bind(action === 'start' ? 'in_progress' : 'cancelled', now, id, version),
+		])).at(-1)!);
 	}
 	return Response.json(await getTask(env, id, user.role));
 }

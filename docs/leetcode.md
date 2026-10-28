@@ -218,7 +218,19 @@ Check login, logout, and a normal draft save on the deployed Worker. The Cloudfl
 
 ## Releases
 
-The sidebar shows the version from `package.json`. The versions follow [Semantic Versioning](https://semver.org/). Increase the version in `package.json` in the pull request that changes the notebook. A feature increases the minor version. A fix increases the patch version. Workers Builds deploys `main` after the merge.
+The sidebar shows the version from `package.json`. The versions follow [Semantic Versioning](https://semver.org/). Increase the version in `package.json` in the pull request that changes the notebook. A feature increases the minor version. A fix increases the patch version.
+
+Each release must have a published Git tag named `v<version>` at the deployed commit. After the pull request is merged, use the clean merged commit to create and publish the signed tag. Apply pending database migrations before deployment:
+
+```sh
+release_version=$(bun -p 'require("./package.json").version')
+git tag -s "v$release_version" -m "Release $release_version"
+git push origin "v$release_version"
+bunx wrangler d1 migrations apply redlamp-leetcode --remote
+bun run deploy
+```
+
+`bun run deploy` rejects uncommitted changes and a missing or incorrect remote tag. The build applies the same check when [Workers Builds sets `WORKERS_CI=1`](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#default-variables). A build from an untagged merge stops. After publishing the tag, use `bun run deploy` or retry the Workers build.
 
 ## Credential rotation
 

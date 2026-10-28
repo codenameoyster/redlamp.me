@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
-import type { Acceptance, BadgeId, Difficulty, Role, TaskState, Understanding } from '../shared/leetcode';
+import type { Acceptance, BadgeId, Difficulty, Game, Role, TaskState, Understanding } from '../shared/leetcode';
 import { sets, taskSlug, tasksOf } from '../src/leetcode/sets';
 
 interface Spec { difficulty: Difficulty; slug?: string; archived?: boolean; attempts?: { state?: 'saved' | 'draft'; acceptance: Acceptance; understanding?: Understanding; savedAt?: string }[]; reviews?: { result: Understanding; on: string }[]; task?: TaskState; due?: string; submitted?: string; added?: string; postpone?: boolean; runs?: { passed: number; total: number; on: string }[] }
@@ -135,6 +135,7 @@ it.each<{ name: string; role?: Role; problems: Spec[]; cards?: { correct: boolea
 	const response = await request('/game', 'GET', undefined, role ? await login(role) : student);
 	expect(response.status).toBe(200);
 	expect(await response.json()).toEqual({ xp, level, levelXp, nextLevelXp, late, missed, badges: order.map(id => ({ id, earned: earned.includes(id) })) });
+	expect((await env.DB.prepare('SELECT id FROM earned_badges ORDER BY id').all<{ id: BadgeId }>()).results.map(row => row.id)).toEqual(earned.filter(id => id !== 'level-five').sort());
 });
 
 // The layout reads the game on each page change, also without a reload, so a tab that stays open overnight records the new day.
@@ -145,4 +146,46 @@ it.each([
 	const cookie = await login(role);
 	for (let i = 0; i < 2; i++) expect((await request('/game', 'GET', undefined, cookie)).status).toBe(200);
 	expect((await env.DB.prepare('SELECT day FROM visits').all<{ day: string }>()).results.map(row => row.day)).toEqual(days);
+});
+
+// Earned badges stay after edits. The level badge follows the current XP.
+it.each([
+	{ name: 'removes the due date before the first game read', dueDate: null, cancel: false, read: false },
+	{ name: 'moves the due date before the submissions', dueDate: '2026-09-30', cancel: false, read: false },
+	{ name: 'cancels a submitted task before the first game read', dueDate: '2026-10-01', cancel: true, read: false },
+	{ name: 'keeps an award recorded by an earlier game read', dueDate: null, cancel: false, read: true },
+])('$name', async ({ dueDate, cancel, read }) => {
+	const parent = await login('parent'), homeworkId = crypto.randomUUID();
+	const rows = Array.from({ length: 5 }, () => ({ problem: crypto.randomUUID(), attempt: crypto.randomUUID(), task: crypto.randomUUID() }));
+	await env.DB.batch([insertBundle.bind(homeworkId, '2026-10-01'), ...rows.flatMap(row => [
+		insertProblem.bind(row.problem, row.problem, 'medium', null),
+		insertAttempt.bind(row.attempt, row.problem, 'saved', 'not_accepted', 'with_help', '2026-10-01T12:00:00.000Z'),
+		insertTask.bind(row.task, homeworkId, row.problem, 'submitted', '2026-09-01T00:00:00.000Z'),
+		insertSubmission.bind(crypto.randomUUID(), row.task, row.attempt, '2026-10-01T12:00:00.000Z'),
+	])]);
+	if (read) expect((await (await request('/game', 'GET', undefined, student)).json() as Game).badges).toContainEqual({ id: 'on-time-five', earned: true });
+	const response = cancel
+		? await request(`/tasks/${rows[0].task}/cancel`, 'POST', { version: 1 }, parent)
+		: await request(`/homework/${homeworkId}`, 'PATCH', { version: 1, title: 'Week 41', instructions: '', dueDate }, parent);
+	expect(response.status).toBe(200);
+	expect((await (await request('/game', 'GET', undefined, student)).json() as Game).badges).toContainEqual({ id: 'on-time-five', earned: true });
+	expect((await (await request('/game', 'GET', undefined, parent)).json() as Game).badges).toContainEqual({ id: 'on-time-five', earned: true });
+});
+
+it.each([
+	{ name: 'keeps a hard-problem badge before the first game read', count: 1, read: false, levelBefore: 1 },
+	{ name: 'keeps earned badges when the current level falls', count: 25, read: true, levelBefore: 5 },
+])('$name', async ({ count, read, levelBefore }) => {
+	const ids = Array.from({ length: count }, () => crypto.randomUUID());
+	await env.DB.batch(ids.flatMap(id => [insertProblem.bind(id, id, 'hard', null), insertAttempt.bind(crypto.randomUUID(), id, 'saved', 'accepted', 'with_help', today)]));
+	if (read) {
+		const game = await (await request('/game', 'GET', undefined, student)).json() as Game;
+		expect(game.level).toBe(levelBefore);
+		expect(game.badges).toContainEqual({ id: 'level-five', earned: true });
+	}
+	const response = await request(`/problems/${ids[0]}`, 'PATCH', { version: 1, url: `https://leetcode.com/problems/${ids[0]}/`, number: null, title: 'Problem', difficulty: 'easy', topics: [], summary: '' }, student);
+	expect(response.status).toBe(200);
+	const game = await (await request('/game', 'GET', undefined, student)).json() as Game;
+	expect(game.badges).toContainEqual({ id: 'first-hard', earned: true });
+	expect(game.badges).toContainEqual({ id: 'level-five', earned: false });
 });

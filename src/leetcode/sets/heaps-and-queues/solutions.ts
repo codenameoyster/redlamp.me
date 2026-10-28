@@ -98,7 +98,7 @@ export default {
 		for (let t = 0; t < times; t++) a[a.indexOf(Math.min(...a))] *= m;
 		return a;
 	} },
-	// O(n log n) for each test: keep the bonuses negated in a min-heap, so the top is the largest bonus. A hero takes the largest bonus above it that is not used yet.
+	// O(n log n) for each test. A min-heap stores negated bonuses. Each zero adds the largest unused earlier bonus to the total.
 	'cf-1800-c2': { mode: 'stdio', solve: (stdin: string) => {
 		const input = reader(stdin), out: string[] = [];
 		let total = 0;

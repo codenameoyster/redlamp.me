@@ -5,7 +5,7 @@ import type { FigureRow, LearningSetDetails, LearningSetSummary, SetTask } from 
 import { glossary } from '../shared/glossary';
 import { normalizeTopics } from '../shared/topics';
 import { parsePy, reprPy, same } from '../shared/answers';
-import { expectedOf, mulberry32 } from '../src/leetcode/judge';
+import { expectedOf, judge, mulberry32 } from '../src/leetcode/judge';
 import { contentOf, sets, taskLabel, taskSlug, tasksOf, type Reference } from '../src/leetcode/sets';
 import { htmlText } from '../src/leetcode/tutor';
 
@@ -190,6 +190,33 @@ it.each(sets.flatMap(tasksOf).map(task => ({ name: taskSlug(task), task })))('$n
 	const content = contentOf(taskSlug(task))!, tests = content.task.tests!, reference = content.reference;
 	expect(reference?.mode).toBe(tests.mode);
 	expect(tests.cases.filter(item => { const answer = expectedOf(reference!, item.input); return !answer || !('value' in answer) || !same(tests, item.expected!, answer.value); })).toEqual([]);
+});
+
+// Each output letter can use either case: https://codeforces.com/problemset/problem/1097/B
+it.each([
+	{ name: 'lowercase YES', input: '3\n10\n20\n30\n', output: 'yes\n', verdict: 'accepted' },
+	{ name: 'mixed-case YES', input: '3\n10\n20\n30\n', output: 'yEs\n', verdict: 'accepted' },
+	{ name: 'mixed-case NO', input: '3\n10\n10\n10\n', output: 'No\n', verdict: 'accepted' },
+	{ name: 'wrong answer', input: '3\n10\n20\n30\n', output: 'no\n', verdict: 'wrong' },
+])('Codeforces 1097B judges $name', ({ input, output, verdict }) => {
+	const content = contentOf('cf-1097-b')!;
+	expect(judge(content.reference!, content.task.tests!, [input], [{ value: output }]).verdict).toBe(verdict);
+});
+
+// A bonus can enter the stack or be discarded. A hero can use only the top bonus: https://codeforces.com/problemset/problem/1800/C2
+it.each([
+	{ name: 'smaller bonus above a larger bonus', cards: [4, 1, 0, 0], total: 5 },
+	{ name: 'bonus after the only hero', cards: [0, 9], total: 0 },
+	{ name: 'new bonus between heroes', cards: [4, 1, 0, 7, 0, 0], total: 12 },
+])('Codeforces 1800C2 matches legal stack choices for $name', ({ cards, total }) => {
+	let states: { stack: number[]; total: number }[] = [{ stack: [], total: 0 }];
+	for (const card of cards) {
+		states = states.flatMap(state => card > 0
+			? [state, { stack: [...state.stack, card], total: state.total }]
+			: [{ stack: state.stack.slice(0, -1), total: state.total + (state.stack.at(-1) ?? 0) }]);
+	}
+	expect(Math.max(...states.map(state => state.total))).toBe(total);
+	expect(expectedOf(contentOf('cf-1800-c2')!.reference!, `1\n${cards.length}\n${cards.join(' ')}\n`)).toEqual({ value: `${total}\n` });
 });
 
 // The hidden tests of seeds 1 and 2^32 - 1. Each input must have the argument count of the reference and satisfy the constraints. A reference run of 100 ms or more makes the judge route slow.

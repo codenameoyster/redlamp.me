@@ -1,16 +1,16 @@
 {
 	"name": "redlamp-me",
-	"version": "1.8.4",
+	"version": "1.8.5",
 	"private": true,
 	"type": "module",
 	"scripts": {
 		"build": "bun scripts/build.ts",
 		"credentials": "bun scripts/credentials.ts",
-		"test": "vitest run",
+		"test": "bun test scripts/release.test.ts && vitest run",
 		"test:browser": "bun run build && playwright test",
 		"typecheck": "node node_modules/@typescript/native/bin/tsc --noEmit -p tsconfig.json && node node_modules/@typescript/native/bin/tsc --noEmit -p web/tsconfig.json && node node_modules/@typescript/native/bin/tsc --noEmit -p test/tsconfig.json && node node_modules/@typescript/native/bin/tsc --noEmit -p scripts/tsconfig.json",
 		"dev": "wrangler dev",
-		"deploy": "wrangler deploy",
+		"deploy": "bun scripts/release.ts && wrangler deploy",
 		"lint": "eslint src web shared scripts test e2e --no-error-on-unmatched-pattern",
 		"lint:fix": "bun run lint --fix"
 	},

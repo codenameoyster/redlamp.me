@@ -61,7 +61,10 @@ export function reprPy(value: unknown): string {
 
 // Stdout compares token by token. Other answers compare Python literals with the specified list order.
 function canonical(spec: TestSpec, answer: string): string {
-	if (spec.mode === 'stdio') return answer.split(/\s+/).filter(Boolean).join(' ');
+	if (spec.mode === 'stdio') {
+		const tokens = answer.split(/\s+/).filter(Boolean).join(' ');
+		return spec.ignoreCase ? tokens.toLowerCase() : tokens;
+	}
 	const value = parsePy(answer), order = spec.order ?? 'exact';
 	return order === 'exact' ? reprPy(value) : JSON.stringify((value as unknown[]).map(item => order === 'any' ? reprPy(item) : JSON.stringify((item as unknown[]).map(reprPy).sort())).sort());
 }

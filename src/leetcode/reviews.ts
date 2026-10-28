@@ -4,7 +4,7 @@ import { addCalendarDays } from '../../shared/dates';
 import { normalizeTopics } from '../../shared/topics';
 import { requireRole } from './auth';
 import { attemptColumns } from './attempts';
-import { taskColumns, taskTables, unreadValue } from './homework';
+import { onTimeSQL, taskColumns, taskTables, unreadValue } from './homework';
 import { getProblem, problemColumns, problemValue, solvedSQL } from './problems';
 import { acceptedSetSlugs, sets, taskSlug, tasksOf } from './sets';
 import { recallPicks } from './recall';
@@ -70,7 +70,7 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 				(SELECT count(*) FROM homework_tasks WHERE state='completed') AS completed,(SELECT count(*) FROM (SELECT DISTINCT problem_id,reviewed_on FROM reviews)) AS recalls,(SELECT count(*) FROM card_answers WHERE correct=1)+(SELECT coalesce(sum(best),0) FROM (SELECT max(correct) AS best FROM quiz_attempts WHERE passed=1 GROUP BY deck)) AS cards,
 				(SELECT count(DISTINCT problem_id) FROM test_runs WHERE passed=total AND total>0) AS passedTests,(SELECT coalesce(sum(min(fails,3)),0) FROM (SELECT count(*) AS fails FROM test_runs WHERE passed<total GROUP BY problem_id,run_on)) AS failedRuns,
 				(SELECT count(*) FROM homework_tasks t JOIN homework h ON h.id=t.homework_id WHERE t.state<>'cancelled' AND h.due_date<date('now') AND date(t.created_at)<=h.due_date AND NOT EXISTS(SELECT 1 FROM submissions s WHERE s.task_id=t.id AND date(s.created_at)<=h.due_date)) AS late,
-				(SELECT count(*) FROM homework_tasks t JOIN homework h ON h.id=t.homework_id WHERE t.state<>'cancelled' AND EXISTS(SELECT 1 FROM submissions s WHERE s.task_id=t.id AND date(s.created_at)<=h.due_date)) AS onTime,
+				(${onTimeSQL}) AS onTime,
 				(SELECT count(*) FROM test_runs r WHERE r.passed=r.total AND r.total>0 AND r.created_at=(SELECT min(created_at) FROM test_runs WHERE problem_id=r.problem_id)) AS firstTry,
 				coalesce(sum(p.slug LIKE 'cf-%'),0) AS codeforces FROM problems p WHERE ${solvedSQL}`),
 			env.DB.prepare("WITH days AS (SELECT DISTINCT date(saved_at) AS day FROM attempts WHERE state='saved') SELECT EXISTS(SELECT 1 FROM days WHERE date(day,'+1 day') IN (SELECT day FROM days) AND date(day,'+2 day') IN (SELECT day FROM days)) AS streak"),
@@ -88,6 +88,12 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 			'week-no-miss': longest >= 7, 'month-no-miss': longest >= 30, 'twenty-five-accepted': count >= 25, 'fifty-accepted': count >= 50, 'fifty-cards': cards >= 50, 'ten-recalls': recalls >= 10,
 			'first-codeforces': codeforces >= 1, 'first-try': firstTry >= 1, 'two-sets': cleared >= 2, 'on-time-five': onTime >= 5, 'level-five': level >= 5,
 		};
+		const awards = Object.entries(earned).filter(([id, value]) => value && id !== 'level-five').map(([id]) => id);
+		const [, stored] = await env.DB.batch<{ id: Exclude<BadgeId, 'level-five'> }>([
+			env.DB.prepare('INSERT OR IGNORE INTO earned_badges SELECT value FROM json_each(?)').bind(JSON.stringify(awards)),
+			env.DB.prepare('SELECT id FROM earned_badges'),
+		]);
+		for (const { id } of stored.results) earned[id] = true;
 		return Response.json({ xp, level, levelXp: 50 * level * (level - 1), nextLevelXp: 50 * level * (level + 1), late, missed, badges: Object.entries(earned).map(([id, value]) => ({ id, earned: value })) } as Game);
 	}
 	const match = /^\/leetcode\/api\/problems\/([^/]+)\/(reviews|practice)$/.exec(url.pathname);

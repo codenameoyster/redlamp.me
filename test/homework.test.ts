@@ -318,3 +318,14 @@ it('marks a bundle unread when one of its tasks is unread', async () => {
 		{ title: 'Week 40: arrays', unread: false },
 	]);
 });
+
+it('returns the attempt linked to the current submission', async () => {
+	const before = await (await request(`/tasks?problemId=${problemId}`, 'GET', undefined, parent)).json() as Page<HomeworkTask>;
+	expect(before.items[0]).toMatchObject({ submissionId: null, submissionAttemptId: null });
+	await env.DB.batch([
+		env.DB.prepare('INSERT INTO submissions (id,task_id,attempt_id,task_version,created_at) VALUES (?,?,?,2,?)').bind(submissionId, taskId, attemptId, today),
+		env.DB.prepare("UPDATE homework_tasks SET state='submitted',current_submission_id=?,version=2 WHERE id=?").bind(submissionId, taskId),
+	]);
+	const after = await (await request(`/tasks?problemId=${problemId}`, 'GET', undefined, parent)).json() as Page<HomeworkTask>;
+	expect(after.items[0]).toMatchObject({ submissionId, submissionAttemptId: attemptId });
+});
