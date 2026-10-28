@@ -228,6 +228,7 @@ git tag -s "v$release_version" -m "Release $release_version"
 git push origin "v$release_version"
 bunx wrangler d1 migrations apply redlamp-leetcode --remote
 bun run deploy
+gh release create "v$release_version" --verify-tag --title "v$release_version" --notes-from-tag
 ```
 
 `bun run deploy` rejects uncommitted changes and a missing or incorrect remote tag. The build applies the same check when [Workers Builds sets `WORKERS_CI=1`](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#default-variables). A build from an untagged merge stops. After publishing the tag, use `bun run deploy` or retry the Workers build.
