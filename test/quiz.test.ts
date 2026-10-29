@@ -123,6 +123,7 @@ it('lists one deck per chapter with the best passed attempt and the next attempt
 	]);
 	const empty = { best: null, bestTotal: null, nextAt: null };
 	expect(await (await request('/quiz', 'GET', undefined, student)).json() as QuizDeck[]).toEqual([
+		{ slug: 'complexity-1', title: 'Как понять O(n): время и память, глава 1', cardCount: 6, ...empty },
 		{ slug, title: 'Permutations и Combinations, глава 1', cardCount: 8, best: 7, bestTotal: 8, nextAt: hourAfter(failedAt) },
 		{ slug: 'permutations-and-combinations-2', title: 'Permutations и Combinations, глава 2', cardCount: 8, best: 8, bestTotal: 8, nextAt: null },
 		{ slug: 'permutations-and-combinations-3', title: 'Permutations и Combinations, глава 3', cardCount: 7, best: 8, bestTotal: 8, nextAt: null },

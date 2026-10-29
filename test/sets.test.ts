@@ -142,7 +142,7 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item 
 	// The work window renders the statement as HTML, so a tag outside the list or any attribute fails.
 	expect(tasks.filter(({ statement = '' }) => !statement.includes('<h3>Пример 1</h3>') || !statement.includes('<h3>Ограничения</h3>') || [...statement.matchAll(/<([^\s/>]+)([^>]*)>/g)].some(([, tag, rest]) => !statementTag.test(tag) || rest)).map(taskSlug)).toEqual([]);
 	expect(item.chapters.filter(chapter => !chapter.title.trim() || !chapter.summary.trim()).map(chapter => chapter.title)).toEqual([]);
-	expect(item.chapters.filter(chapter => chapter.tasks.length < 3 || chapter.tasks.length > 5 || chapter.cards.length < 6 || chapter.cards.length > 8).map(chapter => chapter.title)).toEqual([]);
+	expect(item.chapters.filter(chapter => chapter.tasks.length < (chapter.lesson.includes('data-exercise=') ? 0 : 3) || chapter.tasks.length > 5 || chapter.cards.length < 6 || chapter.cards.length > 8).map(chapter => chapter.title)).toEqual([]);
 	const links = item.chapters.flatMap(chapter => chapter.links);
 	expect(item.chapters.filter(chapter => chapter.links.length < 3 || chapter.links.length > 5).map(chapter => chapter.title)).toEqual([]);
 	expect(links.filter(link => new URL(link.url).protocol !== 'https:').map(link => link.url)).toEqual([]);
@@ -150,7 +150,7 @@ it.each(sets.map(item => ({ name: item.slug, item })))('$name content', ({ item 
 	const lessons = item.chapters.map(chapter => chapter.lesson);
 	expect(lessons.map(lesson => htmlText(lesson).length).filter(length => length >= 12000)).toEqual([]);
 	expect(lessons.flatMap(lesson => [...lesson.matchAll(/<([a-z][a-z0-9]*)/gi)].map(match => match[1]).filter(tag => !fragmentTag.test(tag)))).toEqual([]);
-	expect(lessons.flatMap((lesson, index) => lesson.startsWith('<p class="lead">') && !/\s(?:style|on[a-z]+)=|<div(?! class="rule">)/i.test(lesson) ? [] : [index + 1])).toEqual([]);
+	expect(lessons.flatMap((lesson, index) => lesson.startsWith('<p class="lead">') && !/\s(?:style|on[a-z]+)=|<div(?! class="rule"(?:>| data-exercise=))/i.test(lesson) ? [] : [index + 1])).toEqual([]);
 	// A figure is an empty placeholder on its own line. The placeholders follow the order of chapter.figures.
 	expect(lessons.map(lesson => (lesson.match(/<figure\b/g) ?? []).length - (lesson.match(/^<figure data-figure="[a-z0-9-]+"><\/figure>$/gm) ?? []).length)).toEqual(lessons.map(() => 0));
 	expect(lessons.map(lesson => [...lesson.matchAll(/data-figure="([^"]+)"/g)].map(match => match[1]))).toEqual(item.chapters.map(chapter => (chapter.figures ?? []).map(figure => figure.id)));

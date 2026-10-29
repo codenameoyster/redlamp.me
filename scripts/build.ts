@@ -1,6 +1,6 @@
 import { cp, rm } from 'node:fs/promises';
 
-if (process.env.WORKERS_CI === '1') await import('./release');
+if (process.env.WORKERS_CI === '1' && process.env.WORKERS_CI_BRANCH === 'main') await import('./release');
 const { version } = await Bun.file('package.json').json() as { version: string };
 await rm('dist', { recursive: true, force: true });
 await cp('public', 'dist', { recursive: true });

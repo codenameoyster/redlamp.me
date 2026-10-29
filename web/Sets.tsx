@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject, type SubmitEvent } from 'react';
+import { useEffect, useId, useRef, useState, type RefObject, type SubmitEvent } from 'react';
 import { createPortal } from 'react-dom';
 import type { Figure, Homework, HomeworkSummary, LearningSetDetails, LearningSetSummary, Page, Problem, QuizDeck, SessionUser, SetTask, SetTaskRow } from '../shared/leetcode';
 import { api, message } from './api';
@@ -37,7 +37,7 @@ function SetList() {
 	const sets = useResource<LearningSetSummary[]>('/sets');
 	return <div className="stack"><div className="heading"><div><h1>Бомжарня</h1><p>Темы по порядку: теория, задачи, квиз.</p></div></div>
 		{sets.error && <p className="error" role="alert">{sets.error}</p>}
-		<div className="lesson-grid">{sets.data?.map(s => <article className="card card-pad stack" key={s.slug}><h2><a href={`/leetcode/sets/${s.slug}`}>{s.title}</a></h2><p><Terms text={s.summary} /></p><div className="tags">{s.topics.map(t => <span className="tag" key={t}>{t}</span>)}</div><div className="row small"><span>{plural(s.chapterCount, ['глава', 'главы', 'глав'])}</span><span>{s.acceptedCount} из {s.taskCount} заданий принято</span></div></article>)}</div>
+		<div className="lesson-grid">{sets.data?.map(s => <article className="card card-pad stack" key={s.slug}><h2><a href={`/leetcode/sets/${s.slug}`}>{s.title}</a></h2><p><Terms text={s.summary} /></p><div className="tags">{s.topics.map(t => <span className="tag" key={t}>{t}</span>)}</div><div className="row small"><span>{plural(s.chapterCount, ['глава', 'главы', 'глав'])}</span><span>{s.taskCount ? `${s.acceptedCount} из ${s.taskCount} заданий принято` : 'Практика в уроке'}</span></div></article>)}</div>
 	</div>;
 }
 
@@ -48,7 +48,7 @@ function SetOverview({ slug, user }: { slug: string; user: SessionUser }) {
 	return <div className="stack"><div className="heading"><div><h1>{set.title}</h1><p><Terms text={set.summary} /></p></div><div className="row">{user.role === 'student' && <Tutor context={{ kind: 'set', id: slug }} title={set.title} />}</div></div>
 		{(details.error || decks.error) && <p className="error" role="alert">{details.error || decks.error}</p>}
 		<p>Идите по порядку: каждая глава опирается на предыдущую.</p>
-		<section className="card">{set.chapters.map(c => <article className="list-row" key={c.number}><span className="small">Глава {c.number}</span><div className="grow"><h2><a href={`/leetcode/sets/${slug}/${c.number}`}>{c.title}</a></h2><p className="small"><Terms text={c.summary} /></p><p className="small">Задач принято {c.tasks.filter(t => t.accepted).length} из {c.tasks.length}</p><p className="small">Квиз. {deckStatus(decks.data?.find(deck => deck.slug === `${slug}-${c.number}`))}</p></div><a className="button" href={`/leetcode/sets/${slug}/${c.number}`} data-tip="Открыть урок и задачи этой главы.">Открыть главу</a></article>)}</section>
+		<section className="card">{set.chapters.map(c => <article className="list-row" key={c.number}><span className="small">Глава {c.number}</span><div className="grow"><h2><a href={`/leetcode/sets/${slug}/${c.number}`}>{c.title}</a></h2><p className="small"><Terms text={c.summary} /></p><p className="small">{c.tasks.length ? `Задач принято ${c.tasks.filter(t => t.accepted).length} из ${c.tasks.length}` : 'Практика в уроке'}</p><p className="small">Квиз. {deckStatus(decks.data?.find(deck => deck.slug === `${slug}-${c.number}`))}</p></div><a className="button" href={`/leetcode/sets/${slug}/${c.number}`} data-tip="Открыть урок и задачи этой главы.">Открыть главу</a></article>)}</section>
 	</div>;
 }
 
@@ -61,7 +61,7 @@ function ChapterPage({ slug, number, user }: { slug: string; number: number; use
 	return <div className="stack"><div className="heading"><div><h1>Глава {number}. {chapter.title}</h1><p><Terms text={chapter.summary} /></p></div><div className="row">{user.role === 'student' && <Tutor context={{ kind: 'set', id: slug }} title={set.title} lesson={article} />}</div></div>
 		{(details.error || decks.error || lesson.error) && <p className="error" role="alert">{details.error || decks.error || lesson.error}</p>}
 		<Lesson html={html ?? ''} figures={lesson.data?.figures} ref={article} />
-		<section className="card"><header className="card-head"><h2>Задачи</h2></header>{chapter.tasks.map(t => <article className="list-row" key={t.slug}><a className="small" href={t.url} target="_blank" rel="noopener noreferrer">{t.label} ↗</a><div className="grow"><h3><a href={t.problemId ? `/leetcode/problems/${t.problemId}` : `/leetcode/sets/${slug}/problems/${t.slug}`}>{t.title}</a></h3><p className="small">{t.note}</p></div><span className={`tag ${t.difficulty}`}>{difficultyLabels[t.difficulty]}</span>{t.accepted && <span className="tag good">Принято</span>}{t.activeTask && <a className="tag" href={`/leetcode/problems/${t.problemId}`}>{homeworkLabels[t.activeTask.state]}</a>}{user.role === 'parent' && t.assignable && <button onClick={() => setAdding(t)} data-tip="Выбрать домашнюю работу для этой задачи.">Добавить в домашнюю работу</button>}</article>)}</section>
+		{chapter.tasks.length > 0 && <section className="card"><header className="card-head"><h2>Задачи</h2></header>{chapter.tasks.map(t => <article className="list-row" key={t.slug}><a className="small" href={t.url} target="_blank" rel="noopener noreferrer">{t.label} ↗</a><div className="grow"><h3><a href={t.problemId ? `/leetcode/problems/${t.problemId}` : `/leetcode/sets/${slug}/problems/${t.slug}`}>{t.title}</a></h3><p className="small">{t.note}</p></div><span className={`tag ${t.difficulty}`}>{difficultyLabels[t.difficulty]}</span>{t.accepted && <span className="tag good">Принято</span>}{t.activeTask && <a className="tag" href={`/leetcode/problems/${t.problemId}`}>{homeworkLabels[t.activeTask.state]}</a>}{user.role === 'parent' && t.assignable && <button onClick={() => setAdding(t)} data-tip="Выбрать домашнюю работу для этой задачи.">Добавить в домашнюю работу</button>}</article>)}</section>}
 		<section className="card card-pad stack"><h2>Квиз главы</h2><p>{deckStatus(decks.data?.find(deck => deck.slug === `${slug}-${number}`))}</p><div className="row"><a className="button" href={`/leetcode/quiz/${slug}-${number}`} data-tip="Открыть карточки квиза по этой главе.">Пройти квиз</a></div></section>
 		<section className="card card-pad stack"><h2>Где узнать больше</h2><ul>{chapter.links.map(link => <li key={link.url}><a href={link.url} target="_blank" rel="noopener noreferrer">{link.title}</a> <small>{link.source}</small></li>)}</ul></section>
 		<nav className="row" aria-label="Главы">{number > 1 && <a className="button" href={`/leetcode/sets/${slug}/${number - 1}`} data-tip="Перейти к предыдущей главе.">Предыдущая глава</a>}<a className="button" href={`/leetcode/sets/${slug}`} data-tip="Вернуться к списку глав набора.">К набору</a>{number < set.chapters.length && <a className="button" href={`/leetcode/sets/${slug}/${number + 1}`} data-tip="Перейти к следующей главе.">Следующая глава</a>}</nav>
@@ -72,14 +72,25 @@ function ChapterPage({ slug, number, user }: { slug: string; number: number; use
 // The lesson HTML is repository content: src/leetcode/sets/<set>/chapter<N>.html. Each figure draws into its placeholder <figure data-figure="id">.
 // Each Python sample without the class no-run gets a run button and an output inside its <pre>. The first use of each glossary word gets its tip.
 export function Lesson({ html, figures, ref }: { html: string; figures?: Figure[]; ref: RefObject<HTMLElement | null> }) {
-	const [slots, setSlots] = useState<[Figure, Element][]>([]), [samples, setSamples] = useState<[string, Element][]>([]);
+	const [slots, setSlots] = useState<[Figure, Element][]>([]), [samples, setSamples] = useState<[string, Element][]>([]), [exercises, setExercises] = useState<HTMLElement[]>([]);
 	useEffect(() => {
 		for (const code of ref.current?.querySelectorAll('pre code') ?? []) code.innerHTML = highlight(/\blanguage-(\S+)/.exec(code.className)?.[1] ?? 'python', code.textContent ?? '').html;
 		if (ref.current) markTerms(ref.current);
 		setSlots((figures ?? []).flatMap(figure => { const slot = ref.current?.querySelector(`figure[data-figure="${figure.id}"]`); return slot ? [[figure, slot] as [Figure, Element]] : []; }));
 		setSamples([...ref.current?.querySelectorAll('pre:not(.no-run) > code.language-python') ?? []].map(code => [code.textContent ?? '', code.parentElement!]));
+		setExercises([...ref.current?.querySelectorAll<HTMLElement>('[data-exercise]') ?? []]);
 	}, [html, figures]);
-	return <><article className="lesson" ref={ref} dangerouslySetInnerHTML={{ __html: html }} />{slots.map(([figure, slot]) => createPortal(<LessonFigure figure={figure} />, slot, figure.id))}{samples.map(([code, pre], index) => createPortal(<Sample code={code} />, pre, `sample-${index}`))}</>;
+	return <><article className="lesson" ref={ref} dangerouslySetInnerHTML={{ __html: html }} />{slots.map(([figure, slot]) => createPortal(<LessonFigure figure={figure} />, slot, figure.id))}{samples.map(([code, pre], index) => createPortal(<Sample code={code} />, pre, `sample-${index}`))}{exercises.map(slot => createPortal(<Exercise data={slot.dataset} />, slot, slot.dataset.exercise))}</>;
+}
+
+function Exercise({ data }: { data: DOMStringMap }) {
+	const [typed, setTyped] = useState(''), [correct, setCorrect] = useState<boolean | null>(null), feedback = useId();
+	const normalize = (value: string) => value.toLowerCase().replace(/\s+/g, '').replaceAll('о', 'o').replaceAll('²', '^2');
+	return <form className="stack" onSubmit={event => { event.preventDefault(); if (typed.trim()) setCorrect(normalize(typed) === normalize(data.answer!)); }}>
+		<label>{data.question}<input value={typed} onChange={event => { setTyped(event.target.value); setCorrect(null); }} required maxLength={200} autoComplete="off" spellCheck={false} aria-describedby={feedback} aria-invalid={correct === false || undefined} /></label>
+		<div className="row"><button type="submit" disabled={!typed.trim()} data-tip="Проверить ответ. После ошибки можно попробовать ещё раз.">Проверить</button></div>
+		<p id={feedback} role="status">{correct !== null && (correct ? `Верно. ${data.explanation}` : `Пока неверно. ${data.hint}`)}</p>
+	</form>;
 }
 
 // A sample runs as a stdio program with no input. The run is not saved.

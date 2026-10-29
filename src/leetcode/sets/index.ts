@@ -13,9 +13,10 @@ import permutationsAndCombinationsSolutions from './permutations-and-combination
 import twoPointers from './two-pointers/set';
 import twoPointersGenerators from './two-pointers/generators';
 import twoPointersSolutions from './two-pointers/solutions';
+import complexity from './complexity/set';
 
 export type LearningSetContent = Omit<LearningSet, 'chapters'> & { chapters: (Chapter & { lesson: string })[] };
-export const sets: LearningSetContent[] = [permutationsAndCombinations, twoPointers, heapsAndQueues];
+export const sets: LearningSetContent[] = [complexity, permutationsAndCombinations, twoPointers, heapsAndQueues];
 
 // A reference solution of a set task. A call input gives solve.length arguments. solve returns the value that the harness compares and throws RangeError('constraints') for an input outside the statement constraints.
 // The references stay on the server, so the student cannot read them.
