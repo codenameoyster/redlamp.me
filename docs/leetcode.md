@@ -231,7 +231,7 @@ bun run deploy
 gh release create "v$release_version" --verify-tag --title "v$release_version" --notes-from-tag
 ```
 
-`bun run deploy` rejects uncommitted changes and a missing or incorrect remote tag. The build applies the same check when [Workers Builds sets `WORKERS_CI=1`](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#default-variables). A build from an untagged merge stops. After publishing the tag, use `bun run deploy` or retry the Workers build.
+`bun run deploy` rejects uncommitted changes and a missing or incorrect remote tag. The production branch is `main`. The build applies the same check when [Workers Builds sets `WORKERS_CI=1` and `WORKERS_CI_BRANCH=main`](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#default-variables). PR preview builds can run before the release tag exists. A build from an untagged merge stops. After publishing the tag, use `bun run deploy` or retry the Workers build.
 
 ## Credential rotation
 
