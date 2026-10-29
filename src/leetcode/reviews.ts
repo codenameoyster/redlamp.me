@@ -82,7 +82,7 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 		const xp = Math.max(0, acceptedXp + 10 * independent + 15 * completed + 5 * recalls + 2 * cards + 10 * passedTests - 2 * failedRuns - 15 * late - 5 * missed);
 		let level = 1;
 		while (xp >= 50 * level * (level + 1)) level++;
-		const cleared = sets.filter(set => tasksOf(set).every(task => accepted.has(taskSlug(task)))).length;
+		const cleared = sets.map(tasksOf).filter(tasks => tasks.length > 0 && tasks.every(task => accepted.has(taskSlug(task)))).length;
 		const earned: Record<BadgeId, boolean> = {
 			'first-accept': count >= 1, 'three-day-streak': streak.results[0].streak === 1, 'first-hard': hard >= 1, 'ten-accepted': count >= 10, 'independent-five': independent >= 5, 'set-cleared': cleared >= 1,
 			'week-no-miss': longest >= 7, 'month-no-miss': longest >= 30, 'twenty-five-accepted': count >= 25, 'fifty-accepted': count >= 50, 'fifty-cards': cards >= 50, 'ten-recalls': recalls >= 10,

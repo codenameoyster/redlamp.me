@@ -32,13 +32,13 @@ export function watchSelection(root: RefObject<HTMLElement | null>, explain: (te
 }
 
 // Marks the longest prefix of the quote that root shows, at least 16 characters or the full quote. Whitespace, soft hyphens, zero-width spaces and case do not count.
-// The text of a figure or of a sample run does not count: React draws it, and a <mark> would break its next render.
+// React owns the text in figures, sample runs, and exercises. A <mark> would break its next render.
 export function highlightIn(root: HTMLElement, quote: string): boolean {
 	for (const mark of root.querySelectorAll('mark')) mark.replaceWith(...mark.childNodes);
 	const key = quote.split('').filter(c => !skip.test(c)).map(low).join(''), at: [Text, number][] = [], walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
 	let text = '';
 	for (let n; (n = walker.nextNode() as Text | null);) {
-		if (!n.parentElement!.checkVisibility() || n.parentElement!.closest('[data-figure],.sample')) continue;
+		if (!n.parentElement!.checkVisibility() || n.parentElement!.closest('[data-figure],[data-exercise],.sample')) continue;
 		for (let i = 0; i < n.data.length; i++) if (!skip.test(n.data[i])) { text += low(n.data[i]); at.push([n, i]); }
 	}
 	let lo = Math.min(key.length, 16), hi = key.length, from = -1, size = 0;

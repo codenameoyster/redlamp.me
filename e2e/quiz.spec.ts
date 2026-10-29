@@ -14,7 +14,7 @@ test('passes a deck with 7 of 8 and waits an hour for the next attempt', async (
 	await page.getByRole('link', { name: 'Квиз', exact: true }).click();
 	const deck = page.getByRole('article').filter({ has: page.locator('h2 a[href="/leetcode/quiz/permutations-and-combinations-1"]') });
 	await expect(deck.getByRole('heading')).toHaveText('Permutations и Combinations, глава 1');
-	await expect(page.getByRole('article')).toHaveCount(12);
+	await expect(page.getByRole('article')).toHaveCount(13);
 	await expect(deck.getByText('Не пройден', { exact: true })).toBeVisible();
 	await deck.getByRole('link', { name: 'Начать', exact: true }).click();
 	await expect(page.getByText('Карточка 1 из 8')).toBeVisible();
