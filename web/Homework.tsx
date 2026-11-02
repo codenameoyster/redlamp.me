@@ -1,5 +1,5 @@
-import { useState, type SubmitEvent } from 'react';
-import type { Homework as Bundle, Distribution, HomeworkBoard, HomeworkDetails, HomeworkSummary, Page, Problem, SessionUser } from '../shared/leetcode';
+import { useEffect, useRef, useState, type SubmitEvent } from 'react';
+import type { Homework as Bundle, Distribution, HomeworkBoard, HomeworkDetails, HomeworkSummary, HomeworkTask, Page, Problem, SessionUser } from '../shared/leetcode';
 import { localDate } from '../shared/dates';
 import { api, message } from './api';
 import { useResource } from './useResource';
@@ -36,7 +36,7 @@ function HomeworkList({ user }: { user: SessionUser }) {
 		} catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
 	const parent = user.role === 'parent';
-	return <div className="stack"><div className="heading"><div><h1>Домашняя работа</h1><p>{parent ? 'Соберите задачи в домашнюю работу. Проверяйте ход решения.' : 'Выполните каждое задание, затем отправьте решение на проверку.'}</p></div></div>
+	return <div className="stack"><div className="heading"><div><h1>Домашняя работа</h1><p>{parent ? 'Добавляйте главы, квизы и задачи в домашнюю работу.' : 'Читайте главы, проходите квизы и решайте задачи.'}</p></div></div>
 		{(error || board.error) && <p className="error" role="alert">{error || board.error}</p>}
 		{parent && <form className="card card-pad stack" onSubmit={create}><h2>Новая домашняя работа</h2><label>Название<input name="title" required maxLength={200} /></label><label>Задание<textarea aria-label="Задание" name="instructions" maxLength={8000} /></label><label>Срок<input type="date" name="dueDate" /></label><button className="primary" disabled={busy} data-tip="Создать домашнюю работу с этим названием и сроком.">Создать домашнюю работу</button></form>}
 		{parent && <details className="card card-pad"><summary>Все домашние работы</summary>
@@ -47,7 +47,7 @@ function HomeworkList({ user }: { user: SessionUser }) {
 		</details>}
 		{sections.map(({ key, title }) => <section className="card" aria-label={title} key={key}><header className="card-head"><h2>{title}</h2></header>
 			{key === 'accepted' && <div className="card-pad row"><button disabled={busy} onClick={distribute} data-tip="Назначить повторения принятых задач на разные дни следующих 30 дней.">Распределить повторения на 30 дней</button>{spread && <p role="status">{spread}</p>}</div>}
-			{board.data?.[key].map(t => <article key={t.id} className="list-row"><div className="grow"><h3>{t.unread && <span className="unread" role="img" aria-label="Новое сообщение" />}<a href={`/leetcode/problems/${t.problemId}`}>{t.problemTitle}</a></h3><p className="small"><a href={`/leetcode/homework/${t.homeworkId}`}>{t.homeworkTitle}</a></p></div><span className="small">{t.dueDate ? `Срок: ${t.dueDate}` : 'Без срока'}</span><span className="tag">{homeworkLabels[t.state]}</span></article>)}
+			{board.data?.[key].map(t => <article key={t.id} className="list-row"><div className="grow"><h3>{t.unread && <span className="unread" role="img" aria-label="Новое сообщение" />}<a href={t.href}>{t.title}</a></h3><p className="small"><a href={`/leetcode/homework/${t.homeworkId}`}>{t.homeworkTitle}</a></p></div><span className="small">{t.dueDate ? `Срок: ${t.dueDate}` : 'Без срока'}</span><span className="tag">{homeworkLabels[t.state]}</span></article>)}
 			{board.data?.[key].length === 0 && <p className="empty">Заданий нет.</p>}</section>)}
 	</div>;
 }
@@ -77,13 +77,18 @@ function BundleDetail({ id, user }: { id: string; user: SessionUser }) {
 		try { await api(`/homework/${id}/postpone`, { method: 'POST', body: JSON.stringify({ version: h!.version }) }); throwPoop(button); details.reload(); }
 		catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
+	async function cancel(task: HomeworkTask) {
+		setBusy(true); setError('');
+		try { await api(`/tasks/${task.id}/cancel`, { method: 'POST', body: JSON.stringify({ version: task.version }) }); details.reload(); }
+		catch (error) { setError(message(error)); } finally { setBusy(false); }
+	}
 	if (!h) return <p role="status">{details.error || 'Открываем домашнюю работу...'}</p>;
 	const parent = user.role === 'parent', tasks = details.data!.tasks;
 	const power = !parent && h.dueDate && !h.postponedTo && localDate() <= h.dueDate && tasks.some(t => ['assigned', 'in_progress', 'changes_requested'].includes(t.state));
 	return <div className="stack"><div className="heading"><div><h1>{h.title}</h1><div className="row"><p>{h.dueDate ? `Срок: ${h.dueDate}` : 'Без срока'}</p>{power && <button disabled={busy} onClick={event => postpone(event.currentTarget)} data-tip="Перенести срок этой домашней работы на один день, только один раз.">Сила Бомжа</button>}{parent && <button onClick={() => setDating(!dating)} data-tip="Показать или скрыть поле нового срока.">Изменить срок</button>}</div>{dating && <form className="row" onSubmit={save}><input type="hidden" name="title" value={h.title} /><input type="hidden" name="instructions" value={h.instructions} /><input type="date" name="dueDate" aria-label="Новый срок" defaultValue={h.dueDate ?? ''} /><button disabled={busy} data-tip="Сохранить новый срок. Пустое поле убирает срок.">Сохранить срок</button></form>}{h.postponedTo && <p>Сила Бомжа: срок перенесён на {dayMonth(h.postponedTo)}.</p>}</div>{parent && <button onClick={() => setEditing(!editing)} data-tip="Показать или скрыть форму изменения домашней работы.">Изменить домашнюю работу</button>}</div><p className="prose">{h.instructions}</p>
 		{(error || details.error) && <p className="error" role="alert">{error || details.error}</p>}
 		{editing && <form className="card card-pad stack" onSubmit={save}><label>Название<input name="title" defaultValue={h.title} required maxLength={200} /></label><label>Задание<textarea aria-label="Задание" name="instructions" defaultValue={h.instructions} maxLength={8000} /></label><label>Срок<input type="date" name="dueDate" defaultValue={h.dueDate ?? ''} /></label><button disabled={busy} data-tip="Сохранить новое название, задание и срок.">Сохранить домашнюю работу</button></form>}
-		<section className="card" aria-label="Задания">{tasks.map(t => <article key={t.id} className="list-row"><div className="grow"><h2>{t.unread && <span className="unread" role="img" aria-label="Новое сообщение" />}<a href={`/leetcode/problems/${t.problemId}`}>{t.problemTitle}</a></h2></div><span className={`tag ${t.difficulty}`}>{difficultyLabels[t.difficulty]}</span><span className="tag">{homeworkLabels[t.state]}</span></article>)}{!tasks.length && <p className="empty">Заданий пока нет. {parent ? 'Добавьте задачу ниже.' : 'Родитель может добавить задание.'}</p>}</section>
+		<section className="card" aria-label="Задания">{tasks.map(t => <article key={t.id} className="list-row"><div className="grow"><h2>{t.unread && <span className="unread" role="img" aria-label="Новое сообщение" />}<a href={t.href}>{t.title}</a></h2></div>{t.difficulty && <span className={`tag ${t.difficulty}`}>{difficultyLabels[t.difficulty]}</span>}<span className="tag">{homeworkLabels[t.state]}</span>{parent && t.kind !== 'problem' && !['completed', 'cancelled'].includes(t.state) && <button disabled={busy} onClick={() => void cancel(t)} aria-label={`Отменить «${t.title}»`} data-tip="Отменить это задание домашней работы.">Отменить</button>}</article>)}{!tasks.length && <p className="empty">Заданий пока нет. {parent ? 'Добавьте задачу ниже.' : 'Родитель может добавить задание.'}</p>}</section>
 		{parent && <AddTask homeworkId={id} added={details.reload} />}
 		<Materials homework={h} user={user} changed={details.reload} />
 	</div>;
@@ -99,4 +104,36 @@ function AddTask({ homeworkId, added }: { homeworkId: string; added: () => void 
 		catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
 	return <form className="card card-pad stack" onSubmit={add}><h2>Новое задание</h2>{error && <p className="error" role="alert">{error}</p>}<label>Найти задачу<input type="search" value={search} onChange={event => setSearch(event.target.value)} maxLength={100} /></label><fieldset><legend>Задача</legend><div className="picker">{[...(chosen && !problems.data?.items.some(p => p.id === chosen.id) ? [chosen] : []), ...problems.data?.items ?? []].map(p => <label className="list-row" key={p.id}><input type="radio" name="problemId" value={p.id} required checked={chosen?.id === p.id} onChange={() => setChosen(p)} /><span className="grow">{p.title}</span><span className="row"><span className="small">{p.topics.join(', ')}</span><span className={`tag ${p.difficulty}`}>{difficultyLabels[p.difficulty]}</span></span></label>)}{problems.data?.items.length === 0 && !chosen && <p className="empty">Нет подходящих задач.</p>}</div></fieldset><button className="primary" disabled={busy} data-tip="Добавить выбранную задачу в эту домашнюю работу.">Добавить задание</button></form>;
+}
+
+export function AddToHomework({ kind, setSlug, chapter, title, close, added }: { kind: 'chapter' | 'quiz'; setSlug: string; chapter: number; title: string; close: () => void; added: (message: string) => void }) {
+	const dialog = useRef<HTMLDialogElement>(null);
+	const [search, setSearch] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+	const bundles = useResource<Page<HomeworkSummary>>(`/homework?active=1&q=${encodeURIComponent(search)}`), [shown, setShown] = useState(bundles.data);
+	if (bundles.data && bundles.data !== shown) setShown(bundles.data);
+	useEffect(() => {
+		const previous = document.activeElement, element = dialog.current;
+		element?.showModal();
+		return () => { element?.close(); if (previous instanceof HTMLElement) previous.focus(); };
+	}, []);
+	async function assign(homeworkId: () => Promise<string>) {
+		setBusy(true); setError('');
+		try {
+			const result = await api<{ added: number; skipped: { title: string; reason: string }[] }>(`/homework/${await homeworkId()}/content`, { method: 'POST', body: JSON.stringify({ kind, setSlug, chapter }) });
+			added([`Добавлено: ${result.added}.`, ...result.skipped.map(item => `${item.title}: ${item.reason}`)].join(' '));
+		} catch (error) { setError(message(error)); setBusy(false); bundles.reload(); }
+	}
+	function create(event: SubmitEvent<HTMLFormElement>) {
+		event.preventDefault();
+		const form = new FormData(event.currentTarget);
+		void assign(async () => (await api<Bundle>('/homework', { method: 'POST', body: JSON.stringify({ title: form.get('title'), instructions: '', dueDate: form.get('dueDate') || null }) })).id);
+	}
+	return <dialog ref={dialog} onCancel={close} aria-labelledby="add-homework-title"><div className="stack">
+		<h2 id="add-homework-title">Добавить «{title}» в домашнюю работу</h2>
+		<label>Найти домашнюю работу<input type="search" value={search} onChange={event => setSearch(event.target.value)} maxLength={200} /></label>
+		{(error || bundles.error) && <p className="error" role="alert">{error || bundles.error}</p>}
+		<div>{shown?.items.map(h => <article className="list-row" key={h.id}><div className="grow"><h3>{h.title}</h3><p className="small">{h.dueDate ? `Срок: ${h.dueDate}` : 'Без срока'}</p></div><span className="small">{plural(h.taskCount, ['задание', 'задания', 'заданий'])}</span><button disabled={busy} onClick={() => void assign(async () => h.id)} data-tip="Добавить выбранные материалы в эту домашнюю работу.">Назначить</button></article>)}{shown?.items.length === 0 && <p className="empty">Нет подходящей активной домашней работы.</p>}</div>
+		<form className="stack" onSubmit={create}><h3>Новая домашняя работа</h3><label>Название<input name="title" required maxLength={200} defaultValue={title} /></label><label>Срок<input type="date" name="dueDate" /></label><button className="primary" disabled={busy} data-tip="Создать домашнюю работу и добавить выбранные материалы.">Создать и назначить</button></form>
+		<div className="row"><button type="button" onClick={close} data-tip="Закрыть окно без изменений.">Закрыть</button></div>
+	</div></dialog>;
 }

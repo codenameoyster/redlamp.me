@@ -4,7 +4,7 @@ import { addCalendarDays } from '../../shared/dates';
 import { normalizeTopics } from '../../shared/topics';
 import { requireRole } from './auth';
 import { attemptColumns } from './attempts';
-import { onTimeSQL, taskColumns, taskTables, unreadValue } from './homework';
+import { onTimeSQL, taskColumns, taskTables, taskValue } from './homework';
 import { getProblem, problemColumns, problemValue, solvedSQL } from './problems';
 import { acceptedSetSlugs, sets, taskSlug, tasksOf } from './sets';
 import { recallPicks } from './recall';
@@ -45,7 +45,7 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 			byTopic.set(topic, counts);
 		}
 		const topicProgress = [...byTopic.keys()].sort().slice(0, 50).map(topic => byTopic.get(topic)!);
-		return Response.json({ counts: { ...progress.results[0], ...assignments.results[0] }, topics: topicProgress, homework: (homework.results as unknown as HomeworkTask[]).map(unreadValue), drafts: drafts.results, dueReviews: dueReviews.results.map(row => ({ ...problemValue(row as unknown as Parameters<typeof problemValue>[0]), fromHomework: Boolean(row.fromHomework) })), recallPicks: picks } as Dashboard);
+		return Response.json({ counts: { ...progress.results[0], ...assignments.results[0] }, topics: topicProgress, homework: (homework.results as unknown as HomeworkTask[]).map(taskValue), drafts: drafts.results, dueReviews: dueReviews.results.map(row => ({ ...problemValue(row as unknown as Parameters<typeof problemValue>[0]), fromHomework: Boolean(row.fromHomework) })), recallPicks: picks } as Dashboard);
 	}
 	if (url.pathname === '/leetcode/api/reviews/distribute') {
 		methods(request, ['POST']);
@@ -69,7 +69,7 @@ export async function handleReviews(request: Request, env: Env, user: SessionUse
 				coalesce(sum(EXISTS(SELECT 1 FROM attempts a WHERE a.problem_id=p.id AND a.state='saved' AND a.understanding='independent') OR EXISTS(SELECT 1 FROM reviews r WHERE r.problem_id=p.id AND r.result='independent')),0) AS independent,
 				(SELECT count(*) FROM homework_tasks WHERE state='completed') AS completed,(SELECT count(*) FROM (SELECT DISTINCT problem_id,reviewed_on FROM reviews)) AS recalls,(SELECT count(*) FROM card_answers WHERE correct=1)+(SELECT coalesce(sum(best),0) FROM (SELECT max(correct) AS best FROM quiz_attempts WHERE passed=1 GROUP BY deck)) AS cards,
 				(SELECT count(DISTINCT problem_id) FROM test_runs WHERE passed=total AND total>0) AS passedTests,(SELECT coalesce(sum(min(fails,3)),0) FROM (SELECT count(*) AS fails FROM test_runs WHERE passed<total GROUP BY problem_id,run_on)) AS failedRuns,
-				(SELECT count(*) FROM homework_tasks t JOIN homework h ON h.id=t.homework_id WHERE t.state<>'cancelled' AND h.due_date<date('now') AND date(t.created_at)<=h.due_date AND NOT EXISTS(SELECT 1 FROM submissions s WHERE s.task_id=t.id AND date(s.created_at)<=h.due_date)) AS late,
+				(SELECT count(*) FROM homework_tasks t JOIN homework h ON h.id=t.homework_id WHERE t.state<>'cancelled' AND h.due_date<date('now') AND date(t.created_at)<=h.due_date AND (t.completed_at IS NULL OR date(t.completed_at)>h.due_date) AND NOT EXISTS(SELECT 1 FROM submissions s WHERE s.task_id=t.id AND date(s.created_at)<=h.due_date)) AS late,
 				(${onTimeSQL}) AS onTime,
 				(SELECT count(*) FROM test_runs r WHERE r.passed=r.total AND r.total>0 AND r.created_at=(SELECT min(created_at) FROM test_runs WHERE problem_id=r.problem_id)) AS firstTry,
 				coalesce(sum(p.slug LIKE 'cf-%'),0) AS codeforces FROM problems p WHERE ${solvedSQL}`),

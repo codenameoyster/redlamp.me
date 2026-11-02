@@ -17,7 +17,7 @@ it('moves each per-problem homework into a bundle with one task', async () => {
 	]);
 	await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
 	expect(await env.DB.prepare('SELECT * FROM homework').all().then(r => r.results)).toEqual([{ id: id.homework, title: 'Two Sum', instructions: 'Explain the invariant.', due_date: '2026-10-10', version: 1, created_at: 't2', updated_at: 't3' }]);
-	expect(await env.DB.prepare('SELECT * FROM homework_tasks').all().then(r => r.results)).toEqual([{ id: id.homework, homework_id: id.homework, problem_id: id.problem, state: 'submitted', current_submission_id: id.submission, version: 2, created_at: 't2', updated_at: 't3' }]);
+	expect(await env.DB.prepare('SELECT * FROM homework_tasks').all().then(r => r.results)).toEqual([{ id: id.homework, homework_id: id.homework, problem_id: id.problem, state: 'submitted', current_submission_id: id.submission, version: 2, created_at: 't2', updated_at: 't3', kind: 'problem', set_slug: null, chapter: null, completed_at: null }]);
 	expect(await env.DB.prepare('SELECT task_id,task_version FROM submissions').first()).toEqual({ task_id: id.homework, task_version: 2 });
 	expect(await env.DB.prepare('SELECT task_id FROM feedback').first()).toEqual({ task_id: id.homework });
 	const references = await Promise.all(['feedback', 'homework_tasks', 'submissions'].map(async child => [child, (await env.DB.prepare(`PRAGMA foreign_key_list(${child})`).all<{ from: string; table: string }>()).results.filter(f => f.table.startsWith('homework')).map(f => `${f.from} -> ${f.table}`)]));

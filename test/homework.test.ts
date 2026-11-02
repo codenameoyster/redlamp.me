@@ -205,7 +205,7 @@ it('lists the submitted task of the problem with its submission', async () => {
 	const submission = await solve();
 	const response = await request(`/tasks?problemId=${problemId}`, 'GET', undefined, parent);
 	expect(response.status).toBe(200);
-	expect(await response.json()).toMatchObject({ items: [{ id: taskId, homeworkId, homeworkTitle: 'Two Sum practice', instructions: 'Explain the invariant', dueDate: '2026-10-10', problemId, problemTitle: 'Two Sum', difficulty: 'easy', state: 'submitted', submissionId: submission, version: 2 }] });
+	expect(await response.json()).toMatchObject({ items: [{ id: taskId, homeworkId, homeworkTitle: 'Two Sum practice', instructions: 'Explain the invariant', dueDate: '2026-10-10', problemId, title: 'Two Sum', difficulty: 'easy', state: 'submitted', submissionId: submission, version: 2 }] });
 });
 
 it('lists the bundle tasks in creation order', async () => {
@@ -213,7 +213,7 @@ it('lists the bundle tasks in creation order', async () => {
 	await env.DB.batch([insertProblem.bind(other, 'subsets', 'Subsets'), insertTask.bind(crypto.randomUUID(), homeworkId, other, 'assigned', '2026-10-03')]);
 	const response = await request(`/homework/${homeworkId}`, 'GET', undefined, student);
 	expect(response.status).toBe(200);
-	expect(await response.json()).toMatchObject({ homework: { id: homeworkId, title: 'Two Sum practice' }, tasks: [{ problemTitle: 'Subsets', homeworkId }, { id: taskId, problemTitle: 'Two Sum', homeworkId }] });
+	expect(await response.json()).toMatchObject({ homework: { id: homeworkId, title: 'Two Sum practice' }, tasks: [{ title: 'Subsets', homeworkId }, { id: taskId, title: 'Two Sum', homeworkId }] });
 });
 
 it('unknown homework', async () => {
@@ -271,7 +271,7 @@ it.each([
 	await env.DB.prepare('UPDATE homework_tasks SET state=?').bind(state).run();
 	const response = await request('/tasks?view=board', 'GET', undefined, role === 'parent' ? parent : student);
 	expect(response.status).toBe(200);
-	const task = { id: taskId, homeworkId, homeworkTitle: 'Two Sum practice', dueDate: '2026-10-10', problemId, problemTitle: 'Two Sum', state, unread: false };
+	const task = { id: taskId, homeworkId, homeworkTitle: 'Two Sum practice', dueDate: '2026-10-10', problemId, title: 'Two Sum', state, unread: false };
 	expect(await response.json()).toEqual({ progress: [], future: [], accepted: [], ...section && { [section]: [expect.objectContaining(task)] } });
 });
 
@@ -304,7 +304,7 @@ it.each([
 		return [insertProblem.bind(id, task.title, task.title), insertAt.bind(crypto.randomUUID(), bundles.get(task.homework), id, task.state, task.at, task.at)];
 	})]);
 	const response = await (await request('/tasks?view=board', 'GET', undefined, student)).json() as HomeworkBoard;
-	expect(Object.fromEntries(Object.entries(response).map(([section, rows]) => [section, rows.map(task => task.problemTitle)]))).toEqual(board);
+	expect(Object.fromEntries(Object.entries(response).map(([section, rows]) => [section, rows.map(task => task.title)]))).toEqual(board);
 });
 
 it('marks a bundle unread when one of its tasks is unread', async () => {

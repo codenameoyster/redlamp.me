@@ -1,5 +1,36 @@
 import { test, expect, signIn } from './fixtures';
 import type { Page } from '@playwright/test';
+import type { Homework } from '../shared/leetcode';
+
+test('assigns one quiz and completes its homework after a pass', async ({ page, baseURL }) => {
+	await signIn(page, 'parent');
+	const headers = { Origin: new URL(baseURL!).origin };
+	const homework = await (await page.request.post('/leetcode/api/homework', { headers, data: { title: 'Quiz homework', instructions: '', dueDate: null } })).json() as Homework;
+	await page.goto('/leetcode/quiz/permutations-and-combinations-1');
+	await page.getByRole('button', { name: 'Добавить квиз в домашнюю работу', exact: true }).click();
+	await page.getByRole('dialog').getByRole('article').filter({ hasText: 'Quiz homework' }).getByRole('button', { name: 'Назначить', exact: true }).click();
+	await expect(page.getByRole('dialog')).toHaveCount(0);
+	await expect(page.getByRole('status')).toHaveText('Добавлено: 1.');
+	await page.goto(`/leetcode/homework/${homework.id}`);
+	const assignments = page.getByRole('region', { name: 'Задания', exact: true });
+	await expect(assignments.getByRole('article')).toHaveCount(1);
+	await expect(assignments.locator('a')).toHaveAttribute('href', '/leetcode/quiz/permutations-and-combinations-1');
+	await signIn(page);
+	await page.goto('/leetcode/homework');
+	await page.getByRole('region', { name: 'В процессе', exact: true }).locator('a[href="/leetcode/quiz/permutations-and-combinations-1"]').click();
+	await expect(page.getByRole('button', { name: 'Добавить квиз в домашнюю работу', exact: true })).toHaveCount(0);
+	await answer(page, 1, '500');
+	await answer(page, 2, '24');
+	await answer(page, 3, '48', true);
+	await answer(page, 4, '126', true);
+	await answer(page, 5, '15');
+	await answer(page, 6, '66', true);
+	await answer(page, 7, '31', true);
+	await answer(page, 8, '720');
+	await expect(page.getByRole('heading', { name: 'Верных ответов: 7 из 8. Квиз засчитан.', exact: true })).toBeVisible();
+	await page.goto(`/leetcode/homework/${homework.id}`);
+	await expect(assignments.getByText('Завершено', { exact: true })).toBeVisible();
+});
 
 // Answers card `number` of 8: a choice button, or a short answer in the text field.
 async function answer(page: Page, number: number, value: string, short = false) {

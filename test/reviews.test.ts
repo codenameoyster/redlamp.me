@@ -27,6 +27,22 @@ beforeEach(async () => {
 afterEach(() => { vi.restoreAllMocks(); });
 
 it.each([
+	{ name: 'assigned chapter', kind: 'chapter', state: 'assigned', visible: true, href: '/leetcode/sets/permutations-and-combinations/1' },
+	{ name: 'quiz in progress', kind: 'quiz', state: 'in_progress', visible: true, href: '/leetcode/quiz/permutations-and-combinations-1' },
+	{ name: 'completed chapter', kind: 'chapter', state: 'completed', visible: false, href: '/leetcode/sets/permutations-and-combinations/1' },
+	{ name: 'cancelled quiz', kind: 'quiz', state: 'cancelled', visible: false, href: '/leetcode/quiz/permutations-and-combinations-1' },
+])('dashboard content homework: $name', async ({ kind, state, visible, href }) => {
+	const id = crypto.randomUUID();
+	await env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,kind,set_slug,chapter,state,created_at,updated_at,completed_at) VALUES (?,?,?,'permutations-and-combinations',1,?,'now','now',?)").bind(id, homeworkId, kind, state, state === 'completed' ? '2026-10-07' : null).run();
+	const response = await request('/dashboard?today=2026-10-07', 'GET', undefined, cookie);
+	expect(response.status).toBe(200);
+	const dashboard = await response.json() as Dashboard;
+	expect(dashboard.counts).toMatchObject({ recorded: 3, solved: 2, waitingReview: 0 });
+	expect(dashboard.homework.filter(task => task.id === id)).toEqual(visible ? [expect.objectContaining({ kind, state, href, title: expect.stringContaining('Считаем варианты'), unread: false })] : []);
+	expect(dashboard.homework).toContainEqual(expect.objectContaining({ id: taskId, kind: 'problem', title: 'accepted independently', href: `/leetcode/problems/${first}` }));
+});
+
+it.each([
 	{ name: 'month boundary', date: '2026-01-31', days: 1, expected: '2026-02-01' },
 	{ name: 'leap day', date: '2028-02-28', days: 1, expected: '2028-02-29' },
 	{ name: 'year boundary', date: '2026-12-29', days: 7, expected: '2027-01-05' },
@@ -107,7 +123,7 @@ it.each([
 ])('$name', async ({ state, rows }) => {
 	await env.DB.prepare('UPDATE homework_tasks SET state=?').bind(state).run();
 	const { homework } = await (await request('/dashboard?today=2026-10-07', 'GET', undefined, cookie)).json() as Dashboard;
-	expect(homework).toEqual([{ id: taskId, homeworkId, homeworkTitle: 'Week 41', instructions: 'Explain', dueDate: '2026-10-07', postponedTo: null, problemId: first, problemTitle: 'accepted independently', difficulty: 'medium', state, submissionId: null, submissionAttemptId: null, version: 1, createdAt: 'now', updatedAt: 'now', unread: false }].slice(0, rows));
+	expect(homework).toEqual([{ id: taskId, homeworkId, homeworkTitle: 'Week 41', instructions: 'Explain', dueDate: '2026-10-07', postponedTo: null, problemId: first, title: 'accepted independently', href: `/leetcode/problems/${first}`, kind: 'problem', setSlug: null, chapter: null, completedAt: null, difficulty: 'medium', state, submissionId: null, submissionAttemptId: null, version: 1, createdAt: 'now', updatedAt: 'now', unread: false }].slice(0, rows));
 });
 
 it.each([

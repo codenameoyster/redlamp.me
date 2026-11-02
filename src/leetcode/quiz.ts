@@ -6,7 +6,7 @@ import { sets } from './sets';
 
 const HOUR = 3_600_000;
 const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
-const decks = sets.flatMap(set => set.chapters.map((chapter, index) => ({ slug: `${set.slug}-${index + 1}`, title: `${set.title}, глава ${index + 1}`, cards: chapter.cards })));
+const decks = sets.flatMap(set => set.chapters.map((chapter, index) => ({ slug: `${set.slug}-${index + 1}`, setSlug: set.slug, chapter: index + 1, title: `${set.title}, глава ${index + 1}`, cards: chapter.cards })));
 const strip = (card: Card) => Object.fromEntries(Object.entries(card).filter(([key]) => key !== 'answer' && key !== 'explain')) as QuizCard;
 const hourAfter = (time: string) => new Date(Date.parse(time) + HOUR).toISOString();
 
@@ -28,8 +28,9 @@ export async function handleQuiz(request: Request, env: Env, user: SessionUser):
 		const graded = deck!.cards.map(card => ({ card, ...grade(card, answers[card.id]) }));
 		const correct = graded.filter(item => item.correct).length, total = ids.length, passed = correct * 5 >= total * 4, now = Date.now();
 		// One statement checks the pause and inserts, so of two quick submits only one is stored.
-		const [insert, last] = await env.DB.batch<{ last: string }>([
+		const [insert, , last] = await env.DB.batch<{ last: string }>([
 			env.DB.prepare('INSERT INTO quiz_attempts SELECT ?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM quiz_attempts WHERE deck=? AND created_at>?)').bind(crypto.randomUUID(), deck!.slug, correct, total, Number(passed), new Date(now).toISOString(), deck!.slug, new Date(now - HOUR).toISOString()),
+			env.DB.prepare("UPDATE homework_tasks SET state='completed',completed_at=?,updated_at=?,version=version+1 WHERE kind='quiz' AND set_slug=? AND chapter=? AND state IN ('assigned','in_progress') AND ?=1 AND changes()=1").bind(new Date(now).toISOString(), new Date(now).toISOString(), deck!.setSlug, deck!.chapter, Number(passed)),
 			env.DB.prepare('SELECT max(created_at) AS last FROM quiz_attempts WHERE deck=?').bind(deck!.slug),
 		]);
 		const nextAt = hourAfter(last.results[0].last);

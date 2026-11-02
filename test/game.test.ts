@@ -34,6 +34,42 @@ const order: BadgeId[] = ['first-accept', 'three-day-streak', 'first-hard', 'ten
 let student: string;
 beforeEach(async () => { student = await login(); });
 
+it.each([
+	{ name: 'chapter completed before the due date', kind: 'chapter', state: 'completed', due: '2026-10-01', created: '2026-09-01', completed: '2026-09-30T12:00:00.000Z', xp: 15, late: 0 },
+	{ name: 'quiz completed on the due date', kind: 'quiz', state: 'completed', due: '2026-10-01', created: '2026-09-01', completed: '2026-10-01T23:59:00.000Z', xp: 15, late: 0 },
+	{ name: 'quiz completed after the due date', kind: 'quiz', state: 'completed', due: '2026-10-01', created: '2026-09-01', completed: '2026-10-02T00:01:00.000Z', xp: 0, late: 1 },
+	{ name: 'chapter still assigned after the due date', kind: 'chapter', state: 'assigned', due: '2026-10-01', created: '2026-09-01', completed: null, xp: 0, late: 1 },
+	{ name: 'quiz still assigned on the due date', kind: 'quiz', state: 'assigned', due: today, created: '2026-09-01', completed: null, xp: 0, late: 0 },
+	{ name: 'cancelled chapter after the due date', kind: 'chapter', state: 'cancelled', due: '2026-10-01', created: '2026-09-01', completed: null, xp: 0, late: 0 },
+	{ name: 'chapter assigned after the due date', kind: 'chapter', state: 'assigned', due: '2026-10-01', created: '2026-10-02', completed: null, xp: 0, late: 0 },
+	{ name: 'chapter completed without a due date', kind: 'chapter', state: 'completed', due: null, created: '2026-09-01', completed: '2026-10-02T12:00:00.000Z', xp: 15, late: 0 },
+])('content homework: $name', async ({ kind, state, due, created, completed, xp, late }) => {
+	const homeworkId = crypto.randomUUID();
+	await env.DB.batch([
+		insertBundle.bind(homeworkId, due),
+		env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,kind,set_slug,chapter,state,created_at,updated_at,completed_at) VALUES (?,?,?,'complexity',1,?,?,?,?)").bind(crypto.randomUUID(), homeworkId, kind, state, created, completed ?? created, completed),
+	]);
+	const response = await request('/game', 'GET', undefined, student);
+	expect(response.status).toBe(200);
+	expect(await response.json()).toMatchObject({ xp, late, missed: 0 });
+});
+
+it('counts five content homework tasks completed on time', async () => {
+	const homeworkId = crypto.randomUUID(), content = [
+		{ name: 'complexity reading', kind: 'chapter', set: 'complexity', chapter: 1 },
+		{ name: 'complexity quiz', kind: 'quiz', set: 'complexity', chapter: 1 },
+		{ name: 'counting reading', kind: 'chapter', set: 'permutations-and-combinations', chapter: 1 },
+		{ name: 'counting quiz', kind: 'quiz', set: 'permutations-and-combinations', chapter: 1 },
+		{ name: 'two pointers reading', kind: 'chapter', set: 'two-pointers', chapter: 1 },
+	];
+	await env.DB.batch([insertBundle.bind(homeworkId, '2026-10-01'), ...content.map(task => env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,kind,set_slug,chapter,state,created_at,updated_at,completed_at) VALUES (?,?,?,?,?,'completed','2026-09-01','2026-10-01','2026-10-01')").bind(crypto.randomUUID(), homeworkId, task.kind, task.set, task.chapter))]);
+	const response = await request('/game', 'GET', undefined, student);
+	expect(response.status).toBe(200);
+	const game = await response.json() as Game;
+	expect(game).toMatchObject({ xp: 75, late: 0 });
+	expect(game.badges).toContainEqual({ id: 'on-time-five', earned: true });
+});
+
 it.each<{ name: string; role?: Role; problems: Spec[]; cards?: { correct: boolean; on: string }[]; quizzes?: ReturnType<typeof quiz>[]; visits?: number[]; xp: number; late?: number; missed?: number; level: number; levelXp: number; nextLevelXp: number; earned: BadgeId[] }>([
 	{ name: 'empty notebook', problems: [], xp: 0, level: 1, levelXp: 0, nextLevelXp: 100, earned: [] },
 	{ name: 'accepted easy', problems: [accepted('easy')], xp: 10, level: 1, levelXp: 0, nextLevelXp: 100, earned: ['first-accept'] },
