@@ -89,7 +89,7 @@ export interface LearningSet { slug: string; title: string; summary: string; top
 export interface ChapterRef { set: string; setTitle: string; number: number; title: string }
 export interface LearningSetSummary extends Omit<LearningSet, 'chapters'> { chapterCount: number; taskCount: number; acceptedCount: number }
 export type SetTaskRow = SetTask & { slug: string; label: string; problemId: string | null; accepted: boolean; assignable: boolean; activeTask: Pick<HomeworkTask, 'state'> | null };
-export interface LearningSetDetails extends Omit<LearningSet, 'chapters'> { chapters: { number: number; title: string; summary: string; links: Chapter['links']; tasks: SetTaskRow[] }[] }
+export interface LearningSetDetails extends Omit<LearningSet, 'chapters'> { chapters: { number: number; title: string; summary: string; links: Chapter['links']; tasks: SetTaskRow[]; quiz: QuizDeck }[] }
 export type Card = { id: string; prompt: string; explain: string } & (
 	{ type: 'choice'; options: string[]; answer: number }
 	| { type: 'short'; answer: string }
@@ -98,8 +98,8 @@ type Strip<T> = T extends unknown ? Omit<T, 'answer' | 'explain'> : never;
 export type QuizCard = Strip<Card>;
 // best is the most correct answers of a passed attempt, and bestTotal the most cards of a passed attempt: a deck can change its size after a pass.
 // nextAt is the end of the 1 hour pause after the last attempt.
-export interface QuizDeck { slug: string; title: string; cardCount: number; best: number | null; bestTotal: number | null; nextAt: string | null }
-export interface QuizRound { title: string; cards: QuizCard[]; nextAt: string | null }
+export interface QuizDeck { slug: string; title: string; chapter: ChapterRef; cardCount: number; best: number | null; bestTotal: number | null; nextAt: string | null }
+export interface QuizRound { title: string; chapter: ChapterRef; cards: QuizCard[]; nextAt: string | null }
 // A failed attempt does not show the right answers and the explanations.
 export interface QuizAttempt { correct: number; total: number; passed: boolean; nextAt: string; results: { cardId: string; correct: boolean; answer?: string; explain?: string }[] }
 export interface Distribution { count: number; from: string | null; to: string | null }

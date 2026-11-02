@@ -98,6 +98,29 @@ it.each([
 });
 
 it.each([
+	{ name: 'no quiz attempt', chapter: 1, cardCount: 8, attempts: [], best: null, bestTotal: null, nextMinutes: null },
+	{ name: 'recent failed quiz attempt', chapter: 1, cardCount: 8, attempts: [{ deck: 'permutations-and-combinations-1', correct: 5, total: 8, passed: 0, minutes: 30 }], best: null, bestTotal: null, nextMinutes: 30 },
+	{ name: 'recent passing quiz attempt', chapter: 1, cardCount: 8, attempts: [{ deck: 'permutations-and-combinations-1', correct: 7, total: 8, passed: 1, minutes: 30 }], best: 7, bestTotal: 8, nextMinutes: 30 },
+	{ name: 'expired quiz pause', chapter: 1, cardCount: 8, attempts: [{ deck: 'permutations-and-combinations-1', correct: 7, total: 8, passed: 1, minutes: 61 }], best: 7, bestTotal: 8, nextMinutes: null },
+	{ name: 'failed quiz attempt after an older pass', chapter: 1, cardCount: 8, attempts: [{ deck: 'permutations-and-combinations-1', correct: 7, total: 8, passed: 1, minutes: 180 }, { deck: 'permutations-and-combinations-1', correct: 5, total: 8, passed: 0, minutes: 30 }], best: 7, bestTotal: 8, nextMinutes: 30 },
+	{ name: 'quiz attempt in another chapter', chapter: 1, cardCount: 8, attempts: [{ deck: 'permutations-and-combinations-2', correct: 8, total: 8, passed: 1, minutes: 30 }], best: null, bestTotal: null, nextMinutes: null },
+	{ name: 'quiz attempt in another learning set', chapter: 1, cardCount: 8, attempts: [{ deck: 'two-pointers-1', correct: 8, total: 8, passed: 1, minutes: 30 }], best: null, bestTotal: null, nextMinutes: null },
+	{ name: 'passing quiz attempt from a larger deck', chapter: 3, cardCount: 7, attempts: [{ deck: 'permutations-and-combinations-3', correct: 8, total: 8, passed: 1, minutes: 120 }], best: 8, bestTotal: 8, nextMinutes: null },
+])('chapter quiz: $name', async row => {
+	const now = Date.now();
+	for (const attempt of row.attempts) await env.DB.prepare('INSERT INTO quiz_attempts VALUES (?,?,?,?,?,?)').bind(crypto.randomUUID(), attempt.deck, attempt.correct, attempt.total, attempt.passed, new Date(now - attempt.minutes * 60_000).toISOString()).run();
+	const response = await request(`/sets/${set.slug}`, 'GET', undefined, student);
+	expect(response.status).toBe(200);
+	const details = await response.json() as LearningSetDetails;
+	expect(details.chapters[row.chapter - 1].quiz).toEqual({
+		slug: `${set.slug}-${row.chapter}`, title: `${set.title}, глава ${row.chapter}`,
+		chapter: { set: set.slug, setTitle: set.title, number: row.chapter, title: set.chapters[row.chapter - 1].title },
+		cardCount: row.cardCount, best: row.best, bestTotal: row.bestTotal,
+		nextAt: row.nextMinutes === null ? null : new Date(now + row.nextMinutes * 60_000).toISOString(),
+	});
+});
+
+it.each([
 	{ name: 'student chapter 1 lesson', role: 'student', item: set, chapter: '1', body: { html: set.chapters[0].lesson, figures: set.chapters[0].figures } },
 	{ name: 'parent chapter 4 lesson', role: 'parent', item: set, chapter: '4', body: { html: set.chapters[3].lesson, figures: set.chapters[3].figures } },
 	{ name: 'lesson with figures', role: 'student', item: twoPointers, chapter: '1', body: { html: twoPointers.chapters[0].lesson, figures: twoPointers.chapters[0].figures } },

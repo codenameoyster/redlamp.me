@@ -1,4 +1,4 @@
-import type { LearningSetContent } from '..';
+import type { LearningSetContent } from '../content';
 import chapter1 from './chapter1';
 import chapter2 from './chapter2';
 import chapter3 from './chapter3';
