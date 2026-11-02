@@ -43,6 +43,44 @@ it.each([
 });
 
 it.each([
+	{ name: 'parent sees submissions first, then the oldest updates', role: 'parent', order: ['01', '02', '11', '10', '09', '08', '07', '06', '05', '04'], unread: ['11'] },
+	{ name: 'student sees work first, then submissions, by due date', role: 'student', order: ['03', '04', '05', '07', '08', '09', '10', '06', '11', '02'], unread: ['05'] },
+])('dashboard ten-task limit: $name', async ({ role, order, unread }) => {
+	const prefix = '00000000-0000-4000-8000-0000000000';
+	const rows = [
+		{ name: 'older submission', id: '01', kind: 'problem', state: 'submitted', chapter: null, due: '2026-10-20', updated: '2026-10-01', archived: false },
+		{ name: 'newer submission', id: '02', kind: 'problem', state: 'submitted', chapter: null, due: '2026-10-01', updated: '2026-10-02', archived: false },
+		{ name: 'reading with the first due date', id: '03', kind: 'chapter', state: 'assigned', chapter: 1, due: '2026-10-01', updated: '2026-10-09', archived: false },
+		{ name: 'quiz with the same due date', id: '04', kind: 'quiz', state: 'in_progress', chapter: 1, due: '2026-10-01', updated: '2026-10-08', archived: false },
+		{ name: 'problem returned for changes', id: '05', kind: 'problem', state: 'changes_requested', chapter: null, due: '2026-10-02', updated: '2026-10-07', archived: false },
+		{ name: 'reading without a due date', id: '06', kind: 'chapter', state: 'assigned', chapter: 2, due: null, updated: '2026-10-06', archived: false },
+		{ name: 'later quiz', id: '07', kind: 'quiz', state: 'assigned', chapter: 2, due: '2026-10-03', updated: '2026-10-05', archived: false },
+		{ name: 'problem in progress', id: '08', kind: 'problem', state: 'in_progress', chapter: null, due: '2026-10-04', updated: '2026-10-04', archived: false },
+		{ name: 'later reading', id: '09', kind: 'chapter', state: 'assigned', chapter: 3, due: '2026-10-05', updated: '2026-10-03', archived: false },
+		{ name: 'quiz with the last due date', id: '10', kind: 'quiz', state: 'assigned', chapter: 3, due: '2026-10-06', updated: '2026-10-02', archived: false },
+		{ name: 'problem without a due date', id: '11', kind: 'problem', state: 'assigned', chapter: null, due: null, updated: '2026-10-01', archived: false },
+		{ name: 'archived submission', id: '12', kind: 'problem', state: 'submitted', chapter: null, due: '2026-09-01', updated: '2026-09-01', archived: true },
+	];
+	await env.DB.prepare("UPDATE homework_tasks SET state='cancelled'").run();
+	for (const row of rows) {
+		const id = prefix + row.id, problemId = row.kind === 'problem' ? id : null;
+		if (problemId) await env.DB.prepare("INSERT INTO problems (id,slug,title,difficulty,topics,summary,search_text,archived_at,created_at,updated_at) VALUES (?,?,?,'easy','[]','','',?,'now','now')").bind(id, id, row.name, row.archived ? 'now' : null).run();
+		await env.DB.batch([
+			env.DB.prepare("INSERT INTO homework (id,title,instructions,due_date,created_at,updated_at) VALUES (?,?,'',?,'now','now')").bind(id, row.name, row.due),
+			env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,problem_id,kind,set_slug,chapter,state,created_at,updated_at) VALUES (?,?,?,?,?,?,?,'now',?)").bind(id, id, problemId, row.kind, problemId ? null : 'permutations-and-combinations', row.chapter, row.state, row.updated),
+		]);
+	}
+	await env.DB.batch([
+		env.DB.prepare("INSERT INTO feedback (id,problem_id,author,kind,body,created_at) VALUES (?,?,'parent','reply','Add a proof.','2026-10-07')").bind(crypto.randomUUID(), prefix + '05'),
+		env.DB.prepare("INSERT INTO feedback (id,problem_id,author,kind,body,created_at) VALUES (?,?,'student','reply','Please check.','2026-10-07')").bind(crypto.randomUUID(), prefix + '11'),
+	]);
+	const response = await request('/dashboard?today=2026-10-07', 'GET', undefined, role === 'parent' ? await login('parent') : cookie);
+	expect(response.status).toBe(200);
+	const { homework } = await response.json() as Dashboard;
+	expect(homework.map(task => ({ id: task.id, unread: task.unread }))).toEqual(order.map(id => ({ id: prefix + id, unread: unread.includes(id) })));
+});
+
+it.each([
 	{ name: 'month boundary', date: '2026-01-31', days: 1, expected: '2026-02-01' },
 	{ name: 'leap day', date: '2028-02-28', days: 1, expected: '2028-02-29' },
 	{ name: 'year boundary', date: '2026-12-29', days: 7, expected: '2027-01-05' },
