@@ -1,22 +1,19 @@
 import type { Env } from '../../index';
-import type { Chapter, ChapterRef, LearningSet, LearningSetDetails, LearningSetSummary, SessionUser, SetTask, TaskState } from '../../../shared/leetcode';
+import type { ChapterRef, LearningSet, LearningSetDetails, LearningSetSummary, SessionUser, SetTask, TaskState } from '../../../shared/leetcode';
 import { requireRole } from '../auth';
 import { getHomework } from '../homework';
 import { changed, HttpError, integer, methods, object, readJson, uuid } from '../http';
 import { assignableSQL, getProblem, slug as problemSlug, solvedSQL } from '../problems';
-import heapsAndQueues from './heaps-and-queues/set';
+import { getQuizDecks } from '../quiz';
+import { sets } from './content';
 import heapsAndQueuesGenerators from './heaps-and-queues/generators';
 import heapsAndQueuesSolutions from './heaps-and-queues/solutions';
-import permutationsAndCombinations from './permutations-and-combinations/set';
 import permutationsAndCombinationsGenerators from './permutations-and-combinations/generators';
 import permutationsAndCombinationsSolutions from './permutations-and-combinations/solutions';
-import twoPointers from './two-pointers/set';
 import twoPointersGenerators from './two-pointers/generators';
 import twoPointersSolutions from './two-pointers/solutions';
-import complexity from './complexity/set';
 
-export type LearningSetContent = Omit<LearningSet, 'chapters'> & { chapters: (Chapter & { lesson: string })[] };
-export const sets: LearningSetContent[] = [complexity, permutationsAndCombinations, twoPointers, heapsAndQueues];
+export { sets, type LearningSetContent } from './content';
 
 // A reference solution of a set task. A call input gives solve.length arguments. solve returns the value that the harness compares and throws RangeError('constraints') for an input outside the statement constraints.
 // The references stay on the server, so the student cannot read them.
@@ -89,10 +86,13 @@ export async function handleSets(request: Request, env: Env, user: SessionUser):
 		if (!chapter) throw new HttpError(404, 'not_found', 'Такой главы нет.');
 		return Response.json({ html: chapter.lesson, figures: chapter.figures ?? [] });
 	}
-	const rows = await env.DB.prepare(`SELECT p.slug,p.id AS problemId,${solvedSQL} AS accepted,(${assignableSQL}) AS assignable,t.state
-		FROM problems p LEFT JOIN homework_tasks t ON t.problem_id=p.id AND t.state NOT IN ('completed','cancelled') WHERE p.slug IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(tasksOf(set).map(taskSlug))).all<TaskRow>();
+	const [rows, quizzes] = await Promise.all([
+		env.DB.prepare(`SELECT p.slug,p.id AS problemId,${solvedSQL} AS accepted,(${assignableSQL}) AS assignable,t.state
+			FROM problems p LEFT JOIN homework_tasks t ON t.problem_id=p.id AND t.state NOT IN ('completed','cancelled') WHERE p.slug IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(tasksOf(set).map(taskSlug))).all<TaskRow>(),
+		getQuizDecks(env),
+	]);
 	const library = new Map(rows.results.map(row => [row.slug, row]));
-	const details: LearningSetDetails = { slug: set.slug, title: set.title, summary: set.summary, topics: set.topics, chapters: set.chapters.map((chapter, index) => ({ number: index + 1, title: chapter.title, summary: chapter.summary, links: chapter.links, tasks: chapter.tasks.map(task => {
+	const details: LearningSetDetails = { slug: set.slug, title: set.title, summary: set.summary, topics: set.topics, chapters: set.chapters.map((chapter, index) => ({ number: index + 1, title: chapter.title, summary: chapter.summary, links: chapter.links, quiz: quizzes.find(quiz => quiz.chapter.set === set.slug && quiz.chapter.number === index + 1)!, tasks: chapter.tasks.map(task => {
 		const value = taskSlug(task), row = library.get(value);
 		return { ...task, slug: value, label: taskLabel(task), problemId: row?.problemId ?? null, accepted: Boolean(row?.accepted), assignable: row ? Boolean(row.assignable) : true, activeTask: row?.state ? { state: row.state } : null };
 	}) })) };

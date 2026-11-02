@@ -74,10 +74,14 @@ test('passes a deck with 7 of 8 and waits an hour for the next attempt', async (
 	await deck.getByRole('link', { name: 'Permutations и Combinations, глава 1', exact: true }).click();
 	await expect(page.getByText(/^Следующая попытка после \d\d:\d\d\.$/)).toBeVisible();
 	await expect(page.getByText(/^Карточка \d/)).toHaveCount(0);
+	let quizReads = 0;
+	await page.route('**/leetcode/api/quiz', route => { quizReads++; return route.abort(); });
 	await page.goto('/leetcode/sets/permutations-and-combinations');
 	await expect(page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Считаем варианты', exact: true }) })).toContainText(/Квиз\. Пройден: 7 из 8\. Следующая попытка после \d\d:\d\d/);
 	await page.goto('/leetcode/sets/permutations-and-combinations/1');
 	await expect(page.locator('section').filter({ has: page.getByRole('heading', { name: 'Квиз главы', exact: true }) })).toContainText(/Пройден: 7 из 8\. Следующая попытка после \d\d:\d\d/);
+	await expect(page.getByRole('link', { name: 'Пройти квиз', exact: true })).toHaveAttribute('href', '/leetcode/quiz/permutations-and-combinations-1');
+	expect(quizReads).toBe(0);
 	await page.getByRole('link', { name: 'Сегодня', exact: true }).click();
 	await expect(page.getByText('14 XP. До уровня 2: 86 XP.', { exact: true })).toBeVisible();
 	await expect(page.getByText('Карточки квиза')).toHaveCount(0);
@@ -109,7 +113,7 @@ test('a failed attempt shows the wrong cards without the answers and gives no XP
 
 test('marks the first hard word of a card prompt and of its explanation, and not the options', async ({ page }) => {
 	await signIn(page);
-	await page.route('**/leetcode/api/quiz/heaps-and-queues-1', route => route.fulfill({ json: { title: 'Heap (Priority Queue), Queue и Deque, глава 1', nextAt: null, cards: [{ id: 'test-deque', type: 'choice', prompt: 'В Deque q три числа. Что вернёт q.pop()?', options: ['Число из Deque', 'Ничего'] }] } }));
+	await page.route('**/leetcode/api/quiz/heaps-and-queues-1', route => route.fulfill({ json: { title: 'Heap (Priority Queue), Queue и Deque, глава 1', chapter: { set: 'heaps-and-queues', setTitle: 'Heap (Priority Queue), Queue и Deque', number: 1, title: 'Queue и Deque' }, nextAt: null, cards: [{ id: 'test-deque', type: 'choice', prompt: 'В Deque q три числа. Что вернёт q.pop()?', options: ['Число из Deque', 'Ничего'] }] } }));
 	await page.route('**/leetcode/api/quiz/heaps-and-queues-1/attempts', route => route.fulfill({ json: { correct: 1, total: 1, passed: true, nextAt: '2026-10-14T12:00:00.000Z', results: [{ cardId: 'test-deque', correct: true, answer: 'Число из Deque', explain: 'Deque отдаёт число с конца, а пустой Deque даёт ошибку.' }] } }));
 	await page.goto('/leetcode/quiz/heaps-and-queues-1');
 	await expect(page.locator('.quiz-card .term')).toHaveText(['Deque']);

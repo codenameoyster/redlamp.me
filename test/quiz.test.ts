@@ -116,6 +116,7 @@ it.each([
 	if (createdAt) await insert.bind('a', slug, 5, 8, 0, createdAt).run();
 	const round = await (await request(`/quiz/${slug}`, 'GET', undefined, student)).json() as QuizRound;
 	expect(round.title).toBe('Permutations и Combinations, глава 1');
+	expect(round.chapter).toEqual({ set: 'permutations-and-combinations', setTitle: 'Permutations и Combinations', number: 1, title: 'Считаем варианты' });
 	expect(round.cards.map(card => card.id)).toEqual(deck.map(card => card.id));
 	expect(round.cards.some(card => 'answer' in card || 'explain' in card)).toBe(false);
 	expect(round.nextAt).toBe(minutes === 30 ? hourAfter(createdAt!) : null);
@@ -149,18 +150,18 @@ it('lists one deck per chapter with the best passed attempt and the next attempt
 	]);
 	const empty = { best: null, bestTotal: null, nextAt: null };
 	expect(await (await request('/quiz', 'GET', undefined, student)).json() as QuizDeck[]).toEqual([
-		{ slug: 'complexity-1', title: 'Как понять O(n): время и память, глава 1', cardCount: 6, ...empty },
-		{ slug, title: 'Permutations и Combinations, глава 1', cardCount: 8, best: 7, bestTotal: 8, nextAt: hourAfter(failedAt) },
-		{ slug: 'permutations-and-combinations-2', title: 'Permutations и Combinations, глава 2', cardCount: 8, best: 8, bestTotal: 8, nextAt: null },
-		{ slug: 'permutations-and-combinations-3', title: 'Permutations и Combinations, глава 3', cardCount: 7, best: 8, bestTotal: 8, nextAt: null },
-		{ slug: 'permutations-and-combinations-4', title: 'Permutations и Combinations, глава 4', cardCount: 6, ...empty },
-		{ slug: 'two-pointers-1', title: 'Two Pointers, глава 1', cardCount: 8, ...empty },
-		{ slug: 'two-pointers-2', title: 'Two Pointers, глава 2', cardCount: 7, best: 8, bestTotal: 8, nextAt: null },
-		{ slug: 'two-pointers-3', title: 'Two Pointers, глава 3', cardCount: 8, ...empty },
-		{ slug: 'two-pointers-4', title: 'Two Pointers, глава 4', cardCount: 8, ...empty },
-		{ slug: 'heaps-and-queues-1', title: 'Heap (Priority Queue), Queue и Deque, глава 1', cardCount: 8, best: 7, bestTotal: 8, nextAt: null },
-		{ slug: 'heaps-and-queues-2', title: 'Heap (Priority Queue), Queue и Deque, глава 2', cardCount: 8, ...empty },
-		{ slug: 'heaps-and-queues-3', title: 'Heap (Priority Queue), Queue и Deque, глава 3', cardCount: 8, ...empty },
-		{ slug: 'heaps-and-queues-4', title: 'Heap (Priority Queue), Queue и Deque, глава 4', cardCount: 8, ...empty },
+		{ slug: 'complexity-1', title: 'Как понять O(n): время и память, глава 1', chapter: { set: 'complexity', setTitle: 'Как понять O(n): время и память', number: 1, title: 'Как понять O(n): время и память' }, cardCount: 6, ...empty },
+		{ slug, title: 'Permutations и Combinations, глава 1', chapter: { set: 'permutations-and-combinations', setTitle: 'Permutations и Combinations', number: 1, title: 'Считаем варианты' }, cardCount: 8, best: 7, bestTotal: 8, nextAt: hourAfter(failedAt) },
+		{ slug: 'permutations-and-combinations-2', title: 'Permutations и Combinations, глава 2', chapter: { set: 'permutations-and-combinations', setTitle: 'Permutations и Combinations', number: 2, title: 'Backtracking: Subsets, Permutations, Combinations' }, cardCount: 8, best: 8, bestTotal: 8, nextAt: null },
+		{ slug: 'permutations-and-combinations-3', title: 'Permutations и Combinations, глава 3', chapter: { set: 'permutations-and-combinations', setTitle: 'Permutations и Combinations', number: 3, title: 'Повторы и Pruning' }, cardCount: 7, best: 8, bestTotal: 8, nextAt: null },
+		{ slug: 'permutations-and-combinations-4', title: 'Permutations и Combinations, глава 4', chapter: { set: 'permutations-and-combinations', setTitle: 'Permutations и Combinations', number: 4, title: 'Порядок и номер' }, cardCount: 6, ...empty },
+		{ slug: 'two-pointers-1', title: 'Two Pointers, глава 1', chapter: { set: 'two-pointers', setTitle: 'Two Pointers', number: 1, title: 'Навстречу' }, cardCount: 8, ...empty },
+		{ slug: 'two-pointers-2', title: 'Two Pointers, глава 2', chapter: { set: 'two-pointers', setTitle: 'Two Pointers', number: 2, title: 'Читатель и писатель' }, cardCount: 7, best: 8, bestTotal: 8, nextAt: null },
+		{ slug: 'two-pointers-3', title: 'Two Pointers, глава 3', chapter: { set: 'two-pointers', setTitle: 'Two Pointers', number: 3, title: 'Две последовательности' }, cardCount: 8, ...empty },
+		{ slug: 'two-pointers-4', title: 'Two Pointers, глава 4', chapter: { set: 'two-pointers', setTitle: 'Two Pointers', number: 4, title: 'Карта Two Pointers' }, cardCount: 8, ...empty },
+		{ slug: 'heaps-and-queues-1', title: 'Heap (Priority Queue), Queue и Deque, глава 1', chapter: { set: 'heaps-and-queues', setTitle: 'Heap (Priority Queue), Queue и Deque', number: 1, title: 'Queue и Deque' }, cardCount: 8, best: 7, bestTotal: 8, nextAt: null },
+		{ slug: 'heaps-and-queues-2', title: 'Heap (Priority Queue), Queue и Deque, глава 2', chapter: { set: 'heaps-and-queues', setTitle: 'Heap (Priority Queue), Queue и Deque', number: 2, title: 'Binary Heap: приоритет и стоимость' }, cardCount: 8, ...empty },
+		{ slug: 'heaps-and-queues-3', title: 'Heap (Priority Queue), Queue и Deque, глава 3', chapter: { set: 'heaps-and-queues', setTitle: 'Heap (Priority Queue), Queue и Deque', number: 3, title: 'Sliding Window и Monotonic Queue' }, cardCount: 8, ...empty },
+		{ slug: 'heaps-and-queues-4', title: 'Heap (Priority Queue), Queue и Deque, глава 4', chapter: { set: 'heaps-and-queues', setTitle: 'Heap (Priority Queue), Queue и Deque', number: 4, title: 'Heap и Greedy' }, cardCount: 8, ...empty },
 	]);
 });

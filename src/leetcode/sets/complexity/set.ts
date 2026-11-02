@@ -1,4 +1,4 @@
-import type { LearningSetContent } from '..';
+import type { LearningSetContent } from '../content';
 import lesson from './chapter1.html';
 
 export default {
