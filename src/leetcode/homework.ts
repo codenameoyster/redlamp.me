@@ -9,16 +9,23 @@ const postponedSQL = '(SELECT to_date FROM postponements WHERE homework_id=h.id)
 const homeworkColumns = `h.id,h.title,h.instructions,h.due_date AS dueDate,${postponedSQL},h.version,h.created_at AS createdAt,h.updated_at AS updatedAt`;
 // ?1 is the viewer role. A later ? takes the next number. https://www.sqlite.org/lang_expr.html#varparam
 const unreadSQL = "EXISTS(SELECT 1 FROM feedback f WHERE f.problem_id=t.problem_id AND f.author<>?1 AND f.created_at>coalesce((SELECT read_at FROM discussion_reads r WHERE r.role=?1 AND r.problem_id=t.problem_id),''))";
-export const taskColumns = `t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,h.instructions,h.due_date AS dueDate,${postponedSQL},t.problem_id AS problemId,p.title,p.difficulty,t.kind,t.set_slug AS setSlug,t.chapter,t.completed_at AS completedAt,t.state,t.current_submission_id AS submissionId,s.attempt_id AS submissionAttemptId,t.version,t.created_at AS createdAt,t.updated_at AS updatedAt,${unreadSQL} AS unread`;
-export const taskTables = 'homework_tasks t JOIN homework h ON h.id=t.homework_id LEFT JOIN problems p ON p.id=t.problem_id LEFT JOIN submissions s ON s.id=t.current_submission_id';
+const taskColumns = `t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,h.instructions,h.due_date AS dueDate,${postponedSQL},t.problem_id AS problemId,p.title,p.difficulty,t.kind,t.set_slug AS setSlug,t.chapter,t.completed_at AS completedAt,t.state,t.current_submission_id AS submissionId,s.attempt_id AS submissionAttemptId,t.version,t.created_at AS createdAt,t.updated_at AS updatedAt,${unreadSQL} AS unread`;
+const taskTables = 'homework_tasks t JOIN homework h ON h.id=t.homework_id LEFT JOIN problems p ON p.id=t.problem_id LEFT JOIN submissions s ON s.id=t.current_submission_id';
 export const onTimeSQL = "SELECT count(*) FROM homework_tasks t JOIN homework h ON h.id=t.homework_id WHERE t.state<>'cancelled' AND (date(t.completed_at)<=h.due_date OR EXISTS(SELECT 1 FROM submissions s WHERE s.task_id=t.id AND date(s.created_at)<=h.due_date))";
 const awardOnTime = (env: Env) => env.DB.prepare(`INSERT OR IGNORE INTO earned_badges SELECT 'on-time-five' WHERE (${onTimeSQL})>=5`);
 const feedbackColumns = 'id,problem_id AS problemId,task_id AS taskId,submission_id AS submissionId,author,kind,body,created_at AS createdAt';
-export function unreadValue<T extends { unread: boolean }>(row: T): T { return { ...row, unread: Boolean(row.unread) }; }
-export function taskValue(row: HomeworkTask): HomeworkTask {
+function unreadValue<T extends { unread: boolean }>(row: T): T { return { ...row, unread: Boolean(row.unread) }; }
+function taskValue(row: HomeworkTask): HomeworkTask {
 	if (row.kind === 'problem') return { ...unreadValue(row), href: `/leetcode/problems/${row.problemId}` };
 	const set = sets.find(set => set.slug === row.setSlug)!, chapter = set.chapters[row.chapter! - 1];
 	return { ...unreadValue(row), title: `${row.kind === 'quiz' ? 'Квиз' : 'Глава'} ${row.chapter}. ${chapter.title}`, href: row.kind === 'quiz' ? `/leetcode/quiz/${set.slug}-${row.chapter}` : `/leetcode/sets/${set.slug}/${row.chapter}` };
+}
+export async function dashboardHomework(env: Env, role: Role): Promise<{ waitingReview: number; tasks: HomeworkTask[] }> {
+	const [count, tasks] = await env.DB.batch<HomeworkTask & { waitingReview: number }>([
+		env.DB.prepare("SELECT count(*) AS waitingReview FROM homework_tasks t JOIN problems p ON p.id=t.problem_id WHERE t.state='submitted' AND p.archived_at IS NULL"),
+		env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE p.archived_at IS NULL AND t.state NOT IN ('completed','cancelled') ORDER BY ${role === 'parent' ? "(t.state='submitted') DESC,t.updated_at ASC" : "(t.state='submitted') ASC,h.due_date IS NULL,h.due_date ASC"},t.id LIMIT 10`).bind(role),
+	]);
+	return { waitingReview: count.results[0].waitingReview, tasks: tasks.results.map(taskValue) };
 }
 export async function getHomework(env: Env, id: string): Promise<Homework> {
 	const row = await env.DB.prepare(`SELECT ${homeworkColumns} FROM homework h WHERE h.id=?`).bind(uuid(id)).first<Homework>();
