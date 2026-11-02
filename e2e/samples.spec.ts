@@ -3,6 +3,10 @@ import { test, expect } from '@playwright/test';
 import { loadPyodide } from 'pyodide';
 
 const expectedSamples = [
+	{ name: 'complexity/chapter1 sample 1', output: '8\n' },
+	{ name: 'complexity/chapter1 sample 2', output: '(8, 3)\n' },
+	{ name: 'complexity/chapter1 sample 3', output: '1\n' },
+	{ name: 'complexity/chapter1 sample 4', output: '[1, 2]\n' },
 	{ name: 'permutations-and-combinations/chapter1 sample 1', output: '12\n' },
 	{ name: 'permutations-and-combinations/chapter1 sample 2', output: '120\n' },
 	{ name: 'permutations-and-combinations/chapter1 sample 3', output: '10\n120 120\n' },

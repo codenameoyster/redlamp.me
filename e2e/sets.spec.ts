@@ -6,6 +6,27 @@ import twoPointers2 from '../src/leetcode/sets/two-pointers/chapter2';
 import permutations2 from '../src/leetcode/sets/permutations-and-combinations/chapter2';
 
 const setPath = '/leetcode/sets/permutations-and-combinations', chapterPath = `${setPath}/2`;
+
+test('assigns a chapter with its quiz and all problems from one button', async ({ page }) => {
+	await signIn(page, 'parent');
+	await page.goto(chapterPath);
+	const add = page.getByRole('button', { name: 'Добавить главу в домашнюю работу', exact: true });
+	await expect(add).toHaveCount(1);
+	await expect(page.getByRole('button', { name: 'Добавить в домашнюю работу', exact: true })).toHaveCount(0);
+	await add.click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByLabel('Название', { exact: true }).fill('Chapter 2 homework');
+	await dialog.getByRole('button', { name: 'Создать и назначить', exact: true }).click();
+	await expect(dialog).toHaveCount(0);
+	await expect(page.getByRole('status').filter({ hasText: 'Добавлено:' })).toContainText('Добавлено: 7');
+	await page.getByRole('link', { name: 'Домашняя работа', exact: true }).click();
+	const work = page.getByRole('region', { name: 'В процессе', exact: true });
+	await expect(work.getByRole('article')).toHaveCount(7);
+	await expect(work.locator(`a[href="${chapterPath}"]`)).toHaveCount(1);
+	await expect(work.locator('a[href="/leetcode/quiz/permutations-and-combinations-2"]')).toHaveCount(1);
+	expect((await work.locator('h3 a[href^="/leetcode/problems/"]').allTextContents()).sort()).toEqual(['Combinations', 'Letter Case Permutation', 'Letter Combinations of a Phone Number', 'Permutations', 'Subsets']);
+});
+
 function row(page: Page, title: string) { return page.getByRole('article').filter({ has: page.getByRole('heading', { name: title, exact: true }) }); }
 const steps: Figure = { id: 'test-steps', title: 'Указатели идут навстречу', frames: [
 	{ caption: 'l = 0, r = 3: 1 + 7 = 8, меньше 9.', rows: [{ cells: [1, 4, 5, 7], marked: [0, 3], pointers: { l: 0, r: 3 }, window: [0, 3] }] },
@@ -114,7 +135,7 @@ for (const item of openFailures) {
 	});
 }
 
-test('assigns set tasks to new and existing homework', async ({ page, context }) => {
+test('opens chapter material and assigns the chapter to existing homework', async ({ page, context, baseURL }) => {
 	await signIn(page, 'parent');
 	await page.getByRole('link', { name: 'Бомжарня', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'Бомжарня', level: 1 })).toBeVisible();
@@ -143,27 +164,18 @@ test('assigns set tasks to new and existing homework', async ({ page, context })
 	await expect(page.getByRole('link', { name: 'Пройти квиз', exact: true })).toHaveAttribute('href', '/leetcode/quiz/permutations-and-combinations-2');
 	await expect(page.getByRole('link', { name: 'Предыдущая глава', exact: true })).toHaveAttribute('href', `${setPath}/1`);
 	await expect(page.getByRole('link', { name: 'Следующая глава', exact: true })).toHaveAttribute('href', `${setPath}/3`);
-	const subsets = row(page, 'Subsets');
-	await subsets.getByRole('button', { name: 'Добавить в домашнюю работу', exact: true }).click();
-	const first = page.getByRole('dialog', { name: 'Добавить «Subsets» в домашнюю работу' });
-	await expect(first.getByLabel('Название', { exact: true })).toHaveValue('Permutations и Combinations');
-	await first.getByLabel('Название', { exact: true }).fill('Week 41: backtracking');
-	await first.getByLabel('Срок', { exact: true }).fill('2026-10-20');
-	await first.getByRole('button', { name: 'Создать и назначить', exact: true }).click();
-	await expect(first).toHaveCount(0);
-	await expect(subsets.getByRole('link', { name: 'Назначено', exact: true })).toHaveAttribute('href', /^\/leetcode\/problems\/[a-f0-9-]{36}$/);
-	await expect(subsets.getByRole('link', { name: 'Subsets', exact: true })).toHaveAttribute('href', /^\/leetcode\/problems\/[a-f0-9-]{36}$/);
-	await expect(subsets.getByRole('button', { name: 'Добавить в домашнюю работу' })).toHaveCount(0);
-	const permutations = row(page, 'Permutations'), add = permutations.getByRole('button', { name: 'Добавить в домашнюю работу', exact: true });
-	await expect(permutations.getByRole('link', { name: 'Permutations', exact: true })).toHaveAttribute('href', '/leetcode/sets/permutations-and-combinations/problems/permutations');
+	const headers = { Origin: new URL(baseURL!).origin };
+	await page.request.post('/leetcode/api/homework', { headers, data: { title: 'Week 41: backtracking', instructions: '', dueDate: '2026-10-20' } });
+	const add = page.getByRole('button', { name: 'Добавить главу в домашнюю работу', exact: true });
 	await add.click();
 	await page.keyboard.press('Escape');
 	await expect(page.getByRole('dialog')).toHaveCount(0);
 	await expect(add).toBeFocused();
 	await add.click();
-	const second = page.getByRole('dialog', { name: 'Добавить «Permutations» в домашнюю работу' }), bundle = second.getByRole('article').filter({ hasText: 'Week 41: backtracking' });
+	const second = page.getByRole('dialog'), bundle = second.getByRole('article').filter({ hasText: 'Week 41: backtracking' });
+	await expect(second.getByLabel('Название', { exact: true })).toHaveValue(`Глава 2. ${permutations2.title}`);
 	await expect(bundle).toContainText('Срок: 2026-10-20');
-	await expect(bundle).toContainText('1 задание');
+	await expect(bundle).toContainText('0 заданий');
 	let release!: () => void, entered!: () => void;
 	const held = new Promise<void>(resolve => { release = resolve; }), pending = new Promise<void>(resolve => { entered = resolve; });
 	await page.route(url => url.searchParams.get('q') === 'graphs', async route => { entered(); await held; await route.continue(); }, { times: 1 });
@@ -176,40 +188,37 @@ test('assigns set tasks to new and existing homework', async ({ page, context })
 	await second.getByRole('searchbox', { name: 'Найти домашнюю работу', exact: true }).fill('BACKTRACKING');
 	await bundle.getByRole('button', { name: 'Назначить', exact: true }).click();
 	await expect(second).toHaveCount(0);
-	await expect(permutations.getByRole('link', { name: 'Назначено', exact: true })).toHaveAttribute('href', /^\/leetcode\/problems\/[a-f0-9-]{36}$/);
+	await expect(row(page, 'Permutations').getByRole('link', { name: 'Назначено', exact: true })).toHaveAttribute('href', /^\/leetcode\/problems\/[a-f0-9-]{36}$/);
 	await page.getByRole('link', { name: 'Задачи', exact: true }).click();
 	const library = page.getByRole('region', { name: 'Библиотека задач' });
 	await expect(library.getByRole('link', { name: 'Subsets', exact: true })).toBeVisible();
 	await expect(library.getByRole('link', { name: 'Permutations', exact: true })).toBeVisible();
 	expect(await (await page.request.get('/leetcode/api/problems?q=subsets')).json()).toMatchObject({ items: [{ url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: ['Array', 'Backtracking'], summary: permutations2.tasks.find(task => task.title === 'Subsets')!.note }] });
 	await page.getByRole('link', { name: 'Домашняя работа', exact: true }).click();
-	await expect(page.getByRole('region', { name: 'В процессе', exact: true }).getByRole('link', { name: 'Week 41: backtracking', exact: true })).toHaveCount(2);
+	await expect(page.getByRole('region', { name: 'В процессе', exact: true }).getByRole('link', { name: 'Week 41: backtracking', exact: true })).toHaveCount(7);
 	await signIn(page);
 	await page.goto(setPath);
 	await expect(row(page, permutations2.title)).toContainText('Задач принято 0 из 5');
 	await page.getByRole('link', { name: 'Открыть главу', exact: true }).nth(1).click();
 	await expect(page).toHaveURL(chapterPath);
 	await expect(row(page, 'Subsets').getByRole('link', { name: 'Назначено', exact: true })).toBeVisible();
-	await expect(page.getByRole('button', { name: 'Добавить в домашнюю работу' })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Добавить главу в домашнюю работу' })).toHaveCount(0);
 });
 
-test('shows a task conflict in the dialog', async ({ page, baseURL }) => {
-	const headers = { Origin: new URL(baseURL!).origin };
+test('keeps the dialog open after a chapter assignment fails', async ({ page, baseURL }) => {
 	await signIn(page, 'parent');
+	const headers = { Origin: new URL(baseURL!).origin };
+	await page.request.post('/leetcode/api/homework', { headers, data: { title: 'Week 41', instructions: '', dueDate: null } });
+	await page.route('**/leetcode/api/homework/*/content', route => route.fulfill({ status: 503, json: { error: { code: 'unavailable', message: 'Домашняя работа недоступна.' } } }), { times: 1 });
 	await page.goto(chapterPath);
-	const add = row(page, 'Subsets').getByRole('button', { name: 'Добавить в домашнюю работу', exact: true });
-	await expect(add).toBeVisible();
-	const homework = await (await page.request.post('/leetcode/api/homework', { headers, data: { title: 'Week 41', instructions: '', dueDate: null } })).json() as Homework;
-	const problem = await (await page.request.post('/leetcode/api/problems', { headers, data: { url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
-	expect((await page.request.post('/leetcode/api/tasks', { headers, data: { homeworkId: homework.id, problemId: problem.id } })).status()).toBe(201);
-	await add.click();
-	const dialog = page.getByRole('dialog', { name: 'Добавить «Subsets» в домашнюю работу' });
-	await dialog.getByRole('article').filter({ hasText: 'Week 41' }).getByRole('button', { name: 'Назначить', exact: true }).click();
-	await expect(dialog.getByRole('alert')).toHaveText('У этой задачи уже есть активное задание. Откройте его, чтобы продолжить работу.');
-	await dialog.getByLabel('Название', { exact: true }).fill('Week 42');
-	await dialog.getByRole('button', { name: 'Создать и назначить', exact: true }).click();
-	await expect(dialog.getByRole('article').filter({ hasText: 'Week 42' })).toContainText('0 заданий');
-	await expect(dialog.getByRole('alert')).toHaveText('У этой задачи уже есть активное задание. Откройте его, чтобы продолжить работу.');
+	await page.getByRole('button', { name: 'Добавить главу в домашнюю работу', exact: true }).click();
+	const dialog = page.getByRole('dialog'), assign = dialog.getByRole('article').filter({ hasText: 'Week 41' }).getByRole('button', { name: 'Назначить', exact: true });
+	await assign.click();
+	await expect(dialog.getByRole('alert')).toHaveText('Домашняя работа недоступна.');
+	await expect(assign).toBeEnabled();
+	await assign.click();
+	await expect(dialog).toHaveCount(0);
+	await expect(page.getByRole('status').filter({ hasText: 'Добавлено:' })).toContainText('Добавлено: 7');
 });
 
 const availability = [
@@ -227,7 +236,7 @@ for (const item of availability) {
 		if (item.accepted) await DB.prepare("INSERT INTO attempts (id,problem_id,state,document,search_text,acceptance,understanding,created_at,updated_at) VALUES (?,?,'saved','{}','','accepted','independent','now','now')").bind(crypto.randomUUID(), problem.id).run();
 		await page.goto(chapterPath);
 		await expect(row(page, 'Subsets')).toBeVisible();
-		await expect(row(page, 'Subsets').getByRole('button', { name: 'Добавить в домашнюю работу', exact: true })).toHaveCount(item.available ? 1 : 0);
+		await expect(page.getByRole('button', { name: 'Добавить главу в домашнюю работу', exact: true })).toHaveCount(1);
 		const homework = await (await page.request.post('/leetcode/api/homework', { headers, data: { title: 'Next chapter', instructions: '', dueDate: null } })).json() as Homework;
 		await page.goto(`/leetcode/homework/${homework.id}`);
 		await expect(page.getByRole('heading', { name: 'Новое задание', exact: true })).toBeVisible();
@@ -236,17 +245,20 @@ for (const item of availability) {
 	});
 }
 
-test('does not create homework for an archived problem', async ({ page, baseURL }) => {
+test('reports an archived problem omitted from chapter homework', async ({ page, baseURL }) => {
 	const headers = { Origin: new URL(baseURL!).origin };
 	await signIn(page, 'parent');
 	const problem = await (await page.request.post('/leetcode/api/problems', { headers, data: { url: 'https://leetcode.com/problems/subsets/', number: 78, title: 'Subsets', difficulty: 'medium', topics: [], summary: '' } })).json() as Problem;
 	await page.goto(chapterPath);
-	await row(page, 'Subsets').getByRole('button', { name: 'Добавить в домашнюю работу', exact: true }).click();
+	await page.getByRole('button', { name: 'Добавить главу в домашнюю работу', exact: true }).click();
 	expect((await page.request.post(`/leetcode/api/problems/${problem.id}/archive`, { headers, data: { version: problem.version } })).status()).toBe(200);
-	const dialog = page.getByRole('dialog', { name: 'Добавить «Subsets» в домашнюю работу' });
-	await dialog.getByRole('button', { name: 'Создать и назначить', exact: true }).click();
-	await expect(dialog.getByRole('alert')).toHaveText('Верните задачу из архива, прежде чем назначать её.');
-	expect(await (await page.request.get('/leetcode/api/homework')).json()).toMatchObject({ items: [] });
+	await page.getByRole('dialog').getByRole('button', { name: 'Создать и назначить', exact: true }).click();
+	await expect(page.getByRole('dialog')).toHaveCount(0);
+	await expect(page.getByRole('status').filter({ hasText: 'Добавлено:' })).toContainText('Добавлено: 6');
+	await expect(page.getByRole('status').filter({ hasText: 'Добавлено:' })).toContainText(/Subsets:.*архив/);
+	await page.getByRole('link', { name: 'Домашняя работа', exact: true }).click();
+	await expect(page.getByRole('region', { name: 'В процессе', exact: true }).getByRole('article')).toHaveCount(6);
+	await expect(page.getByRole('link', { name: 'Subsets', exact: true })).toHaveCount(0);
 });
 
 test('fits the lesson to the width of the page', async ({ page }) => {
@@ -432,7 +444,7 @@ test('fits the set pages at the mobile width', async ({ page }, testInfo) => {
 	await expect(page.getByRole('img', { name: wide.frames[0].caption, exact: true })).toBeVisible();
 	await expect(page.getByRole('img', { name: wideHeap.frames[0].caption, exact: true })).toBeVisible();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-	await row(page, 'Subsets').getByRole('button', { name: 'Добавить в домашнюю работу', exact: true }).click();
+	await page.getByRole('button', { name: 'Добавить главу в домашнюю работу', exact: true }).click();
 	await expect(page.getByRole('dialog')).toBeVisible();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 	expect(await page.getByRole('dialog').evaluate(dialog => dialog.scrollWidth <= dialog.clientWidth)).toBe(true);

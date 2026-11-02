@@ -1,19 +1,25 @@
 import type { Env } from '../index';
 import type { Feedback, Homework, HomeworkBoard, HomeworkSummary, HomeworkTask, Role, SessionUser } from '../../shared/leetcode';
 import { requireRole } from './auth';
-import { assignableSQL, getProblem } from './problems';
+import { assignableSQL, getProblem, searchText, solvedSQL } from './problems';
+import { sets, taskSlug } from './sets';
 import { calendarDate, changed, choice, HttpError, integer, methods, object, page, pagination, readJson, text, uuid } from './http';
 
 const postponedSQL = '(SELECT to_date FROM postponements WHERE homework_id=h.id) AS postponedTo';
 const homeworkColumns = `h.id,h.title,h.instructions,h.due_date AS dueDate,${postponedSQL},h.version,h.created_at AS createdAt,h.updated_at AS updatedAt`;
 // ?1 is the viewer role. A later ? takes the next number. https://www.sqlite.org/lang_expr.html#varparam
 const unreadSQL = "EXISTS(SELECT 1 FROM feedback f WHERE f.problem_id=t.problem_id AND f.author<>?1 AND f.created_at>coalesce((SELECT read_at FROM discussion_reads r WHERE r.role=?1 AND r.problem_id=t.problem_id),''))";
-export const taskColumns = `t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,h.instructions,h.due_date AS dueDate,${postponedSQL},t.problem_id AS problemId,p.title AS problemTitle,p.difficulty,t.state,t.current_submission_id AS submissionId,s.attempt_id AS submissionAttemptId,t.version,t.created_at AS createdAt,t.updated_at AS updatedAt,${unreadSQL} AS unread`;
-export const taskTables = 'homework_tasks t JOIN homework h ON h.id=t.homework_id JOIN problems p ON p.id=t.problem_id LEFT JOIN submissions s ON s.id=t.current_submission_id';
-export const onTimeSQL = "SELECT count(*) FROM homework_tasks t JOIN homework h ON h.id=t.homework_id WHERE t.state<>'cancelled' AND EXISTS(SELECT 1 FROM submissions s WHERE s.task_id=t.id AND date(s.created_at)<=h.due_date)";
+export const taskColumns = `t.id,t.homework_id AS homeworkId,h.title AS homeworkTitle,h.instructions,h.due_date AS dueDate,${postponedSQL},t.problem_id AS problemId,p.title,p.difficulty,t.kind,t.set_slug AS setSlug,t.chapter,t.completed_at AS completedAt,t.state,t.current_submission_id AS submissionId,s.attempt_id AS submissionAttemptId,t.version,t.created_at AS createdAt,t.updated_at AS updatedAt,${unreadSQL} AS unread`;
+export const taskTables = 'homework_tasks t JOIN homework h ON h.id=t.homework_id LEFT JOIN problems p ON p.id=t.problem_id LEFT JOIN submissions s ON s.id=t.current_submission_id';
+export const onTimeSQL = "SELECT count(*) FROM homework_tasks t JOIN homework h ON h.id=t.homework_id WHERE t.state<>'cancelled' AND (date(t.completed_at)<=h.due_date OR EXISTS(SELECT 1 FROM submissions s WHERE s.task_id=t.id AND date(s.created_at)<=h.due_date))";
 const awardOnTime = (env: Env) => env.DB.prepare(`INSERT OR IGNORE INTO earned_badges SELECT 'on-time-five' WHERE (${onTimeSQL})>=5`);
 const feedbackColumns = 'id,problem_id AS problemId,task_id AS taskId,submission_id AS submissionId,author,kind,body,created_at AS createdAt';
 export function unreadValue<T extends { unread: boolean }>(row: T): T { return { ...row, unread: Boolean(row.unread) }; }
+export function taskValue(row: HomeworkTask): HomeworkTask {
+	if (row.kind === 'problem') return { ...unreadValue(row), href: `/leetcode/problems/${row.problemId}` };
+	const set = sets.find(set => set.slug === row.setSlug)!, chapter = set.chapters[row.chapter! - 1];
+	return { ...unreadValue(row), title: `${row.kind === 'quiz' ? 'Квиз' : 'Глава'} ${row.chapter}. ${chapter.title}`, href: row.kind === 'quiz' ? `/leetcode/quiz/${set.slug}-${row.chapter}` : `/leetcode/sets/${set.slug}/${row.chapter}` };
+}
 export async function getHomework(env: Env, id: string): Promise<Homework> {
 	const row = await env.DB.prepare(`SELECT ${homeworkColumns} FROM homework h WHERE h.id=?`).bind(uuid(id)).first<Homework>();
 	if (!row) throw new HttpError(404, 'not_found', 'Такой домашней работы нет.');
@@ -22,11 +28,36 @@ export async function getHomework(env: Env, id: string): Promise<Homework> {
 async function getTask(env: Env, id: string, role: Role): Promise<HomeworkTask> {
 	const row = await env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.id=?`).bind(role, uuid(id)).first<HomeworkTask>();
 	if (!row) throw new HttpError(404, 'not_found', 'Такого задания нет.');
-	return unreadValue(row);
+	return taskValue(row);
 }
 
 export async function handleHomework(request: Request, env: Env, user: SessionUser): Promise<Response | null> {
 	const url = new URL(request.url), now = new Date().toISOString();
+	const content = /^\/leetcode\/api\/homework\/([^/]+)\/content$/.exec(url.pathname);
+	if (content) {
+		methods(request, ['POST']); requireRole(user, 'parent');
+		const homeworkId = uuid(content[1]), data = object(await readJson(request), ['kind', 'setSlug', 'chapter']);
+		const kind = choice(data.kind, ['chapter', 'quiz']), setSlug = text(data.setSlug, 100, true), number = integer(data.chapter, 1, 99);
+		const set = sets.find(set => set.slug === setSlug), chapter = set?.chapters[number - 1];
+		if (!chapter) throw new HttpError(404, 'not_found', 'Такой главы нет.');
+		await getHomework(env, homeworkId);
+		const statements: D1PreparedStatement[] = [], entries: { title: string; index: number; slug?: string }[] = [];
+		for (const type of kind === 'chapter' ? ['chapter', 'quiz'] : ['quiz']) {
+			entries.push({ title: `${type === 'chapter' ? 'Глава' : 'Квиз'} ${number}. ${chapter.title}`, index: statements.length });
+			statements.push(env.DB.prepare("INSERT INTO homework_tasks (id,homework_id,kind,set_slug,chapter,state,created_at,updated_at) SELECT ?,?,?,?,?, 'assigned',?,? WHERE NOT EXISTS(SELECT 1 FROM homework_tasks WHERE homework_id=? AND kind=? AND set_slug=? AND chapter=? AND state<>'cancelled') ON CONFLICT DO NOTHING").bind(crypto.randomUUID(), homeworkId, type, setSlug, number, now, now, homeworkId, type, setSlug, number));
+		}
+		const problems = kind === 'chapter' ? chapter.tasks : [];
+		for (const problem of problems) {
+			const slug = taskSlug(problem);
+			statements.push(env.DB.prepare('INSERT INTO problems (id,slug,number,title,difficulty,topics,summary,search_text,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(slug) DO NOTHING').bind(crypto.randomUUID(), slug, problem.number ?? null, problem.title, problem.difficulty, JSON.stringify(problem.topics), problem.note, searchText([problem.title, problem.number, ...problem.topics, problem.note].join(' ')), now, now));
+			entries.push({ title: problem.title, index: statements.length, slug });
+			statements.push(env.DB.prepare(`INSERT INTO homework_tasks (id,homework_id,problem_id,state,created_at,updated_at) SELECT ?,?,p.id,'assigned',?,? FROM problems p WHERE p.slug=? AND ${assignableSQL} ON CONFLICT DO NOTHING`).bind(crypto.randomUUID(), homeworkId, now, now, slug));
+		}
+		statements.push(env.DB.prepare(`SELECT p.slug,CASE WHEN p.archived_at IS NOT NULL THEN 'Задача в архиве.' WHEN ${solvedSQL} OR EXISTS(SELECT 1 FROM homework_tasks t WHERE t.problem_id=p.id AND t.state='completed') THEN 'Задача уже выполнена.' ELSE 'У задачи уже есть активное задание.' END AS reason FROM problems p WHERE p.slug IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(problems.map(taskSlug))));
+		const results = await env.DB.batch<{ slug: string; reason: string }>(statements), reasons = new Map(results.at(-1)!.results.map(row => [row.slug, row.reason]));
+		const skipped = entries.filter(entry => !results[entry.index].meta.changes).map(entry => ({ title: entry.title, reason: entry.slug ? reasons.get(entry.slug)! : 'Уже добавлено в домашнюю работу.' }));
+		return Response.json({ added: entries.length - skipped.length, skipped }, { status: 201 });
+	}
 	const discussion = /^\/leetcode\/api\/problems\/([^/]+)\/feedback$/.exec(url.pathname);
 	if (discussion) {
 		methods(request, ['GET']);
@@ -57,7 +88,7 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 			if (id) {
 				const homework = await getHomework(env, id);
 				const tasks = await env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.homework_id=? ORDER BY t.created_at,t.id`).bind(user.role, id).all<HomeworkTask>();
-				return Response.json({ homework, tasks: tasks.results.map(unreadValue) });
+				return Response.json({ homework, tasks: tasks.results.map(taskValue) });
 			}
 			const { limit, offset } = pagination(url), q = text(url.searchParams.get('q') ?? '', 200);
 			// lower() folds ASCII letters only. https://www.sqlite.org/lang_corefunc.html#lower
@@ -84,7 +115,7 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		await env.DB.prepare('INSERT INTO homework (id,title,instructions,due_date,created_at,updated_at) VALUES (?,?,?,?,?,?)').bind(newId, title, instructions, dueDate, now, now).run();
 		return Response.json(await getHomework(env, newId), { status: 201 });
 	}
-	const match = /^\/leetcode\/api\/tasks(?:\/([^/]+)\/(start|review|cancel))?$/.exec(url.pathname);
+	const match = /^\/leetcode\/api\/tasks(?:\/([^/]+)\/(start|review|cancel|complete))?$/.exec(url.pathname);
 	if (!match) return null;
 	const id = match[1] ? uuid(match[1]) : null, action = match[2];
 	methods(request, action ? ['POST'] : ['GET', 'POST']);
@@ -94,16 +125,19 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 			const [active, accepted] = (await env.DB.batch<HomeworkTask>([
 				env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.state NOT IN ('completed','cancelled') ORDER BY h.due_date IS NULL,h.due_date,h.created_at,h.id,t.created_at,t.id`).bind(user.role),
 				env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE t.state='completed' ORDER BY t.updated_at DESC,t.id`).bind(user.role),
-			])).map(rows => rows.results.map(unreadValue));
+			])).map(rows => rows.results.map(taskValue));
 			const current = active[0]?.homeworkId;
 			return Response.json({ progress: active.filter(t => t.homeworkId === current), future: active.filter(t => t.homeworkId !== current), accepted } satisfies HomeworkBoard);
 		}
-		const { limit, offset } = pagination(url), where = ['1=1'], args: string[] = [];
+		const { limit, offset } = pagination(url), where = ['1=1'], args: (string | number)[] = [];
 		if (url.searchParams.has('problemId')) { where.push('t.problem_id=?'); args.push(uuid(url.searchParams.get('problemId'))); }
+		if (url.searchParams.has('kind')) { where.push('t.kind=?'); args.push(choice(url.searchParams.get('kind'), ['problem', 'chapter', 'quiz'])); }
+		if (url.searchParams.has('setSlug')) { where.push('t.set_slug=?'); args.push(text(url.searchParams.get('setSlug'), 100, true)); }
+		if (url.searchParams.has('chapter')) { where.push('t.chapter=?'); args.push(integer(Number(url.searchParams.get('chapter')), 1, 99)); }
 		const rows = await env.DB.prepare(`SELECT ${taskColumns} FROM ${taskTables} WHERE ${where.join(' AND ')} ORDER BY (t.state='submitted') DESC,t.created_at DESC,t.id LIMIT ? OFFSET ?`).bind(user.role, ...args, limit + 1, offset).all<HomeworkTask>();
-		return Response.json(page(rows.results.map(unreadValue), limit, offset));
+		return Response.json(page(rows.results.map(taskValue), limit, offset));
 	}
-	requireRole(user, action === 'start' ? 'student' : 'parent');
+	requireRole(user, action === 'start' || action === 'complete' ? 'student' : 'parent');
 	if (!id) {
 		const data = object(await readJson(request), ['homeworkId', 'problemId']);
 		const homeworkId = uuid(data.homeworkId), problemId = uuid(data.problemId), newId = crypto.randomUUID();
@@ -119,6 +153,7 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 	}
 	const task = await getTask(env, id, user.role);
 	if (action === 'review') {
+		if (!task.problemId) throw new HttpError(400, 'invalid_input', 'На проверку отправляют решение задачи.');
 		const data = object(await readJson(request), ['version', 'submissionId', 'decision', 'body']);
 		const decision = choice(data.decision, ['changes_requested', 'completed']), body = text(data.body, 8000, decision === 'changes_requested').trim(), feedbackId = crypto.randomUUID();
 		const result = await env.DB.batch([
@@ -127,6 +162,9 @@ export async function handleHomework(request: Request, env: Env, user: SessionUs
 		]);
 		if (!result[0].meta.changes && decision === 'changes_requested' && (await getProblem(env, task.problemId)).archivedAt) throw new HttpError(409, 'archived', 'Верните задачу из архива, прежде чем отправлять её на доработку.');
 		changed(result[0]);
+	} else if (action === 'complete') {
+		const version = integer(object(await readJson(request), ['version']).version);
+		changed(await env.DB.prepare("UPDATE homework_tasks SET state='completed',completed_at=?,version=version+1,updated_at=? WHERE id=? AND version=? AND kind='chapter' AND state IN ('assigned','in_progress')").bind(now, now, id, version).run());
 	} else {
 		const version = integer(object(await readJson(request), ['version']).version);
 		changed((await env.DB.batch([

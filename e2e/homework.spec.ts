@@ -2,6 +2,44 @@ import { test, expect, signIn, addTask, type TestEnv } from './fixtures';
 import type { Homework, Problem } from '../shared/leetcode';
 import { addCalendarDays, localDate } from '../shared/dates';
 
+test('assigns a chapter without problems and records its reading separately from its quiz', async ({ page }) => {
+	await signIn(page, 'parent');
+	await page.goto('/leetcode/sets/complexity/1');
+	await page.getByRole('button', { name: 'Добавить главу в домашнюю работу', exact: true }).click();
+	await page.getByRole('dialog').getByLabel('Название', { exact: true }).fill('Read complexity');
+	await page.getByRole('dialog').getByRole('button', { name: 'Создать и назначить', exact: true }).click();
+	await expect(page.getByRole('dialog')).toHaveCount(0);
+	await expect(page.getByRole('status').filter({ hasText: 'Добавлено:' })).toHaveText('Добавлено: 2.');
+	await signIn(page);
+	await expect(page.locator('h3 a[href="/leetcode/sets/complexity/1"]')).toHaveCount(1);
+	await page.goto('/leetcode/homework');
+	const progress = page.getByRole('region', { name: 'В процессе', exact: true });
+	await expect(progress.getByRole('article')).toHaveCount(2);
+	await progress.locator('a[href="/leetcode/sets/complexity/1"]').click();
+	await expect(page.getByRole('button', { name: 'Добавить главу в домашнюю работу', exact: true })).toHaveCount(0);
+	await page.getByRole('button', { name: 'Прочитал главу', exact: true }).click();
+	await expect(page.getByText('Глава прочитана', { exact: true })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Прочитал главу', exact: true })).toHaveCount(0);
+	await page.goto('/leetcode/homework');
+	await expect(progress.getByRole('article')).toHaveCount(1);
+	await expect(progress.locator('h3 a')).toHaveAttribute('href', '/leetcode/quiz/complexity-1');
+	await expect(page.getByRole('region', { name: 'Принятое', exact: true }).locator('h3 a')).toHaveAttribute('href', '/leetcode/sets/complexity/1');
+});
+
+test('cancels a quiz from homework without cancelling the chapter', async ({ page, baseURL }) => {
+	await signIn(page, 'parent');
+	const headers = { Origin: new URL(baseURL!).origin };
+	const homework = await (await page.request.post('/leetcode/api/homework', { headers, data: { title: 'Reading homework', instructions: '', dueDate: null } })).json() as Homework;
+	expect((await page.request.post(`/leetcode/api/homework/${homework.id}/content`, { headers, data: { kind: 'chapter', setSlug: 'complexity', chapter: 1 } })).ok()).toBe(true);
+	await page.goto(`/leetcode/homework/${homework.id}`);
+	const assignments = page.getByRole('region', { name: 'Задания', exact: true });
+	const quiz = assignments.getByRole('article').filter({ has: page.locator('a[href="/leetcode/quiz/complexity-1"]') });
+	await quiz.getByRole('button', { name: /^Отменить/ }).click();
+	await expect(quiz.getByText('Отменено', { exact: true })).toBeVisible();
+	await expect(quiz.getByRole('button')).toHaveCount(0);
+	await expect(assignments.getByRole('article').filter({ has: page.locator('a[href="/leetcode/sets/complexity/1"]') }).getByText('Назначено', { exact: true })).toBeVisible();
+});
+
 test('reopens empty homework from a later page and adds its first task', async ({ page, notebook, server }) => {
 	await signIn(page, 'parent');
 	await page.getByRole('link', { name: 'Домашняя работа', exact: true }).click();

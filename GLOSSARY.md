@@ -18,14 +18,14 @@ A collection of homework tasks with a title, shared instructions, and an optiona
 _Avoid_: Homework bundle.
 
 **Homework task**:
-An assignment of one problem within homework, with its own work and review state. Each problem has at most one active homework task.
+An assignment of one problem, chapter, or quiz deck within homework. Each assignment has its own state. Each problem, chapter, or quiz deck has at most one active homework task.
 _Avoid_: Problem, task without context.
 
 **Active homework task**:
 A homework task that is assigned, in progress, awaiting review, or returned for changes. Completed and cancelled homework tasks are inactive.
 
 **Completed homework task**:
-A homework task completed by the parent after review or by a successful hidden-test check. The parent can return it for another attempt.
+A problem homework task completed by the parent after review or by a successful hidden-test check. The parent can return a problem task for another attempt. A chapter task is complete when the student marks it read. A quiz task is complete after a passing quiz attempt made after assignment.
 _Avoid_: Solved problem.
 
 **Submission**:

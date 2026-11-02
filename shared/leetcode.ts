@@ -57,7 +57,8 @@ export type TaskState = 'assigned' | 'in_progress' | 'submitted' | 'changes_requ
 export interface Homework { id: string; title: string; instructions: string; dueDate: string | null; postponedTo: string | null; version: number; createdAt: string; updatedAt: string }
 export interface HomeworkSummary extends Homework { taskCount: number; completedCount: number; submittedCount: number; requestedCount: number; unread: boolean }
 export interface HomeworkTask {
-	id: string; homeworkId: string; homeworkTitle: string; instructions: string; dueDate: string | null; postponedTo: string | null; problemId: string; problemTitle: string; difficulty: Difficulty;
+	id: string; homeworkId: string; homeworkTitle: string; instructions: string; dueDate: string | null; postponedTo: string | null; problemId: string | null; title: string; href: string; difficulty: Difficulty | null;
+	kind: 'problem' | 'chapter' | 'quiz'; setSlug: string | null; chapter: number | null; completedAt: string | null;
 	state: TaskState; submissionId: string | null; submissionAttemptId: string | null; version: number; createdAt: string; updatedAt: string; unread: boolean;
 }
 export interface Feedback { id: string; problemId: string; taskId: string | null; submissionId: string | null; author: Role; kind: 'reply' | 'changes_requested' | 'completed'; body: string; createdAt: string }

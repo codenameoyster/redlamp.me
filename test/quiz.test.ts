@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, expect, it } from 'vitest';
 import { login, request } from './client';
-import type { Card, QuizAttempt, QuizDeck, QuizRound, Role } from '../shared/leetcode';
+import type { Card, Homework, HomeworkDetails, QuizAttempt, QuizDeck, QuizRound, Role } from '../shared/leetcode';
 import { sets } from '../src/leetcode/sets';
 
 const chapters = sets.find(item => item.slug === 'permutations-and-combinations')!.chapters;
@@ -79,6 +79,32 @@ it('of two quick submits only one is stored', async () => {
 	const responses = await Promise.all([submit(1, { answers: all }), submit(1, { answers: all })]);
 	expect(responses.map(response => response.status).sort()).toEqual([201, 429]);
 	expect(await rows()).toHaveLength(1);
+});
+
+it.each([
+	{ name: 'pass completes an assigned quiz', state: 'assigned', setSlug: 'permutations-and-combinations', chapter: 1, right: 8, previous: null, status: 201, expected: 'completed', version: 2 },
+	{ name: 'pass completes a started quiz', state: 'in_progress', setSlug: 'permutations-and-combinations', chapter: 1, right: 7, previous: null, status: 201, expected: 'completed', version: 2 },
+	{ name: 'failure keeps the quiz assigned', state: 'assigned', setSlug: 'permutations-and-combinations', chapter: 1, right: 6, previous: null, status: 201, expected: 'assigned', version: 1 },
+	{ name: 'blocked pass keeps the quiz assigned', state: 'assigned', setSlug: 'permutations-and-combinations', chapter: 1, right: 8, previous: 30, status: 429, expected: 'assigned', version: 1 },
+	{ name: 'old pass does not complete a new assignment after failure', state: 'assigned', setSlug: 'permutations-and-combinations', chapter: 1, right: 6, previous: 120, status: 201, expected: 'assigned', version: 1 },
+	{ name: 'pass leaves another chapter assigned', state: 'assigned', setSlug: 'permutations-and-combinations', chapter: 2, right: 8, previous: null, status: 201, expected: 'assigned', version: 1 },
+	{ name: 'pass leaves another set assigned', state: 'assigned', setSlug: 'two-pointers', chapter: 1, right: 8, previous: null, status: 201, expected: 'assigned', version: 1 },
+	{ name: 'pass keeps a cancelled assignment cancelled', state: 'cancelled', setSlug: 'permutations-and-combinations', chapter: 1, right: 8, previous: null, status: 201, expected: 'cancelled', version: 1 },
+])('homework: $name', async ({ state, setSlug, chapter, right, previous, status, expected, version }) => {
+	const parent = await login('parent');
+	const homework = await (await request('/homework', 'POST', { title: 'Quiz homework', instructions: '', dueDate: null }, parent)).json() as Homework;
+	expect((await request(`/homework/${homework.id}/content`, 'POST', { kind: 'quiz', setSlug, chapter }, parent)).status).toBe(201);
+	await env.DB.prepare('UPDATE homework_tasks SET state=? WHERE homework_id=?').bind(state, homework.id).run();
+	if (previous !== null) await insert.bind('old', slug, 8, 8, 1, ago(previous)).run();
+	const before = new Date().toISOString();
+	expect((await submit(1, { answers: answers(1, right) })).status).toBe(status);
+	const { tasks } = await (await request(`/homework/${homework.id}`, 'GET', undefined, student)).json() as HomeworkDetails;
+	expect(tasks).toHaveLength(1);
+	expect(tasks[0]).toMatchObject({ state: expected, version });
+	if (expected === 'completed') {
+		expect(tasks[0].completedAt! >= before).toBe(true);
+		expect(tasks[0].completedAt! <= new Date().toISOString()).toBe(true);
+	} else expect(tasks[0].completedAt).toBeNull();
 });
 
 it.each([

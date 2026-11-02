@@ -58,7 +58,11 @@ export async function handleSets(request: Request, env: Env, user: SessionUser):
 		if (!slug) {
 			const linked = new Set((await env.DB.prepare(`SELECT set_slug AS slug FROM ${table} WHERE ${field}=?`).bind(ownerId).all<{ slug: string }>()).results.map(row => row.slug));
 			const problems = 'slug' in owner ? [owner] : (await env.DB.prepare('SELECT p.slug FROM homework_tasks t JOIN problems p ON p.id=t.problem_id WHERE t.homework_id=? ORDER BY t.created_at,t.id').bind(ownerId).all<{ slug: string }>()).results;
-			const chapters = [...new Map(problems.flatMap(problem => chaptersOf(problem.slug)).map(chapter => [`${chapter.set}/${chapter.number}`, chapter])).values()];
+			const assigned = homework ? (await env.DB.prepare("SELECT set_slug,chapter FROM homework_tasks WHERE homework_id=? AND set_slug IS NOT NULL AND state<>'cancelled'").bind(ownerId).all<{ set_slug: string; chapter: number }>()).results.map(row => {
+				const set = sets.find(set => set.slug === row.set_slug)!;
+				return { set: set.slug, setTitle: set.title, number: row.chapter, title: set.chapters[row.chapter - 1].title };
+			}) : [];
+			const chapters = [...new Map([...assigned, ...problems.flatMap(problem => chaptersOf(problem.slug))].map(chapter => [`${chapter.set}/${chapter.number}`, chapter])).values()];
 			return Response.json({ chapters, sets: sets.filter(set => linked.has(set.slug)).map(({ slug, title }) => ({ slug, title })) });
 		}
 		requireRole(user, 'parent');

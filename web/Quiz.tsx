@@ -5,6 +5,7 @@ import { useResource } from './useResource';
 import { plural } from './text';
 import { Code } from './Code';
 import { Terms } from './Terms';
+import { AddToHomework } from './Homework';
 
 const shown = (card: Card) => card.type === 'short' ? card.answer : card.options[card.answer];
 const cardCount = (count: number) => plural(count, ['карточка', 'карточки', 'карточек']);
@@ -28,9 +29,13 @@ function DeckList({ user }: { user: SessionUser }) {
 }
 
 function CardList({ slug }: { slug: string }) {
+	const [adding, setAdding] = useState(false), [notice, setNotice] = useState('');
+	const split = slug.lastIndexOf('-');
 	const round = useResource<QuizRound>(`/quiz/${slug}`), cards = useResource<Card[]>(`/quiz/${slug}/cards`);
 	if (!round.data || !cards.data) return <p role="status">{round.error || cards.error || 'Открываем колоду...'}</p>;
-	return <div className="stack"><div className="heading"><div><h1>{round.data.title}</h1><p>{cardCount(cards.data.length)}.</p></div><a className="button" href="/leetcode/quiz" data-tip="Вернуться к списку колод.">Назад</a></div>
+	return <div className="stack"><div className="heading"><div><h1>{round.data.title}</h1><p>{cardCount(cards.data.length)}.</p></div><button onClick={() => setAdding(true)} data-tip="Добавить этот квиз в домашнюю работу.">Добавить квиз в домашнюю работу</button><a className="button" href="/leetcode/quiz" data-tip="Вернуться к списку колод.">Назад</a></div>
+		{notice && <p role="status">{notice}</p>}
+		{adding && <AddToHomework kind="quiz" setSlug={slug.slice(0, split)} chapter={Number(slug.slice(split + 1))} title={`Квиз: ${round.data.title}`} close={() => setAdding(false)} added={message => { setAdding(false); setNotice(message); }} />}
 		<section className="card">{cards.data.map(card => <article className="list-row" key={card.id}><div className="grow stack"><h3>{card.prompt}</h3>{card.type === 'code' && <Code language={card.language} text={card.code} blank />}<p className="small">Ответ: {shown(card)}</p><p className="small">{card.explain}</p></div><span className="tag">{typeLabels[card.type]}</span></article>)}</section>
 	</div>;
 }

@@ -51,12 +51,12 @@ Open `http://localhost:8787/leetcode`. Wrangler builds the browser assets and wa
 - A task of a learning set has its standard tests in the set. For another LeetCode problem, the standard tests are the examples of the statement from LeetCode. A problem with a `TreeNode`, a `ListNode` or a class to design has no runner. A Codeforces problem outside the sets has only own tests.
 - The notebook records each test run of the student. An approach shows **Tests passed** when its latest run passed all tests and its code did not change after that run. The attempt history shows the same mark for the attempt.
 - As the parent, create homework on the **Homework** page. Give it a title, instructions, and an optional due date. Use **Edit homework** to change these details later. Use **Изменить срок** next to the due date to change only the date. A new due date lets the student use **Сила Бомжа** again.
-- On the homework page, use **Add a task** to add a problem from the library. Each task has its own review state. A problem can have only one active task in all homework.
+- On the homework page, use **Add a task** to add a problem from the library. Each homework task has its own state. A problem, chapter, or quiz deck can have only one active task in all homework.
 - As the parent, open **Все домашние работы** to find homework, including homework with no tasks yet. Use **Ещё домашние работы** to reach older homework.
 - The **Homework** page shows the tasks of all homework in three sections. **В процессе** has the active tasks of the homework with the earliest due date. **Будущее** has the active tasks of the other homework, by due date. **Принятое** has the completed tasks, with the newest first. The page does not show cancelled tasks.
 - In **Принятое**, use **Распределить повторения на 30 дней**. Each problem of a completed task gets a random review date from tomorrow to 30 days after today. Two problems get the same date only when there are more than 30 problems. A problem with a review date in this period keeps its date. On the review date, **Today** shows the problem in **Пора повторить**. The link opens the recall page of a pick, so the student solves the problem again without the saved work.
-- The parent can link learning sets to problems and homework in **Materials**. **Materials** also shows the set chapters that contain the problem. For homework, it shows the chapters of all its problems.
-- A task opens the problem page. The page shows the homework, the due date, the review state, and the newest attempt. As the student, open a task from **Today** or the homework page. **Решено** submits the attempt for review. The parent can request another attempt or complete the task. An attempt that passes the hidden tests completes the task. The parent can still return a completed task.
+- The parent can link learning sets to problems and homework in **Materials**. **Materials** also shows the set chapters that contain the problem. For homework, it shows assigned chapters and the chapters of its problems and quizzes.
+- A problem task opens the problem page. The page shows the homework, the due date, the review state, and the newest attempt. As the student, open a task from **Today** or the homework page. **Решено** submits the attempt for review. The parent can request another attempt or complete the task. An attempt that passes the hidden tests completes the task. The parent can still return a completed problem task.
 - A red dot before a homework or a task shows a message or a review decision from the other account that you did not read. Open the discussion of the task or the problem to remove the dot.
 - Use **Recall this problem** to practise before revealing saved work. Record the result. Choose the next review date. When revealing saved work, use **Старые попытки** and **Новые попытки** to page through the saved attempts.
 - **Today** also shows random recall picks from the library: three problems of the Two Pointers set and two problems of the first permutations homework. The picks change every day. A pick that you recall today leaves the list. The recall page of a pick does not show the summary or the saved work. Use **Start a new attempt** to solve the problem again. If the problem has a draft, the button saves the draft as an attempt and starts a new empty draft. This save does not change the understanding of the problem.
@@ -76,7 +76,9 @@ Each worked example explains its input sizes, counted operations, time bound, an
 
 Keep each lesson below 12,000 text characters, including collapsed sections. Keep the main explanation short. Put longer comparisons in `details` elements. Figures use separate metadata; include their main count and conclusion in the lesson text so the tutor also receives them. The tutor allows 50,000 lesson characters for a set and 16,000 characters for a problem chapter and its outline.
 
-As the parent, use **Add to homework** on a problem row. The dialog shows the active homework. Use the search box to find homework by title. Use **Assign** to add the problem to that homework. Use **Create and assign** to create new homework with the problem in one step. The notebook adds the problem to the library when the library does not have it. A problem with an active task has no **Add to homework** button.
+As the parent, use **Добавить главу в домашнюю работу** on a chapter page. This adds the chapter reading, its quiz deck, and its available problems together. The dialog shows active homework. Use the search box to find homework by title. Use **Назначить** to add the chapter to that homework. Use **Создать и назначить** to create homework with the chapter. The notebook adds missing problems to the library. It skips problems that are complete, archived, or already assigned. The result lists each skipped item and its reason.
+
+To assign only a quiz, open its page as the parent and use **Добавить квиз в домашнюю работу**. A new passing attempt completes the quiz homework task. An earlier pass does not complete a new assignment. As the student, use **Прочитал главу** on an assigned chapter to complete its reading task. As the parent, use **Отменить** on the homework page to cancel an active chapter or quiz task.
 
 For the student, a chapter page shows **Explain with AI** below the text that is selected in the lesson. Ctrl+Enter or Cmd+Enter does the same. The AI tutor then explains the selected text. When an answer quotes the lesson, **Show in the lesson** marks the passage. The parent does not see these controls.
 
@@ -150,7 +152,7 @@ The notebook calculates XP from saved records. Failed test runs, late homework a
 | A correct answer in the best passed quiz attempt of each deck | 2 |
 | A test run that passed all tests, one time for each problem | 10 |
 | A test run with a failed test, at most three runs for each problem and day | -2 |
-| A homework task without a submission by its due date | -15 |
+| A problem task without a submission, or a chapter or quiz task without completion, by its due date | -15 |
 | A missed day | -5 |
 
 The correct answers of the earlier quiz, which saved one answer for each card, keep their 2 XP and count for **50 карточек**.
@@ -176,7 +178,7 @@ A badge stays earned, except Уровень 5: it shows the current level. The s
 | Первая с Codeforces | One Codeforces problem with an accepted saved attempt. |
 | С первого раза | The first test run of a problem passed all tests. |
 | Два набора | An accepted saved attempt for each problem of two learning sets. |
-| Вовремя | 5 homework tasks with a submission by the due date. |
+| Вовремя | 5 homework tasks submitted or completed by the due date. |
 | Уровень 5 | Level 5, which starts at 1000 XP. |
 
 The hidden tests or **Решено** set the acceptance, and the understanding is automatic. The **Today** counts do not include archived problems, so they can be different from the XP.
