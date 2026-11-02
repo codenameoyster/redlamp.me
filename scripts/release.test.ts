@@ -13,7 +13,8 @@ test.each([
 	{ name: 'published tag points to another commit', tag: 'previous', annotated: false, dirty: false, branch: null, ok: false },
 	{ name: 'tracked files differ from the tagged commit', tag: 'current', annotated: false, dirty: true, branch: null, ok: false },
 	{ name: 'preview build needs no release tag', tag: 'missing', annotated: false, dirty: false, branch: 'feat/complexity-lesson', ok: true },
-	{ name: 'production build requires a release tag', tag: 'missing', annotated: false, dirty: false, branch: 'main', ok: false },
+	{ name: 'production build needs no release tag', tag: 'missing', annotated: false, dirty: false, branch: 'main', ok: true },
+	{ name: 'production build accepts a tag at an earlier commit', tag: 'previous', annotated: false, dirty: false, branch: 'main', ok: true },
 	{ name: 'production build accepts its published tag', tag: 'current', annotated: true, dirty: false, branch: 'main', ok: true },
 ])('$name', ({ tag, annotated, dirty, branch, ok }) => {
 	const directory = mkdtempSync(join(tmpdir(), 'redlamp-release-'));
