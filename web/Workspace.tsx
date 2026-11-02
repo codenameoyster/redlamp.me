@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { hasWork, type Approach, type Attempt, type AttemptSummary, type ChapterRef, type DraftValue, type Feedback, type Figure, type HomeworkTask, type JudgeOutput, type Judgement, type Page, type Problem, type ProblemTests, type SessionUser, type TestRun } from '../shared/leetcode';
+import { hasWork, type Approach, type Attempt, type AttemptSummary, type ChapterRef, type DraftValue, type Feedback, type Figure, type HomeworkTask, type Judgement, type Page, type Problem, type ProblemTests, type SessionUser, type TestRun } from '../shared/leetcode';
 import { api, ApiError, message } from './api';
 import { useResource } from './useResource';
 import { useDraft, type LeaveGuard, type RegisterGuard } from './useDraft';
@@ -11,7 +11,7 @@ import { CodeField } from './Code';
 import { Tutor } from './Tutor';
 import { Dictation } from './Dictation';
 import { Failure, OwnTests, Runner } from './Runner';
-import { runTests } from './python';
+import { checkAcceptance } from './acceptance';
 import { localDate } from '../shared/dates';
 
 export const understandingLabels = { needs_practice: 'Нужно потренироваться', with_help: 'Решил с подсказкой', independent: 'Решил сам' };
@@ -78,24 +78,13 @@ export function DraftEditor({ initial, user, registerGuard, saved, task, chapter
 		try { const { nextReviewDate: day } = await api<{ nextReviewDate: string }>(`/problems/${initial.problemId}/practice`, { method: 'POST', body: JSON.stringify({ today: localDate() }) }); setPractice(`Повторим ${day.slice(8)}.${day.slice(5, 7)}.`); }
 		catch (error) { setError(message(error)); } finally { setBusy(false); }
 	}
-	// The server gives the hidden inputs and compares the outputs with its reference solution. The saved code runs here, 3 seconds for each input.
-	// The first failed test gives the verdict, so the run stops at the first timeout or error. The server refuses an output over 1,000,000 characters, and a correct answer is shorter.
 	async function send() {
 		setBusy(true); setError(''); setJudgement(null);
-		const path = `/problems/${initial.problemId}`;
 		try {
 			const persisted = await draft.flush();
 			if (!persisted) return;
-			const { seed, inputs } = await api<{ seed: number; inputs: string[] }>(`${path}/judge/start`, { method: 'POST' }), outputs: JudgeOutput[] = [];
-			setProgress(`Проверяем: 0 из ${inputs.length}`);
-			await runTests(persisted.document.approaches[0].code, tests.data!.spec!, inputs.map(input => ({ input, expected: null })), result => {
-				outputs.push(result.timeout ? { timeout: true } : result.error ? { error: `${result.error.line ? `Строка ${result.error.line}: ` : ''}${result.error.message}`.slice(0, 1_000_000) } : { value: result.output.slice(0, 1_000_000) });
-				setProgress(`Проверяем: ${outputs.length} из ${inputs.length}`);
-				return Boolean(result.timeout || result.error);
-			}, 3);
-			while (outputs.length < inputs.length) outputs.push({ timeout: true });
-			const value = await api<Judgement>(`${path}/judge`, { method: 'POST', body: JSON.stringify({ seed, attemptId: persisted.id, version: persisted.version, outputs }) });
-			if (value.failed) setJudgement(value); else await saved(await api<Attempt>(`${path}/attempts/${persisted.id}`), 'judge');
+			const result = await checkAcceptance(persisted, tests.data!.spec!, (done, total) => setProgress(`Проверяем: ${done} из ${total}`));
+			if ('failed' in result) setJudgement(result); else await saved(result, 'judge');
 		} catch (error) { setError(message(error)); } finally { setBusy(false); setProgress(''); }
 	}
 	async function record(approachId: string, run: Pick<TestRun, 'passed' | 'total' | 'codeHash'>) { await api(`/problems/${initial.problemId}/runs`, { method: 'POST', body: JSON.stringify({ attemptId: initial.id, approachId, ...run, runOn: localDate() }) }); runs.reload(); }
