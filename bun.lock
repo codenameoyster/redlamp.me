@@ -5,7 +5,7 @@
     "": {
       "name": "redlamp-me",
       "dependencies": {
-        "@astral-sh/ruff-wasm-web": "^0.17.0",
+        "@astral-sh/ruff-wasm-web": "^0.17.3",
         "@codemirror/autocomplete": "^6.20.3",
         "@codemirror/commands": "^6.11.1",
         "@codemirror/lang-python": "^6.2.1",
@@ -38,7 +38,7 @@
     },
   },
   "packages": {
-    "@astral-sh/ruff-wasm-web": ["@astral-sh/ruff-wasm-web@0.17.0", "", {}, "sha512-wxUTt0JBFG2uH6a95SFFmJOutjK9aX76DksEvRzhosoDRC29IOdGo7siK+HBeP9G5dWx42V8svq299+83S7EBQ=="],
+    "@astral-sh/ruff-wasm-web": ["@astral-sh/ruff-wasm-web@0.17.3", "", {}, "sha512-jxwmm50naStmoBZvVRFHq8830DBLM6Wedqsm+HkgvT4bHor3KNY6botLWl1s1kPtJeA/glVPkeu2JWUDF8o0Rg=="],
 
     "@cacheable/memory": ["@cacheable/memory@2.2.0", "", { "dependencies": { "@cacheable/utils": "^2.5.0", "@keyv/bigmap": "^1.3.1", "hookified": "^1.15.1", "keyv": "^5.6.0" } }, "sha512-CTLKqLItRCEixEAewD3/j9DB3/o96gpTPD4eJ1v+DGOlxZRZncRQkGYqqnAGCscYd6RNeXfGeiuCphsPtqyIfQ=="],
 
