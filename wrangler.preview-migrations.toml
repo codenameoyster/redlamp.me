@@ -1,0 +1,9 @@
+# Wrangler reads D1 migrations only from top-level bindings, so this file names the Preview database from the previews block in wrangler.toml.
+# https://developers.cloudflare.com/workers/previews/resources/
+name = "redlamp-me"
+
+[[d1_databases]]
+binding = "PREVIEW_DB"
+database_name = "redlamp-leetcode-preview"
+database_id = "dd5535e7-6191-4bb3-ae7a-660aa032adba"
+migrations_dir = "migrations"
