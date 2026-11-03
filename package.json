@@ -6,7 +6,7 @@
 	"scripts": {
 		"build": "bun scripts/build.ts",
 		"credentials": "bun scripts/credentials.ts",
-		"test": "bun test scripts/release.test.ts && vitest run",
+		"test": "bun run build && bun test scripts/release.test.ts && vitest run",
 		"test:browser": "bun run build && playwright test",
 		"typecheck": "node node_modules/@typescript/native/bin/tsc --noEmit -p tsconfig.json && node node_modules/@typescript/native/bin/tsc --noEmit -p web/tsconfig.json && node node_modules/@typescript/native/bin/tsc --noEmit -p test/tsconfig.json && node node_modules/@typescript/native/bin/tsc --noEmit -p scripts/tsconfig.json",
 		"dev": "wrangler dev",
