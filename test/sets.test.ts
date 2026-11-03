@@ -249,10 +249,17 @@ it.each(sets.flatMap(tasksOf).map(task => ({ name: taskSlug(task), task })))('$n
 	expect(inputs.length).toBeGreaterThanOrEqual(10);
 	expect(inputs.length).toBeLessThanOrEqual(16);
 	expect([...inputs, ...generate?.(mulberry32(2 ** 32 - 1)) ?? []].flatMap((input, index) => {
-		const args = reference.mode === 'call' ? parsePy(input) as unknown[] : [input], start = performance.now();
-		if (args.length !== reference.solve.length) return [index];
-		const expected = reference.mode === 'stdio' ? reference.solve(input) : reprPy(reference.solve(...args));
-		return performance.now() - start < 100 && expected.length <= 1_000_000 ? [] : [index];
+		const argsOf = () => reference.mode === 'call' ? parsePy(input) as unknown[] : [input];
+		if (argsOf().length !== reference.solve.length) return [index];
+		// The fastest of three runs leaves out the pauses that other test files cause on a shared CI runner.
+		// Each run gets new arguments, because some references change their input in place.
+		let expected = '', ms = Infinity;
+		for (let run = 0; run < 3; run++) {
+			const args = argsOf(), start = performance.now();
+			expected = reference.mode === 'stdio' ? reference.solve(input) : reprPy(reference.solve(...args));
+			ms = Math.min(ms, performance.now() - start);
+		}
+		return ms < 100 && expected.length <= 1_000_000 ? [] : [index];
 	})).toEqual([]);
 });
 
