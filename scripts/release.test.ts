@@ -10,11 +10,11 @@ test.each([
 	{ name: 'published lightweight tag at this commit', tag: 'current', annotated: false, dirty: false, branch: null, ok: true },
 	{ name: 'published annotated tag at this commit', tag: 'current', annotated: true, dirty: false, branch: null, ok: true },
 	{ name: 'version has no published tag', tag: 'missing', annotated: false, dirty: false, branch: null, ok: false },
-	{ name: 'published tag points to another commit', tag: 'previous', annotated: false, dirty: false, branch: null, ok: false },
+	{ name: 'published tag points to another commit', tag: 'other', annotated: false, dirty: false, branch: null, ok: false },
 	{ name: 'tracked files differ from the tagged commit', tag: 'current', annotated: false, dirty: true, branch: null, ok: false },
 	{ name: 'preview build needs no release tag', tag: 'missing', annotated: false, dirty: false, branch: 'feat/complexity-lesson', ok: true },
 	{ name: 'production build needs no release tag', tag: 'missing', annotated: false, dirty: false, branch: 'main', ok: true },
-	{ name: 'production build accepts a tag at an earlier commit', tag: 'previous', annotated: false, dirty: false, branch: 'main', ok: true },
+	{ name: 'production build accepts a tag at another commit', tag: 'other', annotated: false, dirty: false, branch: 'main', ok: true },
 	{ name: 'production build accepts its published tag', tag: 'current', annotated: true, dirty: false, branch: 'main', ok: true },
 ])('$name', ({ tag, annotated, dirty, branch, ok }) => {
 	const directory = mkdtempSync(join(tmpdir(), 'redlamp-release-'));
@@ -31,7 +31,9 @@ test.each([
 		git(source, 'clone', '--quiet', '--bare', '--shared', '--no-tags', source, remote);
 		git(checkout, 'remote', 'set-url', 'origin', remote);
 		const { version } = JSON.parse(readFileSync(join(checkout, 'package.json'), 'utf8')) as { version: string };
-		if (tag !== 'missing') git(remote, '-c', 'tag.gpgsign=false', 'tag', ...(annotated ? ['-a', '-m', 'Release fixture'] : []), `v${version}`, tag === 'previous' ? 'HEAD^' : 'HEAD');
+		// The fixture has its own identity and needs no parent commit, so it also runs in a shallow CI checkout without a Git identity.
+		const fixture = (...args: string[]) => git(remote, '-c', 'user.name=Release fixture', '-c', 'user.email=release-fixture@example.invalid', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args);
+		if (tag !== 'missing') fixture('tag', ...(annotated ? ['-a', '-m', 'Release fixture'] : []), `v${version}`, tag === 'other' ? fixture('commit-tree', '-m', 'Other release', 'HEAD^{tree}') : 'HEAD');
 		if (dirty) writeFileSync(join(checkout, 'package.json'), '{}\n');
 		const result = spawnSync(process.execPath, [join(source, 'scripts', branch ? 'build.ts' : 'release.ts')], { cwd: checkout, encoding: 'utf8', env: { ...process.env, WORKERS_CI: branch ? '1' : '', WORKERS_CI_BRANCH: branch ?? '' } });
 		expect(result.status, result.stderr).toBe(ok ? 0 : 1);
