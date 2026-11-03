@@ -2,7 +2,7 @@
 
 ### Issue tracker
 
-Track issues and specs in GitHub Issues for `codenameoyster/redlamp.me`. Read `docs/agents/issue-tracker.md` before issue operations.
+Track issues and specs in GitHub Issues for `rustatian/redlamp.me`. Read `docs/agents/issue-tracker.md` before issue operations.
 
 ### Triage labels
 

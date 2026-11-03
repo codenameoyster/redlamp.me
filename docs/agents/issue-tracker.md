@@ -1,6 +1,6 @@
 # Issue tracker: GitHub
 
-Issues and specs live in GitHub Issues for `codenameoyster/redlamp.me`. Use the `gh` CLI. Run issue commands from this clone or pass `--repo codenameoyster/redlamp.me`.
+Issues and specs live in GitHub Issues for `rustatian/redlamp.me`. Use the `gh` CLI. Run issue commands from this clone or pass `--repo rustatian/redlamp.me`.
 
 ## Conventions
 
