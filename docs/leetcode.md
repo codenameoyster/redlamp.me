@@ -233,7 +233,7 @@ bun run deploy
 gh release create "v$release_version" --verify-tag --title "v$release_version" --notes-from-tag
 ```
 
-`bun run build` compiles assets without checking the release tag. This also applies to production builds on `main` and PR preview builds. `bun run deploy` rejects uncommitted changes and a missing or incorrect remote tag.
+`bun run build` compiles assets without checking the release tag. This also applies to production builds on `main`. `bun run deploy` rejects uncommitted changes and a missing or incorrect remote tag.
 
 ## Credential rotation
 
