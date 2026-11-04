@@ -10,11 +10,11 @@ permissions:
 jobs:
   checks:
     runs-on: ubuntu-24.04
-    # The image has Node 24 and the browsers with their system packages; --init reaps stopped Worker processes.
+    # The image has Node 24; --init reaps stopped Worker processes.
     container:
       image: mcr.microsoft.com/playwright:v1.64.1-noble
       options: --init
-    timeout-minutes: 60
+    timeout-minutes: 20
     env:
       WRANGLER_SEND_METRICS: 'false'
       WRANGLER_WRITE_LOGS: 'false'
@@ -25,5 +25,6 @@ jobs:
       - run: bun run lint
       - run: bun run typecheck
       - run: bun run test
-      - run: bun run test:browser
+      # Browser tests run locally with `bun run test:browser`: Workers AI has no local simulation, so the test harness needs a Cloudflare login.
+      # https://developers.cloudflare.com/workers/development-testing/
       - run: bunx wrangler deploy --dry-run --outdir .wrangler/dry-run
